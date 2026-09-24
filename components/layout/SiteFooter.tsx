@@ -1,65 +1,74 @@
 import Link from "next/link";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import { getCategoryService } from "@/lib/services";
 import styles from "./SiteFooter.module.css";
 
-const COMPANY_LINKS = ["About us", "Careers", "Press", "Contact"];
-const SUPPORT_LINKS = ["Help centre", "Licensing", "Terms", "Privacy"];
-const SELLER_LINKS = ["Become a seller", "Seller handbook", "Payouts"];
+interface FooterSection {
+  heading: string;
+  links: Array<{ label: string; href: string }>;
+}
 
-export async function SiteFooter() {
-  const categories = await getCategoryService().listCategories();
+const SECTIONS: FooterSection[] = [
+  {
+    heading: "Marketplace",
+    links: [
+      { label: "All categories", href: routes.categories() },
+      { label: "New arrivals", href: routes.newArrivals() },
+      { label: "Popular", href: routes.popular() },
+      { label: "Free downloads", href: routes.freeDownloads() },
+    ],
+  },
+  {
+    heading: "Support",
+    links: [
+      { label: "Contact", href: routes.contact() },
+      { label: "Help centre", href: routes.help() },
+      { label: "FAQs", href: routes.faqs() },
+      { label: "Refund policy", href: routes.refundPolicy() },
+    ],
+  },
+  {
+    heading: "Account",
+    links: [
+      { label: "Login", href: routes.signIn() },
+      { label: "Orders", href: routes.accountOrders() },
+      { label: "Downloads", href: routes.accountDownloads() },
+      { label: "Wishlist", href: routes.wishlist() },
+    ],
+  },
+  {
+    heading: "Company",
+    links: [
+      { label: "About", href: routes.about() },
+      { label: "Terms", href: routes.terms() },
+      { label: "Privacy", href: routes.privacy() },
+    ],
+  },
+];
 
+export function SiteFooter() {
   return (
     <footer className={styles.footer}>
       <div className={`ch-container ${styles.grid}`}>
         <div className={styles.brand}>
           <p className={styles.name}>{SITE.name}</p>
           <p className={styles.blurb}>{SITE.description}</p>
-          <p className={styles.meta}>Prices in {SITE.currency} · Secure checkout</p>
+          <p className={styles.meta}>
+            Prices in {SITE.currency} · Secure checkout
+          </p>
         </div>
-        <nav aria-label="Marketplace" className={styles.column}>
-          <p className={styles.heading}>Marketplace</p>
-          <ul className={styles.list}>
-            {categories.slice(0, 6).map((category) => (
-              <li key={category.id}>
-                <Link href={routes.category(category.slug)}>{category.name}</Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <nav aria-label="Company" className={styles.column}>
-          <p className={styles.heading}>Company</p>
-          <ul className={styles.list}>
-            {COMPANY_LINKS.map((label) => (
-              <li key={label}>
-                {/* Placeholder links — pages land in later runs. */}
-                <Link href="#">{label}</Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <nav aria-label="Support" className={styles.column}>
-          <p className={styles.heading}>Support</p>
-          <ul className={styles.list}>
-            {SUPPORT_LINKS.map((label) => (
-              <li key={label}>
-                <Link href="#">{label}</Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <nav aria-label="Sellers" className={styles.column}>
-          <p className={styles.heading}>Sell</p>
-          <ul className={styles.list}>
-            {SELLER_LINKS.map((label) => (
-              <li key={label}>
-                <Link href="#">{label}</Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        {SECTIONS.map((section) => (
+          <nav key={section.heading} aria-label={section.heading} className={styles.column}>
+            <p className={styles.heading}>{section.heading}</p>
+            <ul className={styles.list}>
+              {section.links.map((link) => (
+                <li key={link.label}>
+                  <Link href={link.href}>{link.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))}
       </div>
       <div className={styles.bottom}>
         <div className={`ch-container ${styles.bottomInner}`}>

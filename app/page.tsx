@@ -1,4 +1,4 @@
-import { Container } from "@/components/layout";
+import { Breadcrumbs, Container } from "@/components/layout";
 import { ProductGrid } from "@/components/product";
 import { Badge, Button, Card, EmptyState, Input, Pagination } from "@/components/ui";
 import { isApiConfigured } from "@/lib/api";
@@ -48,6 +48,10 @@ export default async function FoundationPage({
             {mockMode ? "Mock data layer" : "Live API"}
           </Badge>
         </div>
+        <Breadcrumbs
+          items={[{ label: "Home", href: "/" }, { label: "Foundation status" }]}
+          className={styles.crumbs}
+        />
         <h1 className={styles.heroTitle}>
           {SITE.name} storefront foundation is live.
         </h1>

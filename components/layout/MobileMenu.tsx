@@ -1,0 +1,213 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { SearchBar, type SearchBarCategory } from "@/components/search";
+import { Icon } from "@/components/ui";
+import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
+import styles from "./MobileMenu.module.css";
+
+export interface MobileMenuProps {
+  categories: SearchBarCategory[];
+  popularSearches: string[];
+  cartCount: number;
+  wishlistCount: number;
+  className?: string;
+}
+
+const BROWSE_LINKS = [
+  { label: "New arrivals", href: routes.newArrivals() },
+  { label: "Popular", href: routes.popular() },
+  { label: "Free downloads", href: routes.freeDownloads() },
+];
+
+/**
+ * Mobile navigation drawer. Rendered inside the server header but fully
+ * client-interactive: focus-trapped dialog, Escape/overlay close, scroll
+ * lock and focus restoration.
+ */
+export function MobileMenu({
+  categories,
+  popularSearches,
+  cartCount,
+  wishlistCount,
+  className,
+}: MobileMenuProps) {
+  const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  const close = () => setOpen(false);
+
+  // Lock scroll + focus the panel on open; restore focus on close.
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const menuButton = menuButtonRef.current;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+        return;
+      }
+      // Lightweight focus trap.
+      if (event.key === "Tab" && panelRef.current) {
+        const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      menuButton?.focus();
+    };
+  }, [open ]);
+
+  return (
+    <span className={cn(styles.root, className)}>
+      <button
+        ref={menuButtonRef}
+        type="button"
+        className={styles.menuButton}
+        aria-expanded={open}
+        aria-controls="mobile-nav"
+        aria-label="Open menu"
+        onClick={() => setOpen(true)}
+      >
+        <Icon name="menu" />
+      </button>
+      {open && (
+        <span className={styles.portal}>
+          <span
+            className={styles.overlay}
+            aria-hidden="true"
+            onClick={close}
+          />
+          <div
+            ref={panelRef}
+            id="mobile-nav"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
+            className={styles.panel}
+          >
+            <div className={styles.panelHeader}>
+              <span className={styles.panelTitle}>Menu</span>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                className={styles.menuButton}
+                aria-label="Close menu"
+                onClick={close}
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className={styles.panelSearch}>
+              <SearchBar
+                id="mobile-menu-search"
+                categories={categories}
+                popularSearches={popularSearches}
+              />
+            </div>
+            <nav aria-label="Mobile" className={styles.panelNav}>
+              <section aria-label="Account shortcuts" className={styles.group}>
+                <ul className={styles.shortcuts}>
+                  <li>
+                    <Link
+                      href={routes.account()}
+                      className={styles.shortcut}
+                      onClick={close}
+                    >
+                      <Icon name="user" size={18} />
+                      Account
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href={routes.wishlist()}
+                      className={styles.shortcut}
+                      onClick={close}
+                    >
+                      <Icon name="heart" size={18} />
+                      Wishlist
+                      {wishlistCount > 0 && (
+                        <span className={styles.count}>{wishlistCount}</span>
+                      )}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href={routes.cart()}
+                      className={styles.shortcut}
+                      onClick={close}
+                    >
+                      <Icon name="bag" size={18} />
+                      Cart
+                      {cartCount > 0 && (
+                        <span className={styles.count}>{cartCount}</span>
+                      )}
+                    </Link>
+                  </li>
+                </ul>
+              </section>
+              <section aria-label="Browse" className={styles.group}>
+                <p className={styles.groupTitle}>Browse</p>
+                <ul className={styles.links}>
+                  {BROWSE_LINKS.map((link) => (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        className={styles.link}
+                        onClick={close}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section aria-label="Categories" className={styles.group}>
+                <p className={styles.groupTitle}>Categories</p>
+                <ul className={styles.links}>
+                  {categories.map((category) => (
+                    <li key={category.slug}>
+                      <Link
+                        href={routes.category(category.slug)}
+                        className={styles.link}
+                        onClick={close}
+                      >
+                        {category.name}
+                        <Icon
+                          name="chevron-right"
+                          size={16}
+                          className={styles.linkChevron}
+                        />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </nav>
+          </div>
+        </span>
+      )}
+    </span>
+  );
+}

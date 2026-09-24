@@ -8,6 +8,10 @@
   flex-wrap: wrap;
 }
 
+.crumbs {
+  margin-top: var(--ch-space-4);
+}
+
 .heroTitle {
   margin-top: var(--ch-space-4);
   font-size: var(--ch-text-4xl);

@@ -80,8 +80,10 @@ npm run dev                  # http://localhost:3000
 app/                  layout, foundation page, not-found, error, globals.css
 styles/tokens.css     design tokens (single source of truth)
 components/
-  ui/                 Button, Input, Badge, Card, Spinner, EmptyState, Pagination
-  layout/             Container, SiteHeader, SiteFooter
+  ui/                 Button, IconButton, Icon, Input, Badge, Card, Spinner,
+                      EmptyState, Pagination
+  layout/             Container, SiteHeader, PrimaryNav, MobileMenu,
+                      Breadcrumbs, SiteFooter
   product/            ProductCard, ProductGrid
   search/             SearchBar
   cart/               CartItemRow, CartSummary
@@ -94,7 +96,8 @@ lib/
   api/                typed client (ApiError, apiFetch) + endpoint builders
   utils/              cn, format (INR/dates/files), pagination helpers
   constants.ts        site + pagination defaults (env-aware, browser-safe)
-  routes.ts           storefront URL builders
+  routes.ts           storefront URL builders (incl. placeholder routes)
+  navigation.ts       popular searches + nav config (API-owned in future)
   cache.ts            ISR revalidation windows + cache tags
   design-tokens.ts    TS mirror of breakpoints/containers
 data/                 mock licences, categories, 32-product seed catalogue

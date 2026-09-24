@@ -72,9 +72,24 @@
   color: var(--ch-neutral-300);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .brand {
+    grid-column: 1 / -1;
+    max-width: 32rem;
+  }
+}
+
+@media (min-width: 1024px) {
   .grid {
     grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+  }
+
+  .brand {
+    grid-column: auto;
   }
 
   .bottomInner {

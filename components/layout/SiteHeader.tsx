@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { SearchBar } from "@/components/search";
-import { Badge } from "@/components/ui";
+import { Icon, IconButton } from "@/components/ui";
+import { popularSearches } from "@/lib/navigation";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import { getCartService, getCategoryService } from "@/lib/services";
+import {
+  getCartService,
+  getCategoryService,
+  getWishlistService,
+} from "@/lib/services";
+import { MobileMenu } from "./MobileMenu";
+import { PrimaryNav } from "./PrimaryNav";
 import styles from "./SiteHeader.module.css";
 
 function Wordmark() {
@@ -30,10 +37,15 @@ function Wordmark() {
 }
 
 export async function SiteHeader() {
-  const [categories, cart] = await Promise.all([
-    getCategoryService().listFeaturedCategories(),
+  const [categories, cart, wishlist] = await Promise.all([
+    getCategoryService().listCategories(),
     getCartService().getCart(),
+    getWishlistService().getWishlist(),
   ]);
+  const navCategories = categories.map((category) => ({
+    name: category.name,
+    slug: category.slug,
+  }));
 
   return (
     <header className={styles.header}>
@@ -42,6 +54,13 @@ export async function SiteHeader() {
       </p>
       <div className={styles.main}>
         <div className={`ch-container ${styles.mainInner}`}>
+          <MobileMenu
+            categories={navCategories}
+            popularSearches={popularSearches}
+            cartCount={cart.itemCount}
+            wishlistCount={wishlist.items.length}
+            className={styles.mobileMenu}
+          />
           <Link
             href={routes.home()}
             className={styles.brandLink}
@@ -50,46 +69,37 @@ export async function SiteHeader() {
             <Wordmark />
           </Link>
           <div className={styles.searchDesktop}>
-            <SearchBar id="site-search" />
+            <SearchBar
+              id="site-search"
+              categories={navCategories}
+              popularSearches={popularSearches}
+            />
           </div>
           <nav aria-label="Account" className={styles.actions}>
-            <Link href={routes.wishlist()} className={styles.actionLink}>
-              Wishlist
-            </Link>
-            <Link href={routes.signIn()} className={styles.actionLink}>
-              Sign in
-            </Link>
-            <Link
-              href={routes.cart()}
-              className={styles.cartLink}
-              aria-label={`Cart, ${cart.itemCount} items`}
+            <IconButton
+              label="Wishlist"
+              href={routes.wishlist()}
+              badge={wishlist.items.length}
             >
-              Cart
-              {cart.itemCount > 0 && (
-                <Badge variant="brand" size="sm">
-                  {cart.itemCount}
-                </Badge>
-              )}
-            </Link>
+              <Icon name="heart" />
+            </IconButton>
+            <IconButton label="Sign in" href={routes.signIn()}>
+              <Icon name="user" />
+            </IconButton>
+            <IconButton label="Cart" href={routes.cart()} badge={cart.itemCount}>
+              <Icon name="bag" />
+            </IconButton>
           </nav>
         </div>
         <div className={`ch-container ${styles.searchMobile}`}>
-          <SearchBar id="site-search-mobile" />
+          <SearchBar
+            id="site-search-mobile"
+            categories={navCategories}
+            popularSearches={popularSearches}
+          />
         </div>
       </div>
-      <nav aria-label="Categories" className={styles.categoryNav}>
-        <div className={`ch-container ${styles.categoryList}`}>
-          {categories.map((category) => (
-            <Link
-              key={category.id}
-              href={routes.category(category.slug)}
-              className={styles.categoryLink}
-            >
-              {category.name}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <PrimaryNav categories={categories} className={styles.primaryNav} />
     </header>
   );
 }
