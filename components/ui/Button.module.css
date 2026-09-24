@@ -1,0 +1,112 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ch-space-2);
+  font-weight: var(--ch-weight-semibold);
+  line-height: 1.25;
+  border: 1px solid transparent;
+  border-radius: var(--ch-radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--ch-duration-fast) var(--ch-ease-out),
+    border-color var(--ch-duration-fast) var(--ch-ease-out),
+    color var(--ch-duration-fast) var(--ch-ease-out),
+    box-shadow var(--ch-duration-fast) var(--ch-ease-out);
+}
+
+.button:hover {
+  text-decoration: none;
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Variants */
+.variant-primary {
+  background-color: var(--ch-color-ink);
+  color: var(--ch-color-text-inverse);
+}
+
+.variant-primary:hover {
+  background-color: var(--ch-color-ink-hover);
+  color: var(--ch-color-text-inverse);
+}
+
+.variant-secondary {
+  background-color: var(--ch-color-surface);
+  border-color: var(--ch-color-border-strong);
+  color: var(--ch-color-text);
+}
+
+.variant-secondary:hover {
+  border-color: var(--ch-neutral-400);
+  background-color: var(--ch-neutral-50);
+  color: var(--ch-color-text);
+}
+
+.variant-accent {
+  background-color: var(--ch-color-brand);
+  color: var(--ch-color-text-inverse);
+}
+
+.variant-accent:hover {
+  background-color: var(--ch-color-brand-strong);
+  color: var(--ch-color-text-inverse);
+}
+
+.variant-ghost {
+  background-color: transparent;
+  color: var(--ch-color-text-muted);
+}
+
+.variant-ghost:hover {
+  background-color: var(--ch-neutral-100);
+  color: var(--ch-color-text);
+}
+
+.variant-danger {
+  background-color: var(--ch-color-danger);
+  color: #fff;
+}
+
+.variant-danger:hover {
+  background-color: #8f1d17;
+  color: #fff;
+}
+
+/* Sizes */
+.size-sm {
+  min-height: 2rem;
+  padding: 0.375rem 0.75rem;
+  font-size: var(--ch-text-sm);
+}
+
+.size-md {
+  min-height: 2.625rem;
+  padding: 0.625rem 1.125rem;
+  font-size: var(--ch-text-base);
+}
+
+.size-lg {
+  min-height: 3.125rem;
+  padding: 0.875rem 1.5rem;
+  font-size: var(--ch-text-lg);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.loading {
+  cursor: progress;
+}
+
+/* Disabled state applies to the <button> element only. */
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

@@ -1,0 +1,174 @@
+/*
+ * Creative Hatti — Design Tokens
+ * --------------------------------
+ * Single source of truth for the visual system. Every component consumes
+ * these custom properties instead of hardcoding values.
+ *
+ * Breakpoints (documented here; CSS cannot use var() in media queries,
+ * so mirror them in `lib/design-tokens.ts` and hardcode in @media rules):
+ *   sm: 640px · md: 768px · lg: 1024px · xl: 1280px
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- Neutrals (warm paper scale) ---------- */
+  --ch-neutral-50: #faf9f6;
+  --ch-neutral-100: #f0ece4;
+  --ch-neutral-200: #e0d9cb;
+  --ch-neutral-300: #c8bfae;
+  --ch-neutral-400: #a79c87;
+  --ch-neutral-500: #887d69;
+  --ch-neutral-600: #6e6554;
+  --ch-neutral-700: #595349;
+  --ch-neutral-800: #48443c;
+  --ch-neutral-900: #37332c;
+  --ch-neutral-950: #211e19;
+
+  /* ---------- Brand (deep botanical green) ---------- */
+  --ch-brand-50: #eef6f1;
+  --ch-brand-100: #d7e9de;
+  --ch-brand-200: #b0d3c0;
+  --ch-brand-300: #7fb69c;
+  --ch-brand-400: #52967a;
+  --ch-brand-500: #337a60;
+  --ch-brand-600: #25624d;
+  --ch-brand-700: #1f4f3f;
+  --ch-brand-800: #1b4034;
+  --ch-brand-900: #15332a;
+  --ch-brand-950: #0b201a;
+
+  /* ---------- Accent (marigold — ratings, highlights) ---------- */
+  --ch-accent-soft: #faf0da;
+  --ch-accent-border: #ebd3a6;
+  --ch-accent: #c77e1f;
+  --ch-accent-strong: #8f5310;
+
+  /* ---------- Semantic ---------- */
+  --ch-color-canvas: #f6f4ee;
+  --ch-color-surface: #ffffff;
+  --ch-color-surface-muted: var(--ch-neutral-100);
+  --ch-color-surface-sunken: var(--ch-neutral-200);
+
+  --ch-color-text: var(--ch-neutral-950);
+  --ch-color-text-muted: var(--ch-neutral-700);
+  --ch-color-text-faint: var(--ch-neutral-500);
+  --ch-color-text-inverse: var(--ch-neutral-50);
+
+  --ch-color-border: var(--ch-neutral-200);
+  --ch-color-border-strong: var(--ch-neutral-300);
+
+  --ch-color-brand: var(--ch-brand-700);
+  --ch-color-brand-strong: var(--ch-brand-800);
+  --ch-color-brand-soft: var(--ch-brand-50);
+  --ch-color-brand-border: var(--ch-brand-200);
+
+  --ch-color-ink: var(--ch-neutral-950);
+  --ch-color-ink-hover: var(--ch-neutral-800);
+
+  --ch-color-danger: #b3261e;
+  --ch-color-danger-soft: #f9e9e7;
+  --ch-color-danger-border: #efc2be;
+
+  --ch-color-info: #2456a6;
+  --ch-color-info-soft: #e8effa;
+  --ch-color-info-border: #bccdf0;
+
+  --ch-color-success: var(--ch-brand-700);
+  --ch-color-success-soft: var(--ch-brand-50);
+
+  --ch-focus-ring-color: var(--ch-brand-600);
+
+  /* ---------- Typography ---------- */
+  --ch-font-sans: "Inter Variable", "Inter", -apple-system,
+    blinkmacsystemfont, "Segoe UI", roboto, "Helvetica Neue", arial, sans-serif;
+  --ch-font-display: "Fraunces Variable", "Fraunces", georgia,
+    "Times New Roman", serif;
+  --ch-font-mono: ui-monospace, "SF Mono", sfmono-regular, menlo, consolas,
+    monospace;
+
+  --ch-text-xs: 0.75rem;
+  --ch-leading-xs: 1.5;
+  --ch-text-sm: 0.875rem;
+  --ch-leading-sm: 1.55;
+  --ch-text-base: 1rem;
+  --ch-leading-base: 1.6;
+  --ch-text-lg: 1.125rem;
+  --ch-leading-lg: 1.6;
+  --ch-text-xl: 1.25rem;
+  --ch-leading-xl: 1.45;
+  --ch-text-2xl: 1.5rem;
+  --ch-leading-2xl: 1.3;
+  --ch-text-3xl: 1.875rem;
+  --ch-leading-3xl: 1.2;
+  --ch-text-4xl: 2.375rem;
+  --ch-leading-4xl: 1.15;
+  --ch-text-5xl: 3rem;
+  --ch-leading-5xl: 1.1;
+
+  --ch-weight-regular: 400;
+  --ch-weight-medium: 500;
+  --ch-weight-semibold: 600;
+  --ch-weight-bold: 700;
+
+  --ch-tracking-tight: -0.015em;
+  --ch-tracking-display: -0.03em;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --ch-space-0: 0;
+  --ch-space-1: 0.25rem;
+  --ch-space-2: 0.5rem;
+  --ch-space-3: 0.75rem;
+  --ch-space-4: 1rem;
+  --ch-space-5: 1.25rem;
+  --ch-space-6: 1.5rem;
+  --ch-space-8: 2rem;
+  --ch-space-10: 2.5rem;
+  --ch-space-12: 3rem;
+  --ch-space-16: 4rem;
+  --ch-space-20: 5rem;
+  --ch-space-24: 6rem;
+
+  /* ---------- Radius (restrained — avoid bubbly cards) ---------- */
+  --ch-radius-xs: 4px;
+  --ch-radius-sm: 6px;
+  --ch-radius-md: 10px;
+  --ch-radius-lg: 14px;
+  --ch-radius-xl: 20px;
+  --ch-radius-full: 999px;
+
+  /* ---------- Shadows (warm-tinted, subtle) ---------- */
+  --ch-shadow-xs: 0 1px 2px rgb(33 30 25 / 0.06);
+  --ch-shadow-sm:
+    0 1px 2px rgb(33 30 25 / 0.07), 0 2px 8px rgb(33 30 25 / 0.06);
+  --ch-shadow-md:
+    0 2px 6px rgb(33 30 25 / 0.08), 0 10px 28px rgb(33 30 25 / 0.09);
+  --ch-shadow-lg:
+    0 4px 12px rgb(33 30 25 / 0.1), 0 20px 48px rgb(33 30 25 / 0.12);
+
+  /* ---------- Layout ---------- */
+  --ch-container-sm: 680px;
+  --ch-container-md: 960px;
+  --ch-container-lg: 1200px;
+  --ch-container-xl: 1360px;
+  --ch-gutter: 1rem;
+  --ch-header-height: 68px;
+
+  /* ---------- Elevation ---------- */
+  --ch-z-header: 50;
+  --ch-z-dropdown: 100;
+  --ch-z-drawer: 200;
+  --ch-z-modal: 300;
+  --ch-z-toast: 400;
+
+  /* ---------- Motion (subtle; no decorative animation) ---------- */
+  --ch-duration-fast: 140ms;
+  --ch-duration-normal: 220ms;
+  --ch-ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --ch-gutter: 1.5rem;
+  }
+}

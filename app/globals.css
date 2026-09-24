@@ -1,0 +1,177 @@
+@import "../styles/tokens.css";
+
+/*
+ * Creative Hatti — global base styles.
+ * Tokens live in styles/tokens.css; component styles live in CSS Modules
+ * next to each component. This file only holds element defaults + a small
+ * set of shared utilities.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--ch-color-canvas);
+  color: var(--ch-color-text);
+  font-family: var(--ch-font-sans);
+  font-size: var(--ch-text-base);
+  line-height: var(--ch-leading-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+ul,
+ol,
+figure,
+blockquote {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--ch-font-display);
+  font-weight: var(--ch-weight-semibold);
+  letter-spacing: var(--ch-tracking-display);
+  line-height: var(--ch-leading-3xl);
+  text-wrap: balance;
+}
+
+h4,
+h5,
+h6 {
+  font-weight: var(--ch-weight-semibold);
+  letter-spacing: var(--ch-tracking-tight);
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--ch-color-brand);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--ch-color-brand-strong);
+  text-decoration: underline;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background-color: var(--ch-brand-100);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ch-focus-ring-color);
+  outline-offset: 2px;
+  border-radius: var(--ch-radius-xs);
+}
+
+/* ---------- Layout utilities ---------- */
+
+.ch-container {
+  width: 100%;
+  max-width: var(--ch-container-lg);
+  margin-inline: auto;
+  padding-inline: var(--ch-gutter);
+}
+
+.ch-container--narrow {
+  max-width: var(--ch-container-md);
+}
+
+.ch-container--wide {
+  max-width: var(--ch-container-xl);
+}
+
+.ch-section {
+  padding-block: var(--ch-space-12);
+}
+
+@media (min-width: 768px) {
+  .ch-section {
+    padding-block: var(--ch-space-16);
+  }
+}
+
+/* ---------- Accessibility ---------- */
+
+.ch-skip-link {
+  position: absolute;
+  top: -100px;
+  left: var(--ch-space-4);
+  z-index: var(--ch-z-toast);
+  padding: var(--ch-space-2) var(--ch-space-4);
+  background: var(--ch-color-ink);
+  color: var(--ch-color-text-inverse);
+  border-radius: var(--ch-radius-sm);
+  transition: top var(--ch-duration-fast) var(--ch-ease-out);
+}
+
+.ch-skip-link:focus {
+  top: var(--ch-space-4);
+  color: var(--ch-color-text-inverse);
+  text-decoration: none;
+}
+
+.ch-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Motion preferences ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
