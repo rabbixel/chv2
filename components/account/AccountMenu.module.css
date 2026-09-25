@@ -46,3 +46,26 @@
   cursor: pointer;
   font: inherit;
 }
+
+@media (max-width: 899px) {
+  .list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: var(--ch-space-1);
+  }
+
+  .link {
+    white-space: nowrap;
+  }
+
+  .logoutItem {
+    margin-top: 0;
+    margin-left: auto;
+    padding-top: 0;
+    padding-left: var(--ch-space-2);
+    border-top: 0;
+    border-left: 1px solid var(--ch-color-border);
+    flex-shrink: 0;
+  }
+}

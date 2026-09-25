@@ -27,6 +27,7 @@ export const routes = {
   account: () => "/account",
   accountProfile: () => "/account/profile",
   accountOrders: () => "/account/orders",
+  accountOrder: (id: string) => `/account/orders/${encodeURIComponent(id)}`,
   accountDownloads: () => "/account/downloads",
   accountWishlist: () => "/account/wishlist",
   accountLicenses: () => "/account/licenses",

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { DownloadButton } from "@/components/account";
+import { Badge, Card } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import {
@@ -9,6 +10,7 @@ import {
   getWishlistService,
 } from "@/lib/services";
 import { getSessionUser } from "@/lib/auth";
+import { formatDate, formatMoney } from "@/lib/utils";
 import styles from "./section.module.css";
 
 export const metadata: Metadata = {
@@ -24,6 +26,12 @@ export default async function AccountDashboardPage() {
     getDownloadService().listDownloads(),
     getWishlistService().getWishlist(),
   ]);
+
+  const recentOrders = orders.items.slice(0, 3);
+  const recentDownloads = downloads.slice(0, 3);
+  const displayName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(" ")
+    : "";
 
   const stats = [
     {
@@ -64,6 +72,65 @@ export default async function AccountDashboardPage() {
             </Link>
           </Card>
         ))}
+        <Card>
+          <p className={styles.statValue}>{displayName || "—"}</p>
+          <p className={styles.statLabel}>{user?.email ?? ""}</p>
+          <Link href={routes.accountProfile()} className={styles.statLink}>
+            View profile
+          </Link>
+        </Card>
+      </div>
+      <div className={styles.split}>
+        <section aria-label="Recent orders">
+          <h2 className={styles.splitTitle}>Recent orders</h2>
+          <div className={styles.list}>
+            {recentOrders.map((order) => (
+              <Card key={order.id}>
+                <div className={styles.row}>
+                  <div className={styles.rowMain}>
+                    <p className={styles.rowTitle}>
+                      <Link href={routes.accountOrder(order.id)}>
+                        {order.number}
+                      </Link>
+                    </p>
+                    <p className={styles.rowMeta}>
+                      {formatDate(order.createdAt)} ·{" "}
+                      {formatMoney(order.grandTotal)}
+                    </p>
+                  </div>
+                  <div className={styles.rowSide}>
+                    <Badge
+                      variant={order.status === "paid" ? "success" : "neutral"}
+                    >
+                      {order.status}
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+        <section aria-label="Recent downloads">
+          <h2 className={styles.splitTitle}>Recent downloads</h2>
+          <div className={styles.list}>
+            {recentDownloads.map((download) => (
+              <Card key={download.id}>
+                <div className={styles.row}>
+                  <div className={styles.rowMain}>
+                    <p className={styles.rowTitle}>{download.productTitle}</p>
+                    <p className={styles.rowMeta}>{download.fileName}</p>
+                  </div>
+                  <div className={styles.rowSide}>
+                    <DownloadButton
+                      productId={download.productId}
+                      orderId={download.orderId}
+                    />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

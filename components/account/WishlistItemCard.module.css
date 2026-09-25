@@ -1,0 +1,45 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  background: hsl(var(--ch-art-hue) 45% 92%);
+  color: hsl(var(--ch-art-hue) 45% 32%);
+}
+
+.monogram {
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-2xl);
+  font-weight: var(--ch-weight-semibold);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-2);
+  padding: var(--ch-space-4);
+}
+
+.title {
+  margin: 0;
+  font-weight: var(--ch-weight-medium);
+}
+
+.price {
+  margin: 0;
+  color: var(--ch-color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ch-space-2);
+  margin-top: var(--ch-space-2);
+}

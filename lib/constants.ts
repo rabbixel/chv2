@@ -39,6 +39,8 @@ export const CART_COOKIE = "ch_cart";
 export const CART_COUNT_COOKIE = "ch_cart_count";
 /** HttpOnly session id for the signed-in customer (mock + backend). */
 export const AUTH_SESSION_COOKIE = "ch_session";
+/** HttpOnly session id for the guest/customer wishlist (mock + backend). */
+export const WISHLIST_COOKIE = "ch_wishlist";
 
 /**
  * Window event fired after same-page cart mutations (product-page

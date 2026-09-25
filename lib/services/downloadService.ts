@@ -1,24 +1,73 @@
 import { products } from "@/data/products";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import type { Download, ID } from "@/lib/types";
+import type { Download, DownloadUrl, ID } from "@/lib/types";
 
 export interface DownloadService {
   listDownloads(): Promise<Download[]>;
   /** Mint a fresh signed URL for a download (backend fulfils via S3). */
   fulfilDownload(id: ID): Promise<Download | null>;
+  /**
+   * Request a short-lived file URL for a purchased product. The frontend
+   * calls this per download click — it never builds storage URLs itself
+   * and never sees bucket credentials.
+   */
+  requestDownloadUrl(productId: ID, orderId: ID): Promise<DownloadUrl | null>;
 }
 
 function mockDownloads(): Download[] {
-  const pick = (productId: ID, orderId: ID, fileName: string, sizeMb: number) => {
+  const pick = (
+    productId: ID,
+    orderId: ID,
+    fileName: string,
+    sizeMb: number,
+    createdAt: string,
+    accessExpiresAt?: string,
+  ) => {
     const product = products.find((item) => item.id === productId);
     if (!product) throw new Error(`Mock product ${productId} not found`);
-    return { product, orderId, fileName, sizeMb };
+    return { product, orderId, fileName, sizeMb, createdAt, accessExpiresAt };
   };
+  // Recent first — the library order the UI renders.
   const rows = [
-    pick("prod-republic-day-bundle", "ord-0001", "republic-day-bundle.zip", 184),
-    pick("prod-ramayana-gods-bundle", "ord-0002", "ramayana-gods-bundle.zip", 342),
-    pick("prod-logo-template-collection", "ord-0002", "logo-template-collection.zip", 96),
+    pick(
+      "prod-grand-diwali-collection",
+      "ord-0003",
+      "grand-diwali-collection.zip",
+      412,
+      "2026-09-18T11:04:00.000Z",
+      // Mock backend-supplied access window (demonstrates the
+      // conditional UI; the shop defines no expiry policy).
+      "2027-09-18T11:04:00.000Z",
+    ),
+    pick(
+      "prod-festive-instagram-kit",
+      "ord-0003",
+      "festive-instagram-kit.zip",
+      128,
+      "2026-09-18T11:04:00.000Z",
+    ),
+    pick(
+      "prod-republic-day-bundle",
+      "ord-0001",
+      "republic-day-bundle.zip",
+      184,
+      "2026-08-28T14:06:00.000Z",
+    ),
+    pick(
+      "prod-ramayana-gods-bundle",
+      "ord-0002",
+      "ramayana-gods-bundle.zip",
+      342,
+      "2026-09-10T09:31:00.000Z",
+    ),
+    pick(
+      "prod-logo-template-collection",
+      "ord-0002",
+      "logo-template-collection.zip",
+      96,
+      "2026-09-10T09:31:00.000Z",
+    ),
   ];
   return rows.map((row, index) => ({
     id: `dl-${String(index + 1).padStart(4, "0")}`,
@@ -28,9 +77,10 @@ function mockDownloads(): Download[] {
     productTitle: row.product.title,
     fileName: row.fileName,
     fileSizeBytes: row.sizeMb * 1024 * 1024,
+    accessExpiresAt: row.accessExpiresAt,
     downloadCount: index,
     downloadLimit: 10,
-    createdAt: "2026-09-10T09:31:00.000Z",
+    createdAt: row.createdAt,
   }));
 }
 
@@ -50,6 +100,21 @@ class MockDownloadService implements DownloadService {
       urlExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
     };
   }
+
+  async requestDownloadUrl(
+    productId: ID,
+    orderId: ID,
+  ): Promise<DownloadUrl | null> {
+    const found = mockDownloads().find(
+      (download) =>
+        download.productId === productId && download.orderId === orderId,
+    );
+    if (!found) return null;
+    return {
+      url: `/api/mock-downloads/${found.id}/${found.fileName}`,
+      expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    };
+  }
 }
 
 class ApiDownloadService implements DownloadService {
@@ -60,6 +125,13 @@ class ApiDownloadService implements DownloadService {
   fulfilDownload(id: ID): Promise<Download | null> {
     return apiFetch<Download>(apiEndpoints.downloads.fulfil(id), {
       method: "POST",
+    });
+  }
+
+  requestDownloadUrl(productId: ID, orderId: ID): Promise<DownloadUrl | null> {
+    return apiFetch<DownloadUrl>(apiEndpoints.downloads.requestUrl, {
+      method: "POST",
+      body: { productId, orderId },
     });
   }
 }

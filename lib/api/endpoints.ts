@@ -21,7 +21,10 @@ export const apiEndpoints = {
     list: "/v1/collections",
     detail: (slug: string) => `/v1/collections/${encodeURIComponent(slug)}`,
   },
-  licenses: "/v1/licenses",
+  licenses: {
+    list: "/v1/licenses",
+    owned: "/v1/licenses/owned",
+  },
   payments: {
     verify: "/v1/payments/verify",
   },
@@ -35,9 +38,11 @@ export const apiEndpoints = {
   downloads: {
     list: "/v1/downloads",
     fulfil: (id: string) => `/v1/downloads/${encodeURIComponent(id)}/fulfil`,
+    requestUrl: "/v1/downloads/request-url",
   },
   customer: {
     me: "/v1/me",
+    preferences: "/v1/me/preferences",
   },
   auth: {
     login: "/v1/auth/login",

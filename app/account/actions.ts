@@ -4,7 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isSafeNextPath } from "@/lib/auth";
 import { routes } from "@/lib/routes";
-import { AuthError, getAuthService, toAuthError } from "@/lib/services";
+import {
+  AuthError,
+  getAuthService,
+  getCartService,
+  getCustomerService,
+  getDownloadService,
+  getWishlistService,
+  toAuthError,
+} from "@/lib/services";
+import type { ID, LicenseCode } from "@/lib/types";
 
 /**
  * Auth + account actions. All session writes stay server-side: the
@@ -135,4 +144,78 @@ export async function resendActivationAction(formData: FormData): Promise<void> 
   redirect(
     `${routes.login()}?notice=${encodeURIComponent(`Activation email re-sent to ${email}. Please check your inbox.`)}`,
   );
+}
+
+/* ------------------------- Wishlist actions ------------------------- */
+
+export async function addWishlistItemToCart(
+  formData: FormData,
+): Promise<void> {
+  const productId = field(formData, "productId");
+  const license = field(formData, "license") as LicenseCode;
+  try {
+    await getCartService().addItem(productId, license);
+  } catch {
+    redirect(
+      `${routes.accountWishlist()}?error=${encodeURIComponent("Could not add that item to your cart.")}`,
+    );
+  }
+  revalidatePath(routes.cart());
+  revalidatePath(routes.accountWishlist());
+  redirect(`${routes.accountWishlist()}?added=1`);
+}
+
+export async function removeWishlistItem(formData: FormData): Promise<void> {
+  const productId = field(formData, "productId");
+  await getWishlistService().removeItem(productId);
+  revalidatePath(routes.home());
+  revalidatePath(routes.accountWishlist());
+  redirect(routes.accountWishlist());
+}
+
+/* ------------------------- Download actions ------------------------- */
+
+export async function requestDownloadAction(
+  productId: ID,
+  orderId: ID,
+): Promise<{ url: string } | { error: string }> {
+  const download = await getDownloadService().requestDownloadUrl(
+    productId,
+    orderId,
+  );
+  if (!download) {
+    return { error: "That file is no longer available for this order." };
+  }
+  return { url: download.url };
+}
+
+/* ------------------------- Settings actions ------------------------- */
+
+export async function updateProfileAction(formData: FormData): Promise<void> {
+  try {
+    await getCustomerService().updateProfile({
+      firstName: field(formData, "firstName"),
+      lastName: field(formData, "lastName"),
+    });
+  } catch (error) {
+    authError(
+      routes.accountSettings(),
+      error,
+      "Could not save your profile. Please try again.",
+    );
+  }
+  revalidatePath(routes.account());
+  redirect(`${routes.accountSettings()}?saved=profile`);
+}
+
+export async function updatePreferencesAction(
+  formData: FormData,
+): Promise<void> {
+  await getCustomerService().updateNotificationPreferences({
+    orderUpdates: formData.get("orderUpdates") === "on",
+    newProducts: formData.get("newProducts") === "on",
+    offers: formData.get("offers") === "on",
+  });
+  revalidatePath(routes.accountSettings());
+  redirect(`${routes.accountSettings()}?saved=notifications`);
 }

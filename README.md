@@ -137,6 +137,29 @@ npm run dev                  # http://localhost:3000
   `pending@creativehatti.com` / `demo1234` (activation),
   `legacy@creativehatti.com` (classic-store reset path).
 
+### Customer dashboard + digital library (Run 10)
+
+- `/account` dashboard: recent orders, recent downloads, wishlist count
+  and account info. `/account/orders` history (number, date, status,
+  total, product count, view link) plus `/account/orders/[id]` detail
+  with payment reference, per-line license info (from the real license
+  definitions) and per-line download buttons for paid orders.
+- `/account/downloads` lists product, purchase date, remaining
+  downloads, conditional access expiry and a per-click download button.
+  The button calls `requestDownloadUrl(productId, orderId)`; mock mode
+  serves a placeholder file from `/api/mock-downloads/*`, production
+  returns a backend-signed short-lived S3 URL. No AWS credentials
+  anywhere near the frontend.
+- `/account/wishlist` is a session-backed grid (seeded with real
+  products) with working remove, add-to-cart and an empty state.
+  `/account/licenses` shows owned keys with status, order links and
+  backend-supplied expiry/activation rows only when present — no
+  invented licensing rules. `/account/settings` edits profile name,
+  shows email + password paths and persists notification preferences.
+- Mock library grew honestly: paid + failed sample orders, matching
+  downloads and keys, all referencing real catalogue products. Account
+  area is responsive (stacked shell, wrapping rows, scrolling nav).
+
 ## Project structure
 
 ```
@@ -153,7 +176,8 @@ components/
   cart/               CartItemRow, CartSummary, CartLicenseSelect
   checkout/           SubmitButton, RazorpayButton
   auth/               AuthCard (shared login/register/recovery shell)
-  account/            AccountMenu, AccountSidebar
+  account/            AccountMenu, AccountSidebar, DownloadButton,
+                      WishlistItemCard
 lib/
   types/              Product, Category, ProductImage, Customer, AuthUser,
                       AuthErrorCode (+ inputs), Cart, CartItem,
@@ -205,5 +229,6 @@ here.
 - Search results page (Run 05 — facets, URL-synced filters, sort)
 - Cart page + checkout (Run 08 — session cart, coupons, Razorpay-ready)
 - Auth + account foundation (Run 09 — session login, recovery, guarded shell)
-- Cart drawer, wishlist sync, download fulfilment
+- Dashboard + digital library (Run 10 — orders, downloads, wishlist, licenses)
+- Cart drawer, wishlist heart sync on listings, real download fulfilment
 - Real API integration, CDN imagery, sitemaps/SEO pass

@@ -8,6 +8,7 @@ import type {
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
+  UpdateProfileInput,
 } from "@/lib/types";
 
 export interface AuthService {
@@ -15,6 +16,7 @@ export interface AuthService {
   register(input: RegisterInput): Promise<AuthUser>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<AuthUser | null>;
+  updateProfile(input: UpdateProfileInput): Promise<AuthUser>;
   forgotPassword(email: string): Promise<void>;
   resetPassword(input: ResetPasswordInput): Promise<void>;
   /** Re-send the activation email for accounts pending activation. */
@@ -46,6 +48,8 @@ interface MockSession {
 
 const sessionStore = new Map<string, MockSession>();
 const userStore = new Map<string, AuthUser>();
+/** Profile edits layered over seed users (keyed by user id). */
+const profileOverrides = new Map<string, AuthUser>();
 let sessionSeq = 0;
 
 const DEMO_USER: AuthUser = {
@@ -213,11 +217,31 @@ class MockAuthService implements AuthService {
       if (session) sessionStore.delete(sessionId);
       return null;
     }
-    if (session.userId === DEMO_USER.id) return DEMO_USER;
+    if (session.userId === DEMO_USER.id) {
+      return profileOverrides.get(DEMO_USER.id) ?? DEMO_USER;
+    }
     for (const user of userStore.values()) {
-      if (user.id === session.userId) return user;
+      if (user.id === session.userId) {
+        return profileOverrides.get(user.id) ?? user;
+      }
     }
     return null;
+  }
+
+  async updateProfile(input: UpdateProfileInput): Promise<AuthUser> {
+    const current = await this.getCurrentUser();
+    if (!current) throw new AuthError("validation", "You must be logged in.");
+    const firstName = input.firstName.trim();
+    const lastName = input.lastName.trim();
+    if (!firstName) {
+      throw new AuthError("validation", "Please enter your first name.");
+    }
+    const updated: AuthUser = { ...current, firstName, lastName };
+    profileOverrides.set(current.id, updated);
+    if (userStore.get(current.email)?.id === current.id) {
+      userStore.set(current.email, updated);
+    }
+    return updated;
   }
 
   async forgotPassword(email: string): Promise<void> {
@@ -303,6 +327,13 @@ class ApiAuthService implements AuthService {
 
   getCurrentUser(): Promise<AuthUser | null> {
     return apiFetch<AuthUser | null>(apiEndpoints.customer.me);
+  }
+
+  updateProfile(input: UpdateProfileInput): Promise<AuthUser> {
+    return apiFetch<AuthUser>(apiEndpoints.customer.me, {
+      method: "PATCH",
+      body: input,
+    });
   }
 
   async forgotPassword(email: string): Promise<void> {

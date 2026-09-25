@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Button, Card, EmptyState } from "@/components/ui";
+import { WishlistItemCard } from "@/components/account";
+import { Button, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { getProductService, getWishlistService } from "@/lib/services";
@@ -12,17 +12,28 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE.url}/account/wishlist` },
 };
 
-export default async function AccountWishlistPage() {
+interface WishlistPageProps {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function AccountWishlistPage({
+  searchParams,
+}: WishlistPageProps) {
+  const query = (await searchParams) ?? {};
+  const added = query.added === "1";
+  const error = typeof query.error === "string" ? query.error : null;
+
   const wishlist = await getWishlistService().getWishlist();
   const productService = getProductService();
-  const items = await Promise.all(
-    wishlist.items.map(async (item) => ({
-      item,
-      product: await productService.getProductBySlug(
-        item.productId.replace(/^prod-/, ""),
+  const products = (
+    await Promise.all(
+      wishlist.items.map((item) =>
+        productService.getProductBySlug(
+          item.productId.replace(/^prod-/, ""),
+        ),
       ),
-    })),
-  );
+    )
+  ).filter((product) => product !== null);
 
   return (
     <div>
@@ -32,40 +43,29 @@ export default async function AccountWishlistPage() {
         {wishlist.items.length === 1 ? "treasure" : "treasures"} saved for
         later.
       </p>
-      {items.length === 0 ? (
+      {added && (
+        <p role="status" className={styles.notice}>
+          Added to your cart.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className={styles.alert}>
+          {error}
+        </p>
+      )}
+      {products.length === 0 ? (
         <EmptyState
           title="Nothing saved yet"
           description="Tap the heart on any product to keep it here."
           action={<Button href={routes.search()}>Browse products</Button>}
         />
       ) : (
-        <div className={styles.list}>
-          {items.map(({ item, product }) => (
-            <Card key={item.productId}>
-              <div className={styles.row}>
-                <div className={styles.rowMain}>
-                  <p className={styles.rowTitle}>
-                    {product ? (
-                      <Link href={routes.product(product.slug)}>
-                        {product.title}
-                      </Link>
-                    ) : (
-                      "Saved item"
-                    )}
-                  </p>
-                  <p className={styles.rowMeta}>
-                    Saved{product ? ` · ${product.productGroup}` : ""}
-                  </p>
-                </div>
-              </div>
-            </Card>
+        <div className={styles.tiles}>
+          {products.map((product) => (
+            <WishlistItemCard key={product.id} product={product} />
           ))}
         </div>
       )}
-      <p className={styles.note}>
-        Wishlist syncs across your devices once accounts connect to the
-        backend.
-      </p>
     </div>
   );
 }

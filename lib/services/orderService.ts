@@ -59,10 +59,53 @@ function mockOrders(): Order[] {
     orderItem("prod-ramayana-gods-bundle", "personal"),
     orderItem("prod-logo-template-collection", "personal"),
   ];
+  const thirdItems = [
+    orderItem("prod-grand-diwali-collection", "commercial"),
+    orderItem("prod-festive-instagram-kit", "personal"),
+  ];
+  const fourthItems = [orderItem("prod-navratri-nights-bundle", "personal")];
   const total = (items: OrderItem[]) =>
     items.reduce((sum, item) => sum + item.lineTotal.amount, 0);
 
   return [
+    {
+      id: "ord-0004",
+      number: "CH-2026-004315",
+      customerId: "customer-guest",
+      currency: "INR",
+      items: fourthItems,
+      subtotal: { amount: total(fourthItems), currency: "INR" },
+      discountTotal: { amount: 0, currency: "INR" },
+      taxTotal: { amount: 0, currency: "INR" },
+      grandTotal: { amount: total(fourthItems), currency: "INR" },
+      status: "failed",
+      payment: {
+        provider: "razorpay",
+        status: "failed",
+        failureReason: "Card declined by the issuing bank.",
+      },
+      createdAt: "2026-09-22T16:40:00.000Z",
+      updatedAt: "2026-09-22T16:41:00.000Z",
+    },
+    {
+      id: "ord-0003",
+      number: "CH-2026-004301",
+      customerId: "customer-guest",
+      currency: "INR",
+      items: thirdItems,
+      subtotal: { amount: total(thirdItems), currency: "INR" },
+      discountTotal: { amount: 0, currency: "INR" },
+      taxTotal: { amount: 0, currency: "INR" },
+      grandTotal: { amount: total(thirdItems), currency: "INR" },
+      status: "paid",
+      payment: {
+        provider: "razorpay",
+        status: "captured",
+        reference: "pay_mock_0003",
+      },
+      createdAt: "2026-09-18T11:02:00.000Z",
+      updatedAt: "2026-09-18T11:04:00.000Z",
+    },
     {
       id: "ord-0002",
       number: "CH-2026-004213",

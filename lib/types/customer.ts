@@ -20,3 +20,14 @@ export interface Customer {
   billingAddress?: Address;
   createdAt: ISODateString;
 }
+
+export interface UpdateProfileInput {
+  firstName: string;
+  lastName: string;
+}
+
+export interface NotificationPreferences {
+  orderUpdates: boolean;
+  newProducts: boolean;
+  offers: boolean;
+}

@@ -16,7 +16,15 @@ export interface Download {
   /** Signed URL; only present immediately after a fulfilment request. */
   url?: string;
   urlExpiresAt?: ISODateString;
+  /** Limited access window, only when the backend sets one. */
+  accessExpiresAt?: ISODateString;
   downloadCount: number;
   downloadLimit: number;
   createdAt: ISODateString;
+}
+
+/** Short-lived file URL minted per request (S3, backend-signed). */
+export interface DownloadUrl {
+  url: string;
+  expiresAt: ISODateString;
 }

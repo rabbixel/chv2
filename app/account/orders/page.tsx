@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -33,11 +34,15 @@ export default async function AccountOrdersPage() {
             <Card key={order.id}>
               <div className={styles.row}>
                 <div className={styles.rowMain}>
-                  <p className={styles.rowTitle}>{order.number}</p>
+                  <p className={styles.rowTitle}>
+                    <Link href={routes.accountOrder(order.id)}>
+                      {order.number}
+                    </Link>
+                  </p>
                   <p className={styles.rowMeta}>
                     {formatDate(order.createdAt)} ·{" "}
                     {order.items.length}{" "}
-                    {order.items.length === 1 ? "item" : "items"} ·{" "}
+                    {order.items.length === 1 ? "product" : "products"} ·{" "}
                     {formatMoney(order.grandTotal)}
                   </p>
                 </div>
@@ -47,6 +52,7 @@ export default async function AccountOrdersPage() {
                   >
                     {order.status}
                   </Badge>
+                  <Link href={routes.accountOrder(order.id)}>View order</Link>
                 </div>
               </div>
             </Card>
