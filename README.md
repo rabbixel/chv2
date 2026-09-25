@@ -77,7 +77,7 @@ npm run dev                  # http://localhost:3000
 ## Project structure
 
 ```
-app/                  layout, foundation page, not-found, error, globals.css
+app/                  layout, homepage, search + filters, not-found, error
 styles/tokens.css     design tokens (single source of truth)
 components/
   ui/                 Button, IconButton, Icon, Input, Badge, Card, Spinner,
@@ -102,7 +102,7 @@ lib/
   taxonomy.ts         product groups/subcategories — single source of truth
   cache.ts            ISR revalidation windows + cache tags
   design-tokens.ts    TS mirror of breakpoints/containers
-data/                 mock licences, taxonomy categories, collections, 52-product seed
+data/                 mock licences, taxonomy categories, collections, 53-product seed
 public/               favicon, robots.txt
 ```
 
@@ -129,6 +129,6 @@ storage credentials are backend-only and must never be added here.
 - Homepage (Run 03 — hero, discovery, Hatti's Choice, characters, packs, collections)
 - Category / product-listing pages with filters + sorting
 - Product detail pages (licence picker, gallery)
-- Search results page (facets, URL-synced state)
+- Search results page (Run 05 — facets, URL-synced filters, sort)
 - Cart drawer + cart page, checkout (Razorpay via backend), account area
 - Real API integration, CDN imagery, auth, sitemaps/SEO pass

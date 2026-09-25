@@ -1,3 +1,4 @@
+import { collections } from "@/data/collections";
 import { products } from "@/data/products";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
@@ -16,10 +17,32 @@ export interface SearchService {
   searchProducts(params: SearchParams): Promise<SearchResult<Product>>;
 }
 
+/**
+ * Keyword-oriented matching like the live Creative Hatti search: every query
+ * token must appear somewhere in the title, keywords, tags, categories,
+ * product group or file types. An empty query matches the whole catalogue
+ * (browse mode).
+ */
 function matchesQuery(product: Product, query: string): boolean {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
   const haystack =
-    `${product.title} ${product.tags.join(" ")} ${product.categorySlugs.join(" ")} ${product.fileTypes.join(" ")}`.toLowerCase();
-  return query
+    `${product.title} ${product.keywords.join(" ")} ${product.tags.join(" ")} ${product.categorySlugs.join(" ")} ${product.productGroup} ${product.fileTypes.join(" ")}`.toLowerCase();
+  if (tokens.every((token) => haystack.includes(token))) return true;
+  // Collection-aware: a query naming a collection ("diwali", "logo
+  // templates") also matches every product in that collection.
+  return collections.some((collection) => {
+    const title = collection.title.toLowerCase();
+    const queryText = query.toLowerCase().trim();
+    if (!title.includes(queryText) && !queryText.includes(title)) return false;
+    return matchesCollectionQuery(product, collection.query);
+  });
+}
+
+function matchesCollectionQuery(product: Product, collectionQuery: string): boolean {
+  const haystack =
+    `${product.title} ${product.keywords.join(" ")} ${product.tags.join(" ")} ${product.categorySlugs.join(" ")}`.toLowerCase();
+  return collectionQuery
     .toLowerCase()
     .split(/\s+/)
     .filter(Boolean)
@@ -30,7 +53,16 @@ function applyFilters(
   items: Product[],
   filters: SearchFilters = {},
 ): Product[] {
+  const collection = filters.collection
+    ? collections.find((entry) => entry.slug === filters.collection)
+    : undefined;
   return items.filter((product) => {
+    if (
+      filters.groups?.length &&
+      !filters.groups.includes(product.productGroup)
+    ) {
+      return false;
+    }
     if (
       filters.categorySlugs?.length &&
       !filters.categorySlugs.some((slug) => product.categorySlugs.includes(slug))
@@ -49,6 +81,8 @@ function applyFilters(
     ) {
       return false;
     }
+    if (filters.availability === "free" && !product.isFree) return false;
+    if (filters.availability === "paid" && product.isFree) return false;
     if (
       filters.ratingMin !== undefined &&
       product.ratingAverage < filters.ratingMin
@@ -58,6 +92,22 @@ function applyFilters(
     if (
       filters.fileTypes?.length &&
       !filters.fileTypes.some((type) => product.fileTypes.includes(type))
+    ) {
+      return false;
+    }
+    if (filters.compatibleWith?.length) {
+      const apps = product.compatibleWith.map((entry) => entry.toLowerCase());
+      if (
+        !filters.compatibleWith.some((app) =>
+          apps.some((entry) => entry.includes(app.toLowerCase())),
+        )
+      ) {
+        return false;
+      }
+    }
+    if (
+      collection &&
+      !matchesCollectionQuery(product, collection.query)
     ) {
       return false;
     }
@@ -77,10 +127,16 @@ function sortResults(items: Product[], sort: SearchSortKey): Product[] {
   switch (sort) {
     case "newest":
       return sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    case "oldest":
+      return sorted.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     case "price-asc":
       return sorted.sort((a, b) => a.price.amount - b.price.amount);
     case "price-desc":
       return sorted.sort((a, b) => b.price.amount - a.price.amount);
+    case "title-asc":
+      return sorted.sort((a, b) => a.title.localeCompare(b.title));
+    case "title-desc":
+      return sorted.sort((a, b) => b.title.localeCompare(a.title));
     case "rating":
       return sorted.sort((a, b) => b.ratingAverage - a.ratingAverage);
     case "best-selling":
@@ -102,7 +158,7 @@ function buildFacets(items: Product[]): SearchFacet[] {
     }
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 12)
+      .slice(0, 16)
       .map(([value, count]) => ({
         value,
         label: value,
@@ -110,7 +166,11 @@ function buildFacets(items: Product[]): SearchFacet[] {
       }));
   };
   return [
-    { key: "category", label: "Category", values: countBy((p) => p.categorySlugs) },
+    {
+      key: "category",
+      label: "Category",
+      values: countBy((p) => p.categorySlugs),
+    },
     { key: "fileType", label: "File type", values: countBy((p) => p.fileTypes) },
   ];
 }
@@ -147,12 +207,21 @@ class MockSearchService implements SearchService {
 class ApiSearchService implements SearchService {
   searchProducts(params: SearchParams): Promise<SearchResult<Product>> {
     const { page, pageSize } = normalizePaginationParams(params);
+    const filters = params.filters ?? {};
     return apiFetch<SearchResult<Product>>(apiEndpoints.search, {
       searchParams: {
         q: params.query,
         page,
         pageSize,
         sort: params.sort,
+        group: filters.groups?.join(","),
+        cat: filters.categorySlugs?.join(","),
+        min: filters.priceMin !== undefined ? filters.priceMin / 100 : undefined,
+        max: filters.priceMax !== undefined ? filters.priceMax / 100 : undefined,
+        avail: filters.availability,
+        file: filters.fileTypes?.join(","),
+        app: filters.compatibleWith?.join(","),
+        collection: filters.collection,
       },
       revalidate: REVALIDATE_SECONDS.search,
       tags: [cacheTags.search],

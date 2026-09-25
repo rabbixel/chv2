@@ -12,8 +12,11 @@ import { normalizePaginationParams, paginateItems } from "@/lib/utils";
 
 export type ProductSortKey =
   | "newest"
+  | "oldest"
   | "price-asc"
   | "price-desc"
+  | "title-asc"
+  | "title-desc"
   | "rating"
   | "best-selling";
 
@@ -37,8 +40,11 @@ export interface ProductService {
 
 const SORT_FNS: Record<ProductSortKey, (a: Product, b: Product) => number> = {
   newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+  oldest: (a, b) => a.createdAt.localeCompare(b.createdAt),
   "price-asc": (a, b) => a.price.amount - b.price.amount,
   "price-desc": (a, b) => b.price.amount - a.price.amount,
+  "title-asc": (a, b) => a.title.localeCompare(b.title),
+  "title-desc": (a, b) => b.title.localeCompare(a.title),
   rating: (a, b) =>
     b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount,
   "best-selling": (a, b) => b.salesCount - a.salesCount,

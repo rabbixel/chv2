@@ -10,7 +10,7 @@ import type { Category } from "@/lib/types";
 
 const MOCK_COUNTS: Record<string, number> = {
   // Groups
-  "vector-creatives": 34,
+  "vector-creatives": 35,
   "character-bundle": 16,
   freebies: 2,
   // Vector Creatives subcategories

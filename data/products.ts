@@ -85,6 +85,7 @@ const SEED: SeedRow[] = [
   ["grand-diwali-collection", "Grand Diwali Vector Collection", "vector-creatives", null, "vector", 999, 1299, 4.9, 2310, 15420, ["featured", "bestseller"], ["AI", "EPS", "PNG"], ["diwali", "festival", "diya", "lights", "bundle"]],
   ["eid-mubarak-cards", "Eid Mubarak Greeting Cards", "vector-creatives", null, "vector", 499, null, 4.8, 445, 3210, [], ["PSD", "AI"], ["eid", "eid-mubarak", "cards", "festival"]],
   ["independence-day-kit", "Independence Day Tricolour Kit", "vector-creatives", null, "vector", 549, null, 4.8, 567, 4120, [], ["AI", "PNG"], ["independence-day", "tricolour", "patriotic", "festival"]],
+  ["republic-day-bundle", "Republic Day Patriotic Bundle", "vector-creatives", null, "bundle", 799, null, 4.9, 1543, 11230, ["featured", "bestseller"], ["AI", "PSD", "PNG"], ["republic-day", "patriotic", "tricolour", "bundle", "banner"]],
   ["dussehra-ramleela-pack", "Dussehra Ramleela Scene Pack", "vector-creatives", null, "vector", 649, null, 4.8, 298, 2140, ["isNew"], ["AI", "EPS"], ["dussehra", "ramleela", "ravana", "mythology", "festival"]],
   ["ganesh-chaturthi-clipart", "Ganesh Chaturthi Clipart Set", "vector-creatives", null, "vector", 749, null, 4.9, 1102, 7860, ["featured", "bestseller"], ["AI", "PNG"], ["ganesh-chaturthi", "ganesh", "ganpati", "mythology", "festival", "clipart"]],
   ["karva-chauth-kit", "Karva Chauth Celebration Kit", "vector-creatives", null, "vector", 449, null, 4.7, 234, 1780, [], ["PSD", "PNG"], ["karva-chauth", "festival", "cards"]],
