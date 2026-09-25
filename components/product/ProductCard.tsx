@@ -24,6 +24,11 @@ export interface ProductCardProps {
   product: Product;
   /** Initial wishlist state (resolved by the listing page later). */
   wishlisted?: boolean;
+  /**
+   * Card title level. Listing pages (cards directly under the h1)
+   * pass "h2"; cards inside h2 sections keep the default "h3".
+   */
+  titleAs?: "h2" | "h3";
 }
 
 function PlaceholderArt({ product }: { product: Product }) {
@@ -40,7 +45,12 @@ function PlaceholderArt({ product }: { product: Product }) {
   );
 }
 
-export function ProductCard({ product, wishlisted = false }: ProductCardProps) {
+export function ProductCard({
+  product,
+  wishlisted = false,
+  titleAs = "h3",
+}: ProductCardProps) {
+  const Title = titleAs;
   const href = routes.product(product.slug);
   const percent = discountPercent(product.compareAtPrice, product.price);
   const cover = product.images[0];
@@ -106,11 +116,17 @@ export function ProductCard({ product, wishlisted = false }: ProductCardProps) {
       </div>
       <div className={styles.body}>
         <p className={styles.kicker}>{kicker}</p>
-        <h3 className={styles.title}>
+        <Title className={styles.title}>
           <Link href={href} className={styles.titleLink}>
             {product.title}
           </Link>
-        </h3>
+        </Title>
+        {(product.bestseller || product.isNew) && (
+          <span className="ch-visually-hidden">
+            {product.bestseller ? "Bestseller. " : ""}
+            {product.isNew ? "New arrival." : ""}
+          </span>
+        )}
         <p className={styles.meta}>
           <span
             className={styles.rating}

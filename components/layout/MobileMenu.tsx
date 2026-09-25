@@ -156,7 +156,7 @@ export function MobileMenu({
                   </li>
                   <li>
                     <Link
-                      href={routes.wishlist()}
+                      href={routes.accountWishlist()}
                       className={styles.shortcut}
                       onClick={close}
                     >

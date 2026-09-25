@@ -59,6 +59,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
             ]}
           />
           <EmptyState
+            headingLevel="h1"
             title="Your cart is empty"
             description="Add a download or two before checking out."
             action={<Button href={routes.search()}>Browse products</Button>}

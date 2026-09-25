@@ -124,7 +124,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 collections={collections}
               />
             ) : (
-              <ProductGrid
+              <ProductGrid cardTitleAs="h2"
                 products={items}
                 pagination={{
                   page: pagination.page,

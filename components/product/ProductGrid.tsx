@@ -24,6 +24,8 @@ export interface ProductGridProps {
   totalItems?: number;
   pagination?: ProductGridPagination | null;
   empty?: ProductGridEmpty;
+  /** Card title level for the heading hierarchy of the host page. */
+  cardTitleAs?: "h2" | "h3";
 }
 
 const DEFAULT_EMPTY: ProductGridEmpty = {
@@ -37,6 +39,7 @@ export function ProductGrid({
   totalItems,
   pagination = null,
   empty = DEFAULT_EMPTY,
+  cardTitleAs,
 }: ProductGridProps) {
   return (
     <div className={cn(styles.wrapper, className)}>
@@ -55,7 +58,7 @@ export function ProductGrid({
         <ul className={styles.grid}>
           {products.map((product) => (
             <li key={product.id} className={styles.cell}>
-              <ProductCard product={product} />
+              <ProductCard product={product} titleAs={cardTitleAs} />
             </li>
           ))}
         </ul>

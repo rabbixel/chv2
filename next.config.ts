@@ -46,6 +46,24 @@ const nextConfig: NextConfig = {
         destination: "/product/:slug",
         permanent: true,
       },
+      // Bare plural prefixes: the catalogue browse surface is /search
+      // and category discovery lives on the homepage.
+      {
+        source: "/products",
+        destination: "/search",
+        permanent: true,
+      },
+      {
+        source: "/categories",
+        destination: "/",
+        permanent: true,
+      },
+      // The wishlist is account-scoped; guests bounce to login.
+      {
+        source: "/wishlist",
+        destination: "/account/wishlist",
+        permanent: false,
+      },
     ];
   },
 };

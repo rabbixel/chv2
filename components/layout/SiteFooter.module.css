@@ -56,7 +56,7 @@
 }
 
 .list a:hover {
-  color: #fff;
+  color: var(--ch-color-text-inverse);
 }
 
 .bottom {

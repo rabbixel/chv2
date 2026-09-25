@@ -40,6 +40,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
             items={[{ label: "Home", href: "/" }, { label: "Cart" }]}
           />
           <EmptyState
+            headingLevel="h1"
             title="Your cart is empty"
             description="Every download is instant — find your next Indian vector, character or template."
             action={<Button href={routes.search()}>Browse products</Button>}

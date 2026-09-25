@@ -23,7 +23,6 @@ export const routes = {
   checkoutPay: (orderId: string) => `/checkout/pay/${orderId}`,
   checkoutSuccess: (orderId: string) => `/checkout/success/${orderId}`,
   checkoutFailed: (orderId: string) => `/checkout/failed/${orderId}`,
-  wishlist: () => "/wishlist",
   account: () => "/account",
   accountProfile: () => "/account/profile",
   accountOrders: () => "/account/orders",

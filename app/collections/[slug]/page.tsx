@@ -158,7 +158,7 @@ export default async function CollectionPage({
                 collections={collections}
               />
             ) : (
-              <ProductGrid
+              <ProductGrid cardTitleAs="h2"
                 products={items}
                 pagination={{
                   page: pagination.page,

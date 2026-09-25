@@ -11,6 +11,7 @@
 }
 
 .item {
+  display: flex;
   min-width: 0;
   max-width: 100%;
 }
@@ -25,6 +26,7 @@
 }
 
 .current {
+  min-width: 0;
   color: var(--ch-color-text);
   font-weight: var(--ch-weight-medium);
   overflow: hidden;

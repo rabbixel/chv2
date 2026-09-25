@@ -70,12 +70,12 @@
 
 .variant-danger {
   background-color: var(--ch-color-danger);
-  color: #fff;
+  color: var(--ch-color-text-inverse);
 }
 
 .variant-danger:hover {
-  background-color: #8f1d17;
-  color: #fff;
+  background-color: var(--ch-color-danger-strong);
+  color: var(--ch-color-text-inverse);
 }
 
 /* Sizes */

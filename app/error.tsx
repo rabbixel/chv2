@@ -16,6 +16,7 @@ export default function StorefrontError({ reset }: StorefrontErrorProps) {
     <Container size="narrow">
       <div className="ch-section">
         <EmptyState
+          headingLevel="h1"
           title="Something went wrong on our side"
           description="Give it another moment — your cart and downloads are safe."
           action={

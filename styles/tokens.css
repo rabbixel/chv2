@@ -52,7 +52,9 @@
 
   --ch-color-text: var(--ch-neutral-950);
   --ch-color-text-muted: var(--ch-neutral-700);
-  --ch-color-text-faint: var(--ch-neutral-500);
+  /* Faint stays at neutral-600 (not 500): the lightest warm gray that
+     still clears 4.5:1 for small secondary text on canvas and white. */
+  --ch-color-text-faint: var(--ch-neutral-600);
   --ch-color-text-inverse: var(--ch-neutral-50);
 
   --ch-color-border: var(--ch-neutral-200);
@@ -67,6 +69,7 @@
   --ch-color-ink-hover: var(--ch-neutral-800);
 
   --ch-color-danger: #b3261e;
+  --ch-color-danger-strong: #8f1d17;
   --ch-color-danger-soft: #f9e9e7;
   --ch-color-danger-border: #efc2be;
 

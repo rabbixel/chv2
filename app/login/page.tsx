@@ -50,6 +50,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     param(query, "notice") ??
     (param(query, "reset") === "success"
       ? "Password updated — please log in with your new password."
+      : null) ??
+    (requestedNext && requestedNext !== routes.account()
+      ? "Please log in to continue to that page."
       : null);
 
   return (

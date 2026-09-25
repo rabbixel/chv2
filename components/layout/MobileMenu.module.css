@@ -137,7 +137,7 @@
   justify-content: center;
   font-size: var(--ch-text-xs);
   font-weight: var(--ch-weight-bold);
-  color: #fff;
+  color: var(--ch-color-text-inverse);
   background-color: var(--ch-color-brand);
   border-radius: var(--ch-radius-full);
 }

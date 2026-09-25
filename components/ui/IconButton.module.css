@@ -49,7 +49,7 @@
   font-size: 0.6875rem;
   font-weight: var(--ch-weight-bold);
   line-height: 1;
-  color: #fff;
+  color: var(--ch-color-text-inverse);
   background-color: var(--ch-color-brand);
   border-radius: var(--ch-radius-full);
 }

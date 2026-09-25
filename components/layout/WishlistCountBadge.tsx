@@ -25,7 +25,7 @@ function LiveBadge() {
   return (
     <IconButton
       label="Wishlist"
-      href={routes.wishlist()}
+      href={routes.accountWishlist()}
       badge={count}
     >
       <Icon name="heart" />

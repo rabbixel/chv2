@@ -7,8 +7,9 @@ export default function NotFound() {
     <Container size="narrow">
       <div className="ch-section">
         <EmptyState
-          title="This page doesn’t exist (yet)"
-          description="The link may be from a future run of the rebuild. Head home and keep exploring."
+          headingLevel="h1"
+          title="This page doesn’t exist"
+          description="It may have moved, or the link may be incomplete. Head home and keep exploring."
           action={<Button href={routes.home()}>Back to home</Button>}
         />
       </div>

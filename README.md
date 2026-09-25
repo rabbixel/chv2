@@ -4,9 +4,11 @@ Clean Next.js rebuild of the Creative Hatti frontend — a digital creative
 asset marketplace with 44,000+ products. This project will eventually replace
 the WordPress + Mayosis + Easy Digital Downloads frontend.
 
-> **Run 01 — Foundation, Architecture & Design System.** Base layout, design
-> tokens, reusable components, domain types and a mock service layer. No real
-> homepage, backend, payments or storage yet — all by design.
+> **Status: frontend complete through Run 12 (production polish + QA).**
+> Storefront, search, listings, product, cart, checkout, auth and the full
+> account area run against the mock service layer. No real backend, payments
+> or storage yet — connecting those is the next stage, and every seam for
+> it is already in place (see `lib/services`, `lib/api`, `.env.example`).
 
 ## Stack
 
@@ -188,6 +190,24 @@ npm run dev                  # http://localhost:3000
   referrer/permission policies); secrets scan clean — Razorpay/AWS
   credentials remain backend-only by design.
 
+### Final QA + polish (Run 12)
+
+- Every route probed (home, search, category, collection, product,
+  cart, checkout + pay/success/failed, login, register, recovery,
+  account + profile/orders/downloads/wishlist/licenses/settings,
+  404): correct statuses, exactly one `h1`, no skipped heading
+  levels, every image/label/button/link named for assistive tech.
+- Contrast audited pair-by-pair — `text-faint` now clears 4.5:1;
+  responsive audit (320px → 1920px) found zero fixed-width overflow
+  risks; drawers/lightbox are viewport-capped; dialogs trap focus
+  with Escape + focus restoration; breadcrumb ellipsis fixed.
+- Dead `/wishlist` helper removed (header/footer/menu now link the
+  real `/account/wishlist`); bare `/categories` → `/`, `/products`
+  → `/search` redirects added; login explains guarded bounces;
+  404 copy de-jargonised; OG price uses shared `formatMoney`.
+- No new dependencies, no architectural changes, no console output
+  or TODOs in shipped code; lint + `tsc` clean.
+
 ## Project structure
 
 ```
@@ -224,7 +244,7 @@ lib/
   cache.ts            ISR revalidation windows + cache tags
   design-tokens.ts    TS mirror of breakpoints/containers
 data/                 mock licences, taxonomy categories, collections, 53-product seed
-public/               favicon, robots.txt
+public/               favicon (robots + sitemaps are dynamic routes)
 ```
 
 ## Design system
@@ -249,14 +269,47 @@ test payment sandbox. Real payments need the backend plus
 Payment and storage credentials are backend-only and must never be added
 here.
 
-## Roadmap (upcoming runs)
+## Key architectural decisions
 
-- Homepage (Run 03 — hero, discovery, Hatti's Choice, characters, packs, collections)
-- Category + collection listing pages (Run 06 — shared filter/sort/pagination)
-- Product detail pages (Run 07 — gallery, licence picker, product information)
-- Search results page (Run 05 — facets, URL-synced filters, sort)
-- Cart page + checkout (Run 08 — session cart, coupons, Razorpay-ready)
-- Auth + account foundation (Run 09 — session login, recovery, guarded shell)
-- Dashboard + digital library (Run 10 — orders, downloads, wishlist, licenses)
-- Cart drawer, wishlist heart sync on listings, real download fulfilment
-- Real API integration, CDN imagery, sitemaps/SEO pass
+- **Service layer seam.** UI never fetches directly: every read/write
+  goes through typed services in `lib/services` with mock and API
+  implementations behind `getXService()` accessors. Flipping
+  `USE_MOCK_API=false` swaps data sources without touching a page.
+- **Money in minor units.** All prices are `{ amount, currency }` in
+  paise, rendered only via `formatMoney` — no float math, no ad-hoc
+  `₹` strings outside static filter labels.
+- **Cookie sessions, guarded server-side.** Auth/cart/wishlist state
+  lives in HTTP-only session cookies; `requireUser()` protects
+  account routes and every mutation re-checks on the server. The
+  non-HTTP-only `ch_auth_state` / `ch_wishlist_count` / cart-count
+  mirrors exist only so the static shell can hydrate badges.
+- **Render only what's needed.** Static home, SSG + ISR for the 25
+  merchandised products, on-demand ISR for the rest of the 44k+
+  catalogue, dynamic URL-driven listings — never a full pre-render.
+- **`notFound()` over skeletons.** Product/category/collection pages
+  deliberately ship no `loading.tsx`: a Suspense fallback would
+  swallow `notFound()` and serve HTTP 200 forever
+  (vercel/next.js#98954). Search (which can't 404) has the skeleton.
+- **Secrets stay backend.** Razorpay/AWS credentials are not modelled
+  anywhere in this repo — payments verify and downloads sign
+  server-side; the frontend only ever holds publishable keys.
+- **Placeholder routes are explicit.** `lib/routes.ts` documents
+  which paths (marketing/legal/discovery) intentionally render the
+  branded 404 until that content exists — no silent dead ends.
+
+## Project status
+
+Shipped (Runs 01–12): foundation + design system, homepage,
+taxonomy, search, category/collection listings, product pages,
+session cart + Razorpay-ready checkout, auth + guarded account
+shell, dashboard/downloads/wishlist/licenses, SEO + chunked
+sitemaps + ISR strategy, final accessibility/responsive QA.
+
+Next stage — connecting the real backend/data:
+
+- Point `USE_MOCK_API=false` at the catalogue API; land CDN imagery
+  (the `ProductImage` wrapper + `remotePatterns` are ready).
+- Real auth sessions, account migration + activation from the
+  classic store, backend-verified Razorpay capture.
+- Signed short-lived download URLs via `requestDownloadUrl()`.
+- Marketing/legal content pages, cart drawer, listing wishlist sync.

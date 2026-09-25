@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { SITE } from "@/lib/constants";
 import { getProductService } from "@/lib/services";
 import { categoryDisplayName } from "@/lib/taxonomy";
+import { formatMoney } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -26,11 +27,7 @@ export default async function ProductOpenGraphImage({
         product.categorySlugs[0] ?? product.productGroup,
       )
     : "";
-  const price = product
-    ? product.isFree
-      ? "Free"
-      : `₹${(product.price.amount / 100).toLocaleString("en-IN")}`
-    : "";
+  const price = product ? (product.isFree ? "Free" : formatMoney(product.price)) : "";
 
   return new ImageResponse(
     (
