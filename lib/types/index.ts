@@ -6,6 +6,7 @@ export type * from "./license";
 export type * from "./category";
 export type * from "./product";
 export type * from "./customer";
+export type * from "./auth";
 export type * from "./cart";
 export type * from "./order";
 export type * from "./download";

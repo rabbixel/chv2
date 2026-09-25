@@ -30,7 +30,7 @@ const SECTIONS: FooterSection[] = [
   {
     heading: "Account",
     links: [
-      { label: "Login", href: routes.signIn() },
+      { label: "Login", href: routes.login() },
       { label: "Orders", href: routes.accountOrders() },
       { label: "Downloads", href: routes.accountDownloads() },
       { label: "Wishlist", href: routes.wishlist() },

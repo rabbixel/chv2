@@ -39,4 +39,12 @@ export const apiEndpoints = {
   customer: {
     me: "/v1/me",
   },
+  auth: {
+    login: "/v1/auth/login",
+    register: "/v1/auth/register",
+    logout: "/v1/auth/logout",
+    forgotPassword: "/v1/auth/forgot-password",
+    resetPassword: "/v1/auth/reset-password",
+    resendActivation: "/v1/auth/resend-activation",
+  },
 } as const;

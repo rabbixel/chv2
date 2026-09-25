@@ -2,6 +2,8 @@
  * Service layer barrel. Pages and components import service accessors from
  * `@/lib/services` — never from `@/data` or `@/lib/api` directly.
  */
+export { AuthError, getAuthService, toAuthError } from "./authService";
+export type { AuthService } from "./authService";
 export { getCartService } from "./cartService";
 export type { CartService } from "./cartService";
 export { getCategoryService } from "./categoryService";

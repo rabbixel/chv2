@@ -1,16 +1,17 @@
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import type { Customer } from "@/lib/types";
+import { getAuthService } from "./authService";
 
 export interface CustomerService {
   /** Currently signed-in customer, or `null` when signed out. */
   getCurrentCustomer(): Promise<Customer | null>;
 }
 
-/** Mock session: always signed out. Auth arrives in a later run. */
+/** Mock session: delegates to the auth service session cookie. */
 class MockCustomerService implements CustomerService {
   async getCurrentCustomer(): Promise<Customer | null> {
-    return null;
+    return getAuthService().getCurrentUser();
   }
 }
 

@@ -1,0 +1,51 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-4);
+  margin-top: var(--ch-space-5);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-4);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ch-space-3);
+  font-size: var(--ch-text-sm);
+}
+
+.remember {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ch-space-2);
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--ch-brand-600);
+}
+
+.forgot {
+  white-space: nowrap;
+}
+
+.resend {
+  margin-top: var(--ch-space-5);
+  padding-top: var(--ch-space-4);
+  border-top: 1px solid var(--ch-color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-3);
+}
+
+.resendText {
+  font-size: var(--ch-text-sm);
+  color: var(--ch-color-text-muted);
+}

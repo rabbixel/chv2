@@ -5,6 +5,7 @@ import { popularSearches } from "@/lib/navigation";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import {
+  getAuthService,
   getCartService,
   getCategoryService,
   getWishlistService,
@@ -38,10 +39,11 @@ function Wordmark() {
 }
 
 export async function SiteHeader() {
-  const [categories, cart, wishlist] = await Promise.all([
+  const [categories, cart, wishlist, user] = await Promise.all([
     getCategoryService().listCategories(),
     getCartService().getCart(),
     getWishlistService().getWishlist(),
+    getAuthService().getCurrentUser(),
   ]);
   const navCategories = categories.map((category) => ({
     name: category.name,
@@ -84,9 +86,15 @@ export async function SiteHeader() {
             >
               <Icon name="heart" />
             </IconButton>
-            <IconButton label="Sign in" href={routes.signIn()}>
-              <Icon name="user" />
-            </IconButton>
+            {user ? (
+              <IconButton label="Account" href={routes.account()}>
+                <Icon name="user" />
+              </IconButton>
+            ) : (
+              <IconButton label="Sign in" href={routes.login()}>
+                <Icon name="user" />
+              </IconButton>
+            )}
             <CartCountBadge initialCount={cart.itemCount} />
           </nav>
         </div>

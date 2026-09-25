@@ -76,6 +76,10 @@ npm run dev                  # http://localhost:3000
 5. **Client components mutate through server actions** (`app/*/actions.ts`),
    which call services — never import services or `@/data` from client code.
    Session state (cart) syncs to the UI via cookies + `revalidatePath`.
+6. **Auth lives in the service layer, enforced on the server.** Components
+   never hold auth logic; `requireUser()` (`lib/auth.ts`) redirects
+   signed-out visitors from `/account/*` layouts. The session is an
+   httpOnly cookie — nav hiding is UX only, never security.
 
 ### Category + collection listings (Run 06)
 
@@ -114,11 +118,30 @@ npm run dev                  # http://localhost:3000
   Mock mode drives states through an explicitly labelled test sandbox;
   nothing fakes a real payment.
 
+### Auth + account (Run 09)
+
+- `/login` (remember-me, forgot/register links), `/register`, `/forgot-password`
+  (generic success state) and `/reset-password` (opaque token, expiry + invalid
+  states). All noindex; signed-in visitors bounce to their destination.
+- `AuthService` (`login`/`register`/`logout`/`getCurrentUser`/
+  `forgotPassword`/`resetPassword` + activation resend) with a cookie-session
+  mock and typed `/v1/auth/*` API stubs. Classic-store (WordPress/EDD) emails
+  are never password-guessed: the mock returns a `legacy-account` code that
+  routes them to password reset, and pending accounts to activation resend.
+- `/account/*` shell (dashboard, profile, orders, downloads, wishlist,
+  licenses, settings, logout) guarded by the account layout via
+  `requireUser()` — server-side redirects, with `?next=` validated against
+  open redirects. Orders/downloads/wishlist shell pages read the existing
+  mock services; licences note they arrive with purchase history.
+- Mock demo: `demo@creativehatti.com` / `demo1234` (active),
+  `pending@creativehatti.com` / `demo1234` (activation),
+  `legacy@creativehatti.com` (classic-store reset path).
+
 ## Project structure
 
 ```
 app/                  layout, homepage, search, category + collection listings,
-                      product + cart + checkout pages
+                      product + cart + checkout pages, auth + account pages
 styles/tokens.css     design tokens (single source of truth)
 components/
   ui/                 Button, IconButton, Icon, Input, Badge, Card, Spinner,
@@ -129,15 +152,18 @@ components/
   search/             SearchBar
   cart/               CartItemRow, CartSummary, CartLicenseSelect
   checkout/           SubmitButton, RazorpayButton
-  account/            AccountMenu
+  auth/               AuthCard (shared login/register/recovery shell)
+  account/            AccountMenu, AccountSidebar
 lib/
-  types/              Product, Category, ProductImage, Customer, Cart, CartItem,
+  types/              Product, Category, ProductImage, Customer, AuthUser,
+                      AuthErrorCode (+ inputs), Cart, CartItem,
                       Order, OrderItem, Download, WishlistItem, License,
                       SearchResult, Pagination (+ common primitives)
   services/           interfaces + mock/API implementations + accessors
   api/                typed client (ApiError, apiFetch) + endpoint builders
   payments/           Razorpay checkout.js client (publishable key only)
   utils/              cn, format (INR/dates/files), pagination helpers
+  auth.ts             requireUser() guard + safe ?next= validation
   constants.ts        site + pagination defaults (env-aware, browser-safe)
   routes.ts           storefront URL builders (incl. placeholder routes)
   navigation.ts       popular searches + nav config (API-owned in future)
@@ -178,5 +204,6 @@ here.
 - Product detail pages (Run 07 — gallery, licence picker, product information)
 - Search results page (Run 05 — facets, URL-synced filters, sort)
 - Cart page + checkout (Run 08 — session cart, coupons, Razorpay-ready)
-- Cart drawer, account area
-- Real API integration, CDN imagery, auth, sitemaps/SEO pass
+- Auth + account foundation (Run 09 — session login, recovery, guarded shell)
+- Cart drawer, wishlist sync, download fulfilment
+- Real API integration, CDN imagery, sitemaps/SEO pass

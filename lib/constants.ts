@@ -37,6 +37,8 @@ function readEnvInt(
 export const CART_COOKIE = "ch_cart";
 /** Non-httpOnly mirror of the item count so the header badge stays live. */
 export const CART_COUNT_COOKIE = "ch_cart_count";
+/** HttpOnly session id for the signed-in customer (mock + backend). */
+export const AUTH_SESSION_COOKIE = "ch_session";
 
 /**
  * Window event fired after same-page cart mutations (product-page
