@@ -8,11 +8,14 @@ export type IconName =
   | "menu"
   | "close"
   | "chevron-down"
+  | "chevron-left"
   | "chevron-right"
   | "home"
   | "arrow-right"
   | "clock"
-  | "trend";
+  | "trend"
+  | "check"
+  | "expand";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   search: (
@@ -39,6 +42,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
   "chevron-down": <path d="M6 9l6 6 6-6" />,
+  "chevron-left": <path d="M15 6l-6 6 6 6" />,
   "chevron-right": <path d="M9 6l6 6-6 6" />,
   home: (
     <>
@@ -62,6 +66,15 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <path d="M3 17l6-6 4 4 8-8" />
       <path d="M14 7h7v7" />
+    </>
+  ),
+  check: <path d="M5 13l4 4L19 7" />,
+  expand: (
+    <>
+      <path d="M9 4H4v5" />
+      <path d="M15 4h5v5" />
+      <path d="M9 20H4v-5" />
+      <path d="M15 20h5v-5" />
     </>
   ),
 };

@@ -31,6 +31,7 @@ export interface ProductListParams extends PaginationParams {
 export interface ProductService {
   listProducts(params?: ProductListParams): Promise<Paginated<Product>>;
   getProductBySlug(slug: Slug): Promise<Product | null>;
+  listRelatedProducts(slug: Slug, limit?: number): Promise<Product[]>;
   listFeaturedProducts(limit?: number): Promise<Product[]>;
   listBestsellers(limit?: number): Promise<Product[]>;
   listNewArrivals(limit?: number): Promise<Product[]>;
@@ -82,6 +83,31 @@ class MockProductService implements ProductService {
     return products.find((product) => product.slug === slug) ?? null;
   }
 
+  async listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
+    const current = products.find((product) => product.slug === slug);
+    if (!current) return [];
+    const others = products.filter(
+      (product) => product.slug !== slug && product.status === "active",
+    );
+    const primary = current.categorySlugs[0] ?? current.productGroup;
+    const sameCategory = others.filter((product) =>
+      product.categorySlugs.includes(primary),
+    );
+    const sameGroup = others.filter(
+      (product) =>
+        !product.categorySlugs.includes(primary) &&
+        product.productGroup === current.productGroup,
+    );
+    const overlap = (product: Product): number =>
+      product.tags.filter((tag) => current.tags.includes(tag)).length;
+    const rest = others
+      .filter((product) => product.productGroup !== current.productGroup)
+      .sort(
+        (a, b) => overlap(b) - overlap(a) || b.salesCount - a.salesCount,
+      );
+    return [...sameCategory, ...sameGroup, ...rest].slice(0, limit);
+  }
+
   async listFeaturedProducts(limit = 8): Promise<Product[]> {
     return products.filter((product) => product.featured).slice(0, limit);
   }
@@ -131,6 +157,14 @@ class ApiProductService implements ProductService {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }
+  }
+
+  listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
+    return apiFetch<Product[]>(apiEndpoints.products.related(slug), {
+      searchParams: { limit },
+      revalidate: REVALIDATE_SECONDS.catalog,
+      tags: [cacheTags.product(slug)],
+    });
   }
 
   async listFeaturedProducts(limit = 8): Promise<Product[]> {

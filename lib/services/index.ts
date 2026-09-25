@@ -12,6 +12,8 @@ export { getCustomerService } from "./customerService";
 export type { CustomerService } from "./customerService";
 export { getDownloadService } from "./downloadService";
 export type { DownloadService } from "./downloadService";
+export { getLicenseService } from "./licenseService";
+export type { LicenseService } from "./licenseService";
 export { getOrderService } from "./orderService";
 export type { OrderService } from "./orderService";
 export {

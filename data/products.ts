@@ -4,6 +4,7 @@ import type {
   LicenseCode,
   Product,
   ProductGroupSlug,
+  ProductImage,
   ProductKind,
   Slug,
 } from "@/lib/types";
@@ -118,6 +119,30 @@ export function hueForSlug(slug: string): number {
   return hash;
 }
 
+/**
+ * Deterministic 2–4 view gallery until real CDN imagery exists. The cover
+ * keeps the product hue + monogram so cards are unchanged; extra views
+ * shift the hue so the gallery, thumbnails and lightbox have distinct art.
+ */
+function galleryImages(id: ID, slug: Slug, title: string): ProductImage[] {
+  const baseHue = hueForSlug(slug);
+  const monogram = title
+    .split(" ")
+    .slice(0, 2)
+    .map((word) => word.charAt(0))
+    .join("");
+  const views = 2 + (hueForSlug(`${slug}:gallery`) % 3);
+  return Array.from({ length: views }, (_, index) => ({
+    id: `${id}-img-${index + 1}`,
+    url: "",
+    alt: index === 0 ? title : `${title} — preview ${index + 1}`,
+    placeholder: {
+      hue: (baseHue + index * 24) % 360,
+      label: monogram,
+    },
+  }));
+}
+
 /** Deterministic ISO date N days before a fixed anchor (stable builds). */
 function daysAgo(days: number): ISODateString {
   const anchor = Date.UTC(2026, 8, 24, 6, 0, 0);
@@ -209,25 +234,11 @@ function toProduct(row: SeedRow, index: number): Product {
       "High-res JPG previews",
       "Help guide (PDF)",
     ],
-    // Deterministic 12–372 MB mock file size.
-    fileSizeBytes: (12 + hueForSlug(slug)) * 1_000_000,
+    // Deterministic 1–48 MB mock file size.
+    fileSizeBytes: (1 + (hueForSlug(`${slug}:size`) % 48)) * 1_000_000,
     compatibleWith: compatibleWith(fileTypes),
     documentationUrl: "/help",
-    images: [
-      {
-        id: `${id}-img-1`,
-        url: "",
-        alt: title,
-        placeholder: {
-          hue: hueForSlug(slug),
-          label: title
-            .split(" ")
-            .slice(0, 2)
-            .map((word) => word.charAt(0))
-            .join(""),
-        },
-      },
-    ],
+    images: galleryImages(id, slug, title),
     attributes: [
       { name: "Files included", value: fileTypes.join(", ") },
       { name: "Licence options", value: "Personal · Commercial · Extended" },

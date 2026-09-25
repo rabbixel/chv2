@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
         destination: "/category/:slug",
         permanent: true,
       },
+      // Product pages moved to the singular /product/[slug] (RUN 07);
+      // keep the old plural prefix working for shared links.
+      {
+        source: "/products/:slug",
+        destination: "/product/:slug",
+        permanent: true,
+      },
     ];
   },
 };

@@ -99,7 +99,8 @@ npm run dev                  # http://localhost:3000
 ## Project structure
 
 ```
-app/                  layout, homepage, search, category + collection listings
+app/                  layout, homepage, search, category + collection listings,
+                      product pages
 styles/tokens.css     design tokens (single source of truth)
 components/
   ui/                 Button, IconButton, Icon, Input, Badge, Card, Spinner,
@@ -150,7 +151,7 @@ storage credentials are backend-only and must never be added here.
 
 - Homepage (Run 03 — hero, discovery, Hatti's Choice, characters, packs, collections)
 - Category + collection listing pages (Run 06 — shared filter/sort/pagination)
-- Product detail pages (licence picker, gallery)
+- Product detail pages (Run 07 — gallery, licence picker, product information)
 - Search results page (Run 05 — facets, URL-synced filters, sort)
 - Cart drawer + cart page, checkout (Razorpay via backend), account area
 - Real API integration, CDN imagery, auth, sitemaps/SEO pass

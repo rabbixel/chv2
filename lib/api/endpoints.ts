@@ -21,6 +21,7 @@ export const apiEndpoints = {
     list: "/v1/collections",
     detail: (slug: string) => `/v1/collections/${encodeURIComponent(slug)}`,
   },
+  licenses: "/v1/licenses",
   cart: "/v1/cart",
   wishlist: "/v1/wishlist",
   checkout: "/v1/checkout",
