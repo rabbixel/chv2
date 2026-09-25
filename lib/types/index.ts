@@ -1,5 +1,6 @@
 /** Domain model barrel — import types from `@/lib/types`. */
 export type * from "./common";
+export type * from "./collection";
 export type * from "./pagination";
 export type * from "./license";
 export type * from "./category";

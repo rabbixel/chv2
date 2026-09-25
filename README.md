@@ -98,9 +98,10 @@ lib/
   constants.ts        site + pagination defaults (env-aware, browser-safe)
   routes.ts           storefront URL builders (incl. placeholder routes)
   navigation.ts       popular searches + nav config (API-owned in future)
+  homepage.ts         discovery tiles, character cats, keywords (Run 03)
   cache.ts            ISR revalidation windows + cache tags
   design-tokens.ts    TS mirror of breakpoints/containers
-data/                 mock licences, categories, 32-product seed catalogue
+data/                 mock licences, categories, collections, 43-product seed catalogue
 public/               favicon, robots.txt
 ```
 
@@ -124,7 +125,7 @@ storage credentials are backend-only and must never be added here.
 
 ## Roadmap (upcoming runs)
 
-- Homepage implementation (hero, rails, merchandising)
+- Homepage (Run 03 — hero, discovery, Hatti's Choice, characters, packs, collections)
 - Category / product-listing pages with filters + sorting
 - Product detail pages (licence picker, gallery)
 - Search results page (facets, URL-synced state)

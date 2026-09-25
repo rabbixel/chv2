@@ -30,10 +30,10 @@ function orderItem(productId: ID, license: OrderItem["license"]): OrderItem {
 }
 
 function mockOrders(): Order[] {
-  const firstItems = [orderItem("prod-004", "commercial")];
+  const firstItems = [orderItem("prod-republic-day-bundle", "commercial")];
   const secondItems = [
-    orderItem("prod-012", "personal"),
-    orderItem("prod-021", "personal"),
+    orderItem("prod-ramayana-gods-bundle", "personal"),
+    orderItem("prod-vintage-badge-logos", "personal"),
   ];
   const total = (items: OrderItem[]) =>
     items.reduce((sum, item) => sum + item.lineTotal.amount, 0);

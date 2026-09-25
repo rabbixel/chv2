@@ -61,8 +61,8 @@ function withTotals(cart: Cart): Cart {
 class MockCartService implements CartService {
   private sample(): Cart {
     const items = [
-      toItem("prod-004", "commercial"),
-      toItem("prod-012", "personal"),
+      toItem("prod-grand-diwali-collection", "commercial"),
+      toItem("prod-festive-instagram-kit", "personal"),
     ].filter((item): item is CartItem => item !== null);
     return withTotals({ ...EMPTY_CART, items });
   }

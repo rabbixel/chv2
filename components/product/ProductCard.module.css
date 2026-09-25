@@ -135,3 +135,10 @@
   font-size: var(--ch-text-sm);
   color: var(--ch-color-text-faint);
 }
+
+.free {
+  font-size: var(--ch-text-lg);
+  font-weight: var(--ch-weight-bold);
+  letter-spacing: var(--ch-tracking-tight);
+  color: var(--ch-color-brand);
+}

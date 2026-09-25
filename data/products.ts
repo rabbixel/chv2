@@ -7,19 +7,21 @@ import type {
 } from "@/lib/types";
 
 /**
- * Mock catalogue seed (32 products).
+ * Mock catalogue seed (43 products) with Creative Hatti's Indian creative
+ * identity: characters, festival creatives, desi vectors, bundles, banners,
+ * logos, templates and freebies.
  *
  * A compact tuple table keeps this file small while exercising every product
- * surface: pricing, sales, ratings, flags, file types and tags. The mock
- * services in `lib/services` read this module — in production the same
- * interfaces are backed by the real API, so components never change.
+ * surface: pricing (incl. freebies), sales, ratings, flags, file types and
+ * tags. The mock services in `lib/services` read this module — in production
+ * the same interfaces are backed by the real API, so components never change.
  */
 
 type SeedRow = [
   slug: Slug,
   title: string,
   categorySlug: Slug,
-  /** Base price in rupees (converted to paise). */
+  /** Base price in rupees (converted to paise). 0 = freebie. */
   priceInr: number,
   /** Compare-at price in rupees, or null. */
   compareAtInr: number | null,
@@ -32,38 +34,60 @@ type SeedRow = [
 ];
 
 const SEED: SeedRow[] = [
-  ["marigold-display-family", "Marigold Display Family", "fonts", 1299, null, 4.9, 842, 5210, ["bestseller"], ["OTF", "TTF", "WOFF"], ["display", "serif", "headlines"]],
-  ["jaipur-script-pro", "Jaipur Script Pro", "fonts", 899, 1299, 4.8, 1204, 8930, ["bestseller"], ["OTF", "WOFF"], ["script", "wedding", "invitations"]],
-  ["ledger-grotesk", "Ledger Grotesk — 9 Weights", "fonts", 1599, null, 4.7, 356, 1980, ["isNew"], ["OTF", "WOFF2"], ["sans", "grotesque", "ui"]],
-  ["diwali-pattern-pack", "Hand-Drawn Diwali Pattern Pack", "graphics", 499, 799, 4.9, 2310, 15420, ["featured", "bestseller"], ["AI", "EPS", "PNG"], ["diwali", "festive", "patterns"]],
-  ["botanical-line-florals", "Botanical Line Florals — 120 Motifs", "graphics", 649, null, 4.8, 987, 6420, [], ["AI", "EPS", "SVG"], ["floral", "line-art", "wedding"]],
-  ["mughal-arch-frames", "Mughal Arch Frames & Borders", "graphics", 549, null, 4.9, 764, 5120, ["featured"], ["AI", "PNG"], ["frames", "borders", "heritage"]],
-  ["devanagari-brush-set", "Devanagari Calligraphy Brush Set", "graphics", 549, null, 4.8, 289, 1870, ["isNew"], ["ABR", "PNG"], ["calligraphy", "brushes", "lettering"]],
-  ["folk-art-coloring-pages", "Indian Folk Art Colouring Pages", "graphics", 299, 399, 4.9, 732, 5210, [], ["PDF", "PNG"], ["kids", "colouring", "folk"]],
-  ["india-street-scenes", "India Street Scenes — 40 Illustrations", "illustrations", 999, null, 4.8, 432, 2310, ["isNew"], ["AI", "EPS", "PNG"], ["editorial", "travel", "scenes"]],
-  ["festival-character-pack", "Festival Character Pack", "illustrations", 749, 999, 4.7, 518, 3120, [], ["AI", "SVG", "PNG"], ["characters", "festive", "flat"]],
-  ["yoga-wellness-spots", "Yoga & Wellness Spot Illustrations", "illustrations", 599, null, 4.9, 891, 5870, ["bestseller"], ["AI", "SVG"], ["wellness", "yoga", "spot"]],
-  ["royal-wedding-suite", "Royal Wedding Invitation Suite", "templates", 899, null, 4.9, 1876, 12480, ["featured", "bestseller"], ["PSD", "AI"], ["wedding", "invitation", "stationery"]],
-  ["restaurant-menu-pack", "Restaurant Menu Template Pack", "templates", 449, null, 4.6, 234, 1420, [], ["PSD", "AI"], ["menu", "restaurant", "print"]],
-  ["minimal-portfolio-deck", "Minimal Portfolio Deck — 60 Slides", "templates", 699, 899, 4.7, 445, 2890, [], ["PPTX", "KEY"], ["slides", "portfolio", "deck"]],
-  ["executive-resume-templates", "Executive Resume Templates", "templates", 299, null, 4.6, 521, 4120, [], ["DOCX", "PSD"], ["resume", "cv", "career"]],
-  ["block-print-seamless", "Block Print Seamless Patterns", "patterns", 549, null, 4.9, 1120, 7840, ["featured"], ["AI", "PAT", "PNG"], ["seamless", "block-print", "textile"]],
-  ["raw-silk-textures", "Raw Silk Texture Bundle", "patterns", 799, null, 4.8, 367, 2140, ["isNew"], ["JPG"], ["silk", "fabric", "backgrounds"]],
-  ["film-grain-noise", "Film Grain & Noise Textures", "patterns", 399, null, 4.7, 445, 2980, [], ["JPG", "PNG"], ["grain", "overlay", "photography"]],
-  ["kraft-packaging-mockups", "Kraft Packaging Mockup Set", "mockups", 649, 849, 4.8, 623, 3980, [], ["PSD"], ["packaging", "kraft", "branding"]],
-  ["canvas-tote-mockups", "Canvas Tote Bag Mockups", "mockups", 399, null, 4.7, 289, 1730, [], ["PSD"], ["tote", "apparel", "merch"]],
-  ["essentials-icon-duo", "Essentials Icon Duo — 1200 Icons", "icons", 799, null, 4.9, 1543, 9860, ["bestseller"], ["SVG", "FIG"], ["icons", "ui", "duotone"]],
-  ["diwali-sticker-icons", "Diwali Sticker Icon Set", "icons", 299, null, 4.8, 456, 3210, ["isNew"], ["SVG", "PNG"], ["stickers", "diwali", "icons"]],
-  ["fintech-dashboard-ui", "Fintech Dashboard UI Kit", "ui-kits", 1899, 2499, 4.7, 234, 1240, [], ["FIG"], ["dashboard", "fintech", "web"]],
-  ["edtech-mobile-ui", "EdTech Mobile UI Kit", "ui-kits", 1499, null, 4.8, 178, 960, ["isNew"], ["FIG"], ["mobile", "education", "app"]],
-  ["festive-instagram-pack", "Festive Instagram Pack — 90 Posts", "social-media", 599, 799, 4.9, 2010, 14230, ["bestseller"], ["PSD", "CANVA"], ["instagram", "social", "festive"]],
-  ["youtube-starter-kit", "YouTube Starter Kit", "social-media", 499, null, 4.6, 312, 1890, [], ["PSD", "PNG"], ["youtube", "banners", "thumbnails"]],
-  ["mehendi-invitation-cards", "Mehendi Invitation Cards", "wedding", 649, null, 4.9, 876, 6230, ["featured"], ["PSD", "AI"], ["mehendi", "invitation", "cards"]],
-  ["sangeet-night-suite", "Sangeet Night Stationery Suite", "wedding", 799, 999, 4.8, 543, 3870, [], ["PSD", "AI"], ["sangeet", "stationery", "night"]],
-  ["artisan-logo-collection", "Artisan Logo Collection — 60 Marks", "logos", 1099, null, 4.8, 689, 4120, [], ["AI", "EPS", "SVG"], ["logos", "marks", "identity"]],
-  ["monogram-maker-kit", "Monogram Maker Kit", "logos", 899, 1199, 4.7, 378, 2340, [], ["AI", "PSD"], ["monogram", "letters", "branding"]],
-  ["luxe-business-cards", "Luxe Business Card Set", "print-stationery", 349, null, 4.7, 267, 1890, [], ["PSD"], ["business-cards", "print", "minimal"]],
-  ["elegant-certificate-pack", "Elegant Certificate Pack", "print-stationery", 449, 599, 4.8, 198, 1340, [], ["PSD", "DOCX"], ["certificates", "awards", "print"]],
+  // Characters (8)
+  ["ramayana-gods-bundle", "Ramayana Gods Character Bundle", "characters", 999, null, 4.9, 1204, 8930, ["featured", "bestseller"], ["AI", "EPS", "PNG"], ["mythology", "character", "bundle", "ramayana", "gods"]],
+  ["krishna-janmashtami-pack", "Krishna Janmashtami Character Pack", "characters", 649, null, 4.9, 876, 6120, ["featured"], ["AI", "PNG"], ["mythology", "janmashtami", "krishna", "festival-characters", "character"]],
+  ["indian-professions-set", "Indian Professions Character Set — 48 Figures", "characters", 899, 1199, 4.8, 743, 5210, [], ["AI", "EPS", "SVG"], ["profession", "character", "doctor", "teacher", "worker"]],
+  ["punjabi-folk-dancers", "Punjabi Folk Dancer Characters", "characters", 549, null, 4.8, 432, 2980, [], ["AI", "PNG"], ["cultural", "dance", "punjabi", "character"]],
+  ["bharatanatyam-poses", "Bharatanatyam Dance Pose Collection", "characters", 599, null, 4.9, 387, 2640, ["isNew"], ["AI", "EPS"], ["cultural", "dance", "classical", "character"]],
+  ["garba-dandiya-characters", "Garba & Dandiya Night Characters", "characters", 699, null, 4.9, 654, 4710, ["featured"], ["AI", "PNG"], ["festival-characters", "navratri", "garba", "dance", "character"]],
+  ["indian-wedding-couple", "Indian Wedding Couple Characters", "characters", 749, null, 4.8, 521, 3870, [], ["AI", "PNG"], ["cultural", "wedding", "couple", "character"]],
+  ["mumbai-street-characters", "Mumbai Street Characters Pack", "characters", 499, null, 4.7, 289, 1980, ["isNew"], ["AI", "SVG"], ["profession", "street", "mumbai", "character"]],
+  // Festival & Events (10)
+  ["maha-shivratri-pack", "Maha Shivratri Celebration Pack", "festival-events", 599, null, 4.9, 987, 7240, ["featured"], ["AI", "PSD", "PNG"], ["maha-shivratri", "shivratri", "festival", "banner", "card"]],
+  ["vasant-panchami-kit", "Happy Vasant Panchami Template Kit", "festival-events", 499, 699, 4.8, 623, 4530, [], ["PSD", "AI"], ["vasant-panchami", "saraswati", "festival", "template", "banner"]],
+  ["valentine-day-cards", "Valentine's Day Card Collection", "festival-events", 399, null, 4.7, 312, 2310, [], ["PSD", "AI"], ["valentine-day", "valentine", "cards", "love"]],
+  ["grand-diwali-collection", "Grand Diwali Vector Collection", "festival-events", 999, 1299, 4.9, 2310, 15420, ["featured", "bestseller"], ["AI", "EPS", "PNG"], ["diwali", "festival", "diya", "lights", "bundle"]],
+  ["eid-mubarak-cards", "Eid Mubarak Greeting Cards", "festival-events", 499, null, 4.8, 445, 3210, [], ["PSD", "AI"], ["eid", "eid-mubarak", "cards", "festival"]],
+  ["independence-day-kit", "Independence Day Tricolour Kit", "festival-events", 549, null, 4.8, 567, 4120, [], ["AI", "PNG"], ["independence-day", "tricolour", "patriotic", "festival"]],
+  ["dussehra-ramleela-pack", "Dussehra Ramleela Scene Pack", "festival-events", 649, null, 4.8, 298, 2140, ["isNew"], ["AI", "EPS"], ["dussehra", "ramleela", "ravana", "mythology", "festival"]],
+  ["ganesh-chaturthi-clipart", "Ganesh Chaturthi Clipart Set", "festival-events", 749, null, 4.9, 1102, 7860, ["featured", "bestseller"], ["AI", "PNG"], ["ganesh-chaturthi", "ganesh", "ganpati", "mythology", "festival", "clipart"]],
+  ["karva-chauth-kit", "Karva Chauth Celebration Kit", "festival-events", 449, null, 4.7, 234, 1780, [], ["PSD", "PNG"], ["karva-chauth", "festival", "cards"]],
+  ["pongal-harvest-pack", "Pongal Harvest Festival Pack", "festival-events", 449, null, 4.8, 187, 1340, ["isNew"], ["AI", "PNG"], ["pongal", "harvest", "festival"]],
+  // Bundles & Packs (3)
+  ["republic-day-bundle", "Republic Day Patriotic Bundle", "bundles", 799, null, 4.9, 1543, 11230, ["featured", "bestseller"], ["AI", "PSD", "PNG"], ["republic-day", "patriotic", "tricolour", "bundle", "banner"]],
+  ["navratri-nights-bundle", "Navratri Nights Design Bundle", "bundles", 899, 1099, 4.9, 876, 6230, ["featured"], ["AI", "EPS", "PNG"], ["navratri", "garba", "dandiya", "bundle", "festival", "festival-characters"]],
+  ["diwali-social-bundle", "Diwali Social Media Bundle", "bundles", 799, null, 4.8, 689, 4980, [], ["PSD", "PNG"], ["diwali", "social-media", "instagram", "bundle"]],
+  // Indian Vectors (4)
+  ["street-food-vectors", "Indian Street Food Vector Set", "indian-vectors", 549, null, 4.8, 534, 3870, [], ["AI", "EPS"], ["vector", "food", "street", "chaat"]],
+  ["desi-truck-art", "Desi Truck Art Motif Pack", "indian-vectors", 649, null, 4.9, 478, 3420, ["featured"], ["AI", "EPS"], ["vector", "truck-art", "ornament"]],
+  ["paisley-mandala-library", "Paisley & Mandala Ornament Library", "indian-vectors", 599, 799, 4.9, 891, 6310, [], ["AI", "PAT"], ["vector", "paisley", "mandala", "ornament"]],
+  ["cricket-fever-bundle", "Cricket Fever Vector Bundle", "indian-vectors", 699, null, 4.8, 612, 4450, [], ["AI", "PNG"], ["vector", "cricket", "sports", "bundle"]],
+  // Illustrations (4)
+  ["auto-rickshaw-pack", "Auto Rickshaw Illustration Pack", "illustrations", 499, null, 4.8, 356, 2640, [], ["AI", "SVG"], ["illustration", "transport", "rickshaw"]],
+  ["spice-market-scenes", "Spice Market Scene Illustrations", "illustrations", 799, null, 4.9, 289, 1980, ["isNew"], ["AI", "EPS"], ["illustration", "scenes", "market"]],
+  ["yoga-ayurveda-spots", "Yoga & Ayurveda Spot Illustrations", "illustrations", 599, null, 4.9, 743, 5320, ["bestseller"], ["AI", "SVG"], ["illustration", "yoga", "wellness", "ayurveda"]],
+  ["big-fat-wedding-scenes", "Big Fat Indian Wedding Scenes", "illustrations", 999, null, 4.9, 678, 4890, ["featured"], ["AI", "EPS"], ["illustration", "wedding", "scenes"]],
+  // Social Media (3)
+  ["festive-instagram-kit", "Festive Instagram Banner Kit — 90 Posts", "social-media", 599, 799, 4.9, 2010, 14230, ["bestseller"], ["PSD", "CANVA"], ["social-media", "instagram", "banner", "festive"]],
+  ["bollywood-night-kit", "Bollywood Movie Night Social Kit", "social-media", 649, null, 4.7, 298, 2140, ["isNew"], ["PSD", "PNG"], ["social-media", "bollywood", "banner"]],
+  ["holi-party-social-pack", "Holi Party Social Media Pack", "social-media", 549, null, 4.8, 423, 3120, [], ["PSD", "PNG"], ["social-media", "holi", "instagram"]],
+  // Logos (2)
+  ["vintage-badge-logos", "Vintage Badge Logo Templates — 60 Marks", "logos", 899, null, 4.8, 689, 4720, [], ["AI", "EPS"], ["logo", "badge", "vintage"]],
+  ["indian-startup-logos", "Indian Startup Logo Collection", "logos", 1099, 1399, 4.7, 345, 2340, [], ["AI", "EPS", "SVG"], ["logo", "startup", "business"]],
+  // Banners & Flyers (3)
+  ["salon-spa-flyers", "Salon & Spa Flyer Templates", "banners-flyers", 449, null, 4.7, 287, 2140, [], ["PSD"], ["flyer", "salon", "business"]],
+  ["garba-night-flyer", "Garba Night DJ Flyer Templates", "banners-flyers", 399, 549, 4.8, 356, 2680, [], ["PSD"], ["flyer", "navratri", "garba"]],
+  ["real-estate-banners", "Real Estate Banner Design Pack", "banners-flyers", 549, null, 4.6, 234, 1780, [], ["PSD", "AI"], ["banner", "real-estate", "business"]],
+  // Templates (2)
+  ["restaurant-menu-cards", "Restaurant Menu Card Pack", "templates", 499, null, 4.7, 345, 2560, [], ["PSD", "AI"], ["template", "menu", "card", "restaurant"]],
+  ["website-hero-illustrations", "Website Hero Illustration Set", "templates", 1299, null, 4.8, 198, 1340, ["isNew"], ["AI", "SVG"], ["template", "website", "hero", "illustration"]],
+  // Backgrounds (2)
+  ["holi-splash-backgrounds", "Holi Colour Splash Backgrounds", "backgrounds", 449, null, 4.8, 512, 3780, [], ["JPG", "PNG"], ["background", "holi", "colours"]],
+  ["banarasi-silk-textures", "Banarasi Silk Texture Bundle", "backgrounds", 799, null, 4.8, 267, 1890, [], ["JPG"], ["background", "silk", "texture"]],
+  // Freebies (2)
+  ["diya-lantern-icons-free", "Free Diya & Lantern Icon Set", "freebies", 0, null, 4.9, 1876, 21340, ["featured"], ["SVG", "PNG"], ["freebie", "diwali", "diya", "icons"]],
+  ["mandala-colouring-free", "Free Mandala Colouring Pages", "freebies", 0, null, 4.8, 1243, 15680, [], ["PDF", "PNG"], ["freebie", "mandala", "colouring"]],
 ];
 
 const DEFAULT_LICENSES: LicenseCode[] = ["personal", "commercial", "extended"];
@@ -97,20 +121,21 @@ function toProduct(row: SeedRow, index: number): Product {
     fileTypes,
     tags,
   ] = row;
-  const id: ID = `prod-${String(index + 1).padStart(3, "0")}`;
+  // Slug-based IDs stay stable when rows are added or reordered.
+  const id: ID = `prod-${slug}`;
   return {
     id,
     slug,
     title,
     shortDescription: `${title} — a curated Creative Hatti asset.`,
-    description: `${title} is part of the Creative Hatti curated collection. Mock description until editorial content lands.`,
+    description: `${title} is part of the Creative Hatti curated collection of Indian creative assets. Mock description until editorial content lands.`,
     price: { amount: priceInr * 100, currency: "INR" },
     compareAtPrice:
       compareAtInr === null
         ? undefined
         : { amount: compareAtInr * 100, currency: "INR" },
     status: "active",
-    categoryIds: [`cat-${categorySlug.replace(/-/g, "")}`],
+    categoryIds: [`cat-${categorySlug}`],
     categorySlugs: [categorySlug],
     tags,
     fileTypes,

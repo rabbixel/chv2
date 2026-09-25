@@ -5,6 +5,8 @@
 export { getCartService } from "./cartService";
 export type { CartService } from "./cartService";
 export { getCategoryService } from "./categoryService";
+export { getCollectionService } from "./collectionService";
+export type { CollectionService } from "./collectionService";
 export type { CategoryService } from "./categoryService";
 export { getCustomerService } from "./customerService";
 export type { CustomerService } from "./customerService";

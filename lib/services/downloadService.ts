@@ -16,9 +16,9 @@ function mockDownloads(): Download[] {
     return { product, orderId, fileName, sizeMb };
   };
   const rows = [
-    pick("prod-004", "ord-0001", "diwali-pattern-pack.zip", 184),
-    pick("prod-012", "ord-0002", "royal-wedding-suite.zip", 342),
-    pick("prod-021", "ord-0002", "essentials-icon-duo.zip", 96),
+    pick("prod-republic-day-bundle", "ord-0001", "republic-day-bundle.zip", 184),
+    pick("prod-ramayana-gods-bundle", "ord-0002", "ramayana-gods-bundle.zip", 342),
+    pick("prod-vintage-badge-logos", "ord-0002", "vintage-badge-logos.zip", 96),
   ];
   return rows.map((row, index) => ({
     id: `dl-${String(index + 1).padStart(4, "0")}`,

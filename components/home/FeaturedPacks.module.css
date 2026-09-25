@@ -1,0 +1,110 @@
+.grid {
+  display: grid;
+  gap: var(--ch-space-4);
+  grid-template-columns: 1fr;
+}
+
+.card {
+  --pack-hue: 150;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-md);
+  overflow: hidden;
+  color: var(--ch-color-text);
+  transition:
+    border-color var(--ch-duration-fast) var(--ch-ease-out),
+    box-shadow var(--ch-duration-normal) var(--ch-ease-out),
+    transform var(--ch-duration-normal) var(--ch-ease-out);
+}
+
+.card:hover {
+  border-color: var(--ch-color-border-strong);
+  box-shadow: var(--ch-shadow-md);
+  transform: translateY(-2px);
+  text-decoration: none;
+  color: var(--ch-color-text);
+}
+
+.art {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--ch-space-1);
+  min-height: 9rem;
+  padding: var(--ch-space-4);
+  background-color: hsl(var(--pack-hue) 30% 90%);
+  background-image: radial-gradient(
+    circle,
+    hsl(var(--pack-hue) 28% 74%) 1.5px,
+    transparent 1.5px
+  );
+  background-size: 18px 18px;
+  border-bottom: 1px solid var(--ch-color-border);
+}
+
+.kicker {
+  font-size: var(--ch-text-xs);
+  font-weight: var(--ch-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--pack-hue) 32% 36%);
+}
+
+.packTitle {
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-2xl);
+  font-weight: var(--ch-weight-semibold);
+  letter-spacing: var(--ch-tracking-tight);
+  line-height: 1.15;
+  color: hsl(var(--pack-hue) 34% 24%);
+  text-wrap: balance;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-2);
+  padding: var(--ch-space-4);
+  flex: 1;
+}
+
+.tagline {
+  font-size: var(--ch-text-base);
+  color: var(--ch-color-text-muted);
+}
+
+.explore {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ch-space-1);
+  font-size: var(--ch-text-sm);
+  font-weight: var(--ch-weight-semibold);
+  color: var(--ch-color-brand);
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .lead {
+    grid-column: span 2;
+  }
+
+  .lead .art {
+    min-height: 12rem;
+  }
+
+  .lead .packTitle {
+    font-size: var(--ch-text-3xl);
+  }
+}

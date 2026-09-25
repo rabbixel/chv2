@@ -51,6 +51,11 @@ export function ProductCard({ product }: ProductCardProps) {
           <PlaceholderArt product={product} />
         )}
         <span className={styles.badges}>
+          {product.price.amount === 0 && (
+            <Badge variant="success" size="sm">
+              Free
+            </Badge>
+          )}
           {percent !== null && (
             <Badge variant="danger" size="sm">
               −{percent}%
@@ -88,11 +93,17 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
         </p>
         <p className={styles.priceRow}>
-          <span className={styles.price}>{formatMoney(product.price)}</span>
-          {product.compareAtPrice && (
-            <s className={cn(styles.compareAt)}>
-              {formatMoney(product.compareAtPrice)}
-            </s>
+          {product.price.amount === 0 ? (
+            <span className={styles.free}>Free download</span>
+          ) : (
+            <>
+              <span className={styles.price}>{formatMoney(product.price)}</span>
+              {product.compareAtPrice && (
+                <s className={cn(styles.compareAt)}>
+                  {formatMoney(product.compareAtPrice)}
+                </s>
+              )}
+            </>
           )}
         </p>
       </div>

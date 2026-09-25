@@ -6,14 +6,12 @@
 
 /** Marketplace-popular searches shown in the search dropdown. */
 export const popularSearches: string[] = [
-  "diwali patterns",
-  "wedding invitation",
-  "instagram post pack",
-  "block print seamless",
-  "logo collection",
-  "resume template",
-  "youtube starter kit",
-  "business cards",
+  "Republic Day",
+  "Vasant Panchami",
+  "Maha Shivratri",
+  "Ganesh Chaturthi",
+  "Logo Templates",
+  "Banner Designs",
 ];
 
 /** How many primary-nav categories render before the "More" menu. */
