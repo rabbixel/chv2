@@ -39,8 +39,16 @@ export const CART_COOKIE = "ch_cart";
 export const CART_COUNT_COOKIE = "ch_cart_count";
 /** HttpOnly session id for the signed-in customer (mock + backend). */
 export const AUTH_SESSION_COOKIE = "ch_session";
+/**
+ * Non-httpOnly login mirror (`"1"` when signed in, absent otherwise) so
+ * the static header can render the right link without reading the
+ * httpOnly session. Leaks no identity — enforcement stays server-side.
+ */
+export const AUTH_STATE_COOKIE = "ch_auth_state";
 /** HttpOnly session id for the guest/customer wishlist (mock + backend). */
 export const WISHLIST_COOKIE = "ch_wishlist";
+/** Non-httpOnly wishlist count mirror for the static header badge. */
+export const WISHLIST_COUNT_COOKIE = "ch_wishlist_count";
 
 /**
  * Window event fired after same-page cart mutations (product-page

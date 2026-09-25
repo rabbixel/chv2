@@ -160,6 +160,34 @@ npm run dev                  # http://localhost:3000
   downloads and keys, all referencing real catalogue products. Account
   area is responsive (stacked shell, wrapping rows, scrolling nav).
 
+### SEO + performance (Run 11)
+
+- Metadata everywhere: dynamic titles/descriptions/canonicals on
+  products, categories, collections and search (search is
+  `noindex,follow`), root title template, `metadataBase`, OG/Twitter
+  cards with generated PNGs (`/opengraph-image`,
+  `/product/[slug]/opengraph-image`), Product + Breadcrumb JSON-LD via
+  the `JsonLd` helper (ratings/offers emitted only when data exists).
+- Chunked sitemaps (`/sitemap/0.xml` static + taxonomy, `/sitemap/1..N.xml`
+  products at 10k URLs per file for the 44k+ catalogue) listed in
+  `robots.ts`, which also keeps `/api`, cart, checkout, account,
+  wishlist and auth recovery out of crawl budget. Legacy
+  `/categories`/`/products` redirect to clean URLs; no WP/EDD paths
+  are exposed anywhere.
+- Render strategy: home is static (1d), the 25 merchandised products
+  are SSG + ISR (30m), the rest of the catalogue renders on demand
+  with ISR — never a full 44k pre-render. Listings stay dynamic (URL
+  filters) with cached service reads and CDN HTML caching by full URL.
+- Images all flow through one `ProductImage` wrapper (`next/image`,
+  correct `sizes`, aspect-ratio slots against CLS, lazy except the
+  gallery hero); self-hosted variable fonts, no Google round-trip.
+  Header/footer render static-safe: auth + wishlist state hydrates via
+  `ch_auth_state`/`ch_wishlist_count` mirror cookies (server actions
+  still enforce everything), so anonymous HTML stays cacheable.
+- Security headers on every response (HSTS in production, nosniff,
+  referrer/permission policies); secrets scan clean — Razorpay/AWS
+  credentials remain backend-only by design.
+
 ## Project structure
 
 ```

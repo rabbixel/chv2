@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, Container } from "@/components/layout";
+import { JsonLd } from "@/components/seo";
 import { ProductGrid, SortSelect } from "@/components/product";
 import {
   ActiveFilters,
@@ -10,7 +11,9 @@ import {
 } from "@/components/search";
 import listingStyles from "@/components/search/ListingPage.module.css";
 import { PAGINATION, SITE } from "@/lib/constants";
+import { routes } from "@/lib/routes";
 import { popularSearches } from "@/lib/navigation";
+import { breadcrumbJsonLd } from "@/lib/seo";
 import {
   buildListingHref,
   countActiveFilters,
@@ -24,7 +27,6 @@ import {
   getSearchService,
 } from "@/lib/services";
 import {
-  allCategorySlugs,
   getGroup,
   isGroupSlug,
   parentGroupSlug,
@@ -36,9 +38,13 @@ interface CategoryPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export function generateStaticParams(): Array<{ slug: string }> {
-  return allCategorySlugs().map((slug) => ({ slug }));
-}
+// Matches REVALIDATE_SECONDS.catalog in lib/cache.ts (segment
+// configs must be literals — keep the two in sync).
+export const revalidate = 3600;
+
+// No generateStaticParams: these listings read `searchParams` (filters,
+// sort, pagination), so they render on demand. Origin stays cheap via
+// the cached service fetch; the CDN caches HTML by full URL.
 
 export async function generateMetadata({
   params,
@@ -197,6 +203,15 @@ export default async function CategoryPage({
           </div>
         </div>
       </div>
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: routes.home() },
+          ...(parent
+            ? [{ name: parent.name, path: routes.category(parent.slug) }]
+            : []),
+          { name: category.name },
+        ])}
+      />
     </Container>
   );
 }

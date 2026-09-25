@@ -9,9 +9,16 @@ import {
   PurchasePanel,
   WishlistButton,
 } from "@/components/product";
+import { JsonLd } from "@/components/seo";
 import { Badge, Icon } from "@/components/ui";
-import { PAGINATION, SITE } from "@/lib/constants";
+import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import {
+  breadcrumbJsonLd,
+  productCanonical,
+  productJsonLd,
+  productMetaDescription,
+} from "@/lib/seo";
 import {
   getCollectionService,
   getLicenseService,
@@ -32,20 +39,25 @@ const KIND_LABELS: Record<ProductKind, string> = {
   freebie: "Freebie",
 };
 
+export const dynamicParams = true;
+// Matches REVALIDATE_SECONDS.product in lib/cache.ts (segment
+// configs must be literals — keep the two in sync).
+export const revalidate = 1800;
+
+/** Build-time static set cap — the 44k+ long tail renders on demand (ISR). */
+const STATIC_PRODUCT_LIMIT = 24;
+
 export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
   const service = getProductService();
-  const slugs: string[] = [];
-  let page = 1;
-  for (;;) {
-    const result = await service.listProducts({
-      page,
-      pageSize: PAGINATION.maxPageSize,
-    });
-    slugs.push(...result.items.map((product) => product.slug));
-    if (page >= result.pagination.totalPages) break;
-    page += 1;
-  }
-  return slugs.map((slug) => ({ slug }));
+  const [featured, bestsellers, arrivals] = await Promise.all([
+    service.listFeaturedProducts(STATIC_PRODUCT_LIMIT),
+    service.listBestsellers(STATIC_PRODUCT_LIMIT),
+    service.listNewArrivals(STATIC_PRODUCT_LIMIT),
+  ]);
+  const slugs = new Set(
+    [...featured, ...bestsellers, ...arrivals].map((product) => product.slug),
+  );
+  return [...slugs].map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({
@@ -54,11 +66,8 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await getProductService().getProductBySlug(slug);
   if (!product) return { title: "Product not found" };
-  const url = `${SITE.url}/product/${slug}`;
-  const description =
-    product.shortDescription ??
-    product.description ??
-    `${product.title} — Indian vectors, characters and creative assets on ${SITE.name}.`;
+  const url = productCanonical(product);
+  const description = productMetaDescription(product);
   return {
     title: product.title,
     description,
@@ -107,33 +116,6 @@ function findRelatedCollections(
     .slice(0, limit);
 }
 
-function productJsonLd(product: Product, url: string): Record<string, unknown> {
-  const data: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.title,
-    sku: product.slug,
-    url,
-    category: categoryDisplayName(product.productGroup),
-    description: product.shortDescription ?? product.description,
-    offers: {
-      "@type": "Offer",
-      priceCurrency: product.price.currency,
-      price: (product.price.amount / 100).toFixed(2),
-      availability: "https://schema.org/InStock",
-      url,
-    },
-  };
-  if (product.ratingCount > 0) {
-    data.aggregateRating = {
-      "@type": "AggregateRating",
-      ratingValue: product.ratingAverage.toFixed(1),
-      reviewCount: product.ratingCount,
-    };
-  }
-  return data;
-}
-
 /**
  * Product detail page mirroring the live Creative Hatti experience:
  * gallery + buy box (license picker, purchase actions, wishlist,
@@ -154,8 +136,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
     getLicenseService().getLicensesByCodes(product.licenses),
   ]);
   const relatedCollections = findRelatedCollections(product, collections);
-  const url = `${SITE.url}/product/${slug}`;
   const [primarySlug, groupSlug] = product.categorySlugs;
+  const trail = [
+    { name: "Home", path: routes.home() },
+    ...(groupSlug
+      ? [
+          {
+            name: categoryDisplayName(groupSlug),
+            path: routes.category(groupSlug),
+          },
+        ]
+      : []),
+    ...(primarySlug && primarySlug !== groupSlug
+      ? [
+          {
+            name: categoryDisplayName(primarySlug),
+            path: routes.category(primarySlug),
+          },
+        ]
+      : []),
+    { name: product.title },
+  ];
   const kicker = [
     KIND_LABELS[product.kind],
     categoryDisplayName(primarySlug ?? product.productGroup),
@@ -346,15 +347,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </section>
 
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(productJsonLd(product, url)).replace(
-              /</g,
-              "\\u003c",
+        <JsonLd
+          data={productJsonLd(product, {
+            categoryName: categoryDisplayName(
+              primarySlug ?? product.productGroup,
             ),
-          }}
+          })}
         />
+        <JsonLd data={breadcrumbJsonLd(trail)} />
       </div>
     </Container>
   );

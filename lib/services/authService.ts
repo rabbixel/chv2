@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import { AUTH_SESSION_COOKIE } from "@/lib/constants";
+import { AUTH_SESSION_COOKIE, AUTH_STATE_COOKIE } from "@/lib/constants";
 import type {
   AuthErrorCode,
   AuthUser,
@@ -96,11 +96,9 @@ async function createSession(userId: string, remember: boolean): Promise<void> {
   const sessionId = `sess-${Date.now().toString(36)}-${sessionSeq}`;
   const ttl = remember ? 1000 * 60 * 60 * 24 * 30 : 1000 * 60 * 60 * 12;
   sessionStore.set(sessionId, { userId, expiresAt: Date.now() + ttl });
-  (await cookies()).set(
-    AUTH_SESSION_COOKIE,
-    sessionId,
-    sessionCookieOptions(remember),
-  );
+  const jar = await cookies();
+  jar.set(AUTH_SESSION_COOKIE, sessionId, sessionCookieOptions(remember));
+  jar.set(AUTH_STATE_COOKIE, "1", { ...sessionCookieOptions(remember), httpOnly: false });
 }
 
 async function clearSession(): Promise<void> {
@@ -108,6 +106,7 @@ async function clearSession(): Promise<void> {
   const sessionId = jar.get(AUTH_SESSION_COOKIE)?.value;
   if (sessionId) sessionStore.delete(sessionId);
   jar.delete(AUTH_SESSION_COOKIE);
+  jar.delete(AUTH_STATE_COOKIE);
 }
 
 function splitName(name: string): { firstName: string; lastName: string } {

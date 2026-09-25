@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { Container } from "@/components/layout";
+import { JsonLd } from "@/components/seo";
 import {
   CharacterCategories,
   DiscoveryGrid,
@@ -16,7 +18,9 @@ import {
   discoveryTiles,
   trendingKeywords,
 } from "@/lib/homepage";
+import { SITE } from "@/lib/constants";
 import { popularSearches } from "@/lib/navigation";
+import { organizationJsonLd } from "@/lib/seo";
 import {
   getCategoryService,
   getCollectionService,
@@ -24,6 +28,15 @@ import {
   getSearchService,
 } from "@/lib/services";
 import styles from "./page.module.css";
+
+// Matches REVALIDATE_SECONDS.static in lib/cache.ts (segment
+// configs must be literals — keep the two in sync).
+export const revalidate = 86400;
+
+export const metadata: Metadata = {
+  alternates: { canonical: SITE.url },
+  openGraph: { url: SITE.url },
+};
 
 /**
  * Creative Hatti homepage — Indian vector marketplace discovery.
@@ -101,6 +114,7 @@ export default async function HomePage() {
           <TrustedBy />
         </div>
       </Container>
+      <JsonLd data={organizationJsonLd()} />
     </>
   );
 }

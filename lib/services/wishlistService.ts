@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import { WISHLIST_COOKIE } from "@/lib/constants";
+import { WISHLIST_COOKIE, WISHLIST_COUNT_COOKIE } from "@/lib/constants";
 import type { ID, Wishlist } from "@/lib/types";
 
 export interface WishlistService {
@@ -59,6 +59,12 @@ async function writeSession(wishlist: Wishlist, id: string | null): Promise<Wish
     maxAge: 60 * 60 * 24 * 30,
     sameSite: "lax",
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  });
+  jar.set(WISHLIST_COUNT_COOKIE, String(next.items.length), {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+    sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
   return next;

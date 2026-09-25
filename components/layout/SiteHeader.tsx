@@ -1,16 +1,12 @@
 import Link from "next/link";
 import { SearchBar } from "@/components/search";
-import { Icon, IconButton } from "@/components/ui";
 import { popularSearches } from "@/lib/navigation";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import {
-  getAuthService,
-  getCartService,
-  getCategoryService,
-  getWishlistService,
-} from "@/lib/services";
+import { getCartService, getCategoryService } from "@/lib/services";
+import { AuthStateLink } from "./AuthStateLink";
 import { CartCountBadge } from "./CartCountBadge";
+import { WishlistCountBadge } from "./WishlistCountBadge";
 import { MobileMenu } from "./MobileMenu";
 import { PrimaryNav } from "./PrimaryNav";
 import styles from "./SiteHeader.module.css";
@@ -39,11 +35,12 @@ function Wordmark() {
 }
 
 export async function SiteHeader() {
-  const [categories, cart, wishlist, user] = await Promise.all([
+  // Static-safe by design: no session/cookie reads here, so catalogue
+  // pages prerender + cache at the edge. Live counts and auth state
+  // hydrate from mirror cookies in client badges below.
+  const [categories, cart] = await Promise.all([
     getCategoryService().listCategories(),
     getCartService().getCart(),
-    getWishlistService().getWishlist(),
-    getAuthService().getCurrentUser(),
   ]);
   const navCategories = categories.map((category) => ({
     name: category.name,
@@ -61,7 +58,6 @@ export async function SiteHeader() {
             categories={navCategories}
             popularSearches={popularSearches}
             cartCount={cart.itemCount}
-            wishlistCount={wishlist.items.length}
             className={styles.mobileMenu}
           />
           <Link
@@ -79,22 +75,8 @@ export async function SiteHeader() {
             />
           </div>
           <nav aria-label="Account" className={styles.actions}>
-            <IconButton
-              label="Wishlist"
-              href={routes.wishlist()}
-              badge={wishlist.items.length}
-            >
-              <Icon name="heart" />
-            </IconButton>
-            {user ? (
-              <IconButton label="Account" href={routes.account()}>
-                <Icon name="user" />
-              </IconButton>
-            ) : (
-              <IconButton label="Sign in" href={routes.login()}>
-                <Icon name="user" />
-              </IconButton>
-            )}
+            <WishlistCountBadge />
+            <AuthStateLink />
             <CartCountBadge initialCount={cart.itemCount} />
           </nav>
         </div>

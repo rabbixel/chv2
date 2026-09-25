@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
 import { Breadcrumbs, Container } from "@/components/layout";
+import { JsonLd } from "@/components/seo";
 import { ProductGrid, SortSelect } from "@/components/product";
 import {
   ActiveFilters,
@@ -19,6 +20,8 @@ import {
   parseListingParams,
   toSearchParams,
 } from "@/lib/search-params";
+import { routes } from "@/lib/routes";
+import { breadcrumbJsonLd } from "@/lib/seo";
 import { getCollectionService, getSearchService } from "@/lib/services";
 
 interface CollectionPageProps {
@@ -26,10 +29,13 @@ interface CollectionPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
-  const collections = await getCollectionService().listCollections();
-  return collections.map((collection) => ({ slug: collection.slug }));
-}
+// Matches REVALIDATE_SECONDS.catalog in lib/cache.ts (segment
+// configs must be literals — keep the two in sync).
+export const revalidate = 3600;
+
+// No generateStaticParams: these listings read `searchParams` (filters,
+// sort, pagination), so they render on demand. Origin stays cheap via
+// the cached service fetch; the CDN caches HTML by full URL.
 
 export async function generateMetadata({
   params,
@@ -165,6 +171,12 @@ export default async function CollectionPage({
           </div>
         </div>
       </div>
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: routes.home() },
+          { name: collection.title },
+        ])}
+      />
     </Container>
   );
 }

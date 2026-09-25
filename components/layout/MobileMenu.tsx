@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { SearchBar, type SearchBarCategory } from "@/components/search";
 import { Icon } from "@/components/ui";
+import { WISHLIST_COUNT_COOKIE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { productGroups } from "@/lib/taxonomy";
 import { cn } from "@/lib/utils";
@@ -13,8 +15,16 @@ export interface MobileMenuProps {
   categories: SearchBarCategory[];
   popularSearches: string[];
   cartCount: number;
-  wishlistCount: number;
   className?: string;
+}
+
+function readWishlistCount(): number {
+  if (typeof document === "undefined") return 0;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${WISHLIST_COUNT_COOKIE}=(\\d+)`),
+  );
+  const value = match?.[1];
+  return value === undefined ? 0 : Number(value);
 }
 
 const BROWSE_LINKS = [
@@ -33,9 +43,12 @@ export function MobileMenu({
   categories,
   popularSearches,
   cartCount,
-  wishlistCount,
   className,
 }: MobileMenuProps) {
+  // Mirror-cookie count, re-read after every navigation render so the
+  // server header never touches the session (keeps pages static).
+  const pathname = usePathname();
+  const wishlistCount = pathname === null ? 0 : readWishlistCount();
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);

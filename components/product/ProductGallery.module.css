@@ -19,6 +19,7 @@
 }
 
 .stage {
+  position: relative;
   display: block;
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -143,6 +144,7 @@
 }
 
 .thumb {
+  position: relative;
   display: block;
   width: 4.5rem;
   height: 4.5rem;
@@ -224,6 +226,17 @@
 
 .artImageLarge {
   object-fit: contain;
+  background-color: var(--ch-neutral-950);
+}
+
+.artLargeFrame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 76vh;
+  overflow: hidden;
+  border-radius: var(--ch-radius-lg);
   background-color: var(--ch-neutral-950);
 }
 

@@ -10,6 +10,8 @@ export type {
 } from "./ProductGrid";
 export { ProductGridSkeleton } from "./ProductGridSkeleton";
 export type { ProductGridSkeletonProps } from "./ProductGridSkeleton";
+export { ProductImage } from "./ProductImage";
+export type { ProductImageProps } from "./ProductImage";
 export { ProductInfoTable } from "./ProductInfoTable";
 export type { ProductInfoTableProps } from "./ProductInfoTable";
 export { PurchasePanel } from "./PurchasePanel";

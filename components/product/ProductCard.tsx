@@ -10,6 +10,7 @@ import {
   formatCompact,
   formatMoney,
 } from "@/lib/utils";
+import { ProductImage as ProductImageView } from "./ProductImage";
 import { WishlistButton } from "./WishlistButton";
 import styles from "./ProductCard.module.css";
 
@@ -63,8 +64,13 @@ export function ProductCard({ product, wishlisted = false }: ProductCardProps) {
           {cover?.url ? (
             // Real CDN imagery lands with the API; until then every product
             // carries a deterministic flat placeholder (see data/products.ts).
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover.url} alt="" className={styles.image} loading="lazy" />
+            <ProductImageView
+              image={cover}
+              title={product.title}
+              sizes="(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"
+              decorative
+              className={styles.image}
+            />
           ) : (
             <PlaceholderArt product={product} />
           )}

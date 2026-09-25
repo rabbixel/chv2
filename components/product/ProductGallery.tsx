@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, TouchEvent } from "react";
 import { Icon } from "@/components/ui";
 import type { ProductImage } from "@/lib/types";
+import { ProductImage as ProductImageView } from "./ProductImage";
 import { cn } from "@/lib/utils";
 import styles from "./ProductGallery.module.css";
 
@@ -19,25 +20,37 @@ function GalleryArt({
   title,
   decorative,
   large,
+  eager,
 }: {
   image: ProductImage;
   title: string;
   decorative: boolean;
   large?: boolean;
+  eager?: boolean;
 }) {
   if (image.url) {
     // Real CDN imagery lands with the API; until then every product
     // carries deterministic flat placeholders (see data/products.ts).
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={image.url}
-        alt={decorative ? "" : (image.alt ?? title)}
-        aria-hidden={decorative || undefined}
+    const view = (
+      <ProductImageView
+        image={image}
+        title={image.alt || title}
+        sizes={
+          large
+            ? "100vw"
+            : decorative
+              ? "96px"
+              : "(max-width: 900px) 100vw, 50vw"
+        }
+        priority={eager}
+        decorative={decorative}
         className={large ? styles.artImageLarge : styles.artImage}
-        draggable={false}
       />
     );
+    if (large) {
+      return <span className={styles.artLargeFrame}>{view}</span>;
+    }
+    return view;
   }
   const hue = image.placeholder?.hue ?? 150;
   return (
@@ -143,7 +156,12 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
           aria-haspopup="dialog"
           aria-label={`Enlarge preview ${index + 1} of ${count}`}
         >
-          <GalleryArt image={current} title={title} decorative={false} />
+          <GalleryArt
+            image={current}
+            title={title}
+            decorative={false}
+            eager={index === 0}
+          />
         </button>
         {count > 1 && (
           <>

@@ -29,6 +29,9 @@ export async function generateMetadata({
   const params = parseListingParams((await searchParams) ?? {});
   return {
     title: params.q ? `Results for “${params.q}”` : "Search all assets",
+    // High-cardinality query URLs stay out of the index (crawl budget);
+    // discovery happens through categories, collections and products.
+    robots: { index: false, follow: true },
   };
 }
 
