@@ -1,11 +1,12 @@
 import { collections } from "@/data/collections";
-import { apiFetch } from "@/lib/api/client";
+import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
-import type { Collection } from "@/lib/types";
+import type { Collection, Slug } from "@/lib/types";
 
 export interface CollectionService {
   listCollections(): Promise<Collection[]>;
+  getCollectionBySlug(slug: Slug): Promise<Collection | null>;
   listFeaturedPacks(): Promise<Collection[]>;
   listSeasonal(): Promise<Collection[]>;
 }
@@ -13,6 +14,11 @@ export interface CollectionService {
 class MockCollectionService implements CollectionService {
   async listCollections(): Promise<Collection[]> {
     return [...collections].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  async getCollectionBySlug(slug: Slug): Promise<Collection | null> {
+    const all = await this.listCollections();
+    return all.find((collection) => collection.slug === slug) ?? null;
   }
 
   async listFeaturedPacks(): Promise<Collection[]> {
@@ -34,6 +40,18 @@ class ApiCollectionService implements CollectionService {
       revalidate: REVALIDATE_SECONDS.catalog,
       tags: [cacheTags.categories],
     });
+  }
+
+  async getCollectionBySlug(slug: Slug): Promise<Collection | null> {
+    try {
+      return await apiFetch<Collection>(apiEndpoints.collections.detail(slug), {
+        revalidate: REVALIDATE_SECONDS.catalog,
+        tags: [cacheTags.categories],
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
   }
 
   async listFeaturedPacks(): Promise<Collection[]> {

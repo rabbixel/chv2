@@ -19,6 +19,7 @@ export const apiEndpoints = {
   search: "/v1/search",
   collections: {
     list: "/v1/collections",
+    detail: (slug: string) => `/v1/collections/${encodeURIComponent(slug)}`,
   },
   cart: "/v1/cart",
   wishlist: "/v1/wishlist",

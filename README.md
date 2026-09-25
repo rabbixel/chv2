@@ -74,10 +74,32 @@ npm run dev                  # http://localhost:3000
    receives the current page — never thousands of products.
 4. URLs are built via `lib/routes.ts`; money renders via `formatMoney()`.
 
+### Category + collection listings (Run 06)
+
+- `/category/[slug]` serves taxonomy groups (Vector Creatives, Character
+  Bundle, Freebies) and subcategories (Flyers, Mythological, …);
+  `/collections/[slug]` serves curated collections (Diwali, Holi,
+  Logo Templates, …). One dynamic route each — no manual pages.
+- Both reuse the search pipeline: the slug becomes a base constraint
+  (group → `groups`, subcategory → `categorySlugs`, collection →
+  collection id) merged with URL filters, then `searchProducts()`.
+  Shared UI: `ProductGrid`, `FilterPanel`/`FilterDrawer`,
+  `ActiveFilters`, `SortSelect`, `NoResults`, `ListingPage.module.css`.
+- Dynamic title / description / canonical / OG per slug. Legacy
+  `/categories/:slug` URLs permanently redirect (308) to
+  `/category/:slug`.
+- No `loading.tsx` in these segments on purpose: a Suspense fallback
+  would absorb `notFound()` and serve unknown slugs as HTTP 200
+  (vercel/next.js#98954). Unknown slugs return 404 + noindex and the
+  not-found UI hydrates from the Flight payload; per the same
+  upstream issue the SSR body of a `notFound()` 404 is an empty
+  shell for no-JS clients, while unmatched URLs render the full
+  not-found page server-side.
+
 ## Project structure
 
 ```
-app/                  layout, homepage, search + filters, not-found, error
+app/                  layout, homepage, search, category + collection listings
 styles/tokens.css     design tokens (single source of truth)
 components/
   ui/                 Button, IconButton, Icon, Input, Badge, Card, Spinner,
@@ -127,7 +149,7 @@ storage credentials are backend-only and must never be added here.
 ## Roadmap (upcoming runs)
 
 - Homepage (Run 03 — hero, discovery, Hatti's Choice, characters, packs, collections)
-- Category / product-listing pages with filters + sorting
+- Category + collection listing pages (Run 06 — shared filter/sort/pagination)
 - Product detail pages (licence picker, gallery)
 - Search results page (Run 05 — facets, URL-synced filters, sort)
 - Cart drawer + cart page, checkout (Razorpay via backend), account area

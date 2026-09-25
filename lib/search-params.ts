@@ -166,3 +166,20 @@ export function countActiveFilters(params: ListingParams): number {
     (params.collection ? 1 : 0)
   );
 }
+
+/** Sort dropdown options shared by search, category and collection pages. */
+export interface ListingSortOption {
+  value: SearchSortKey;
+  label: string;
+}
+
+export const LISTING_SORT_OPTIONS: ListingSortOption[] = [
+  { value: "relevance", label: "Relevance" },
+  { value: "newest", label: "Recent" },
+  { value: "best-selling", label: "Popular" },
+  { value: "oldest", label: "Older" },
+  { value: "price-asc", label: "Price: Low to High" },
+  { value: "price-desc", label: "Price: High to Low" },
+  { value: "title-asc", label: "Title A–Z" },
+  { value: "title-desc", label: "Title Z–A" },
+];

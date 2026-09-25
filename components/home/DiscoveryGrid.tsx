@@ -25,7 +25,7 @@ export function DiscoveryGrid({ tiles }: DiscoveryGridProps) {
         {tiles.map((tile) => (
           <li key={tile.label}>
             <Link
-              href={routes.search(tile.query)}
+              href={tile.href ?? routes.search(tile.query)}
               className={styles.tile}
               style={{ "--tile-hue": tile.hue } as CSSProperties}
             >

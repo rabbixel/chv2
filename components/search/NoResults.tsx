@@ -73,7 +73,7 @@ export function NoResults({ query, popularSearches, collections }: NoResultsProp
             {collections.slice(0, 8).map((collection) => (
               <li key={collection.id}>
                 <Link
-                  href={routes.search(collection.query)}
+                  href={routes.collection(collection.slug)}
                   className={styles.chip}
                 >
                   {collection.title}

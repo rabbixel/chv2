@@ -24,7 +24,7 @@ export function SeasonalCollections({ items }: SeasonalCollectionsProps) {
         {items.map((item) => (
           <li key={item.id}>
             <Link
-              href={routes.search(item.query)}
+              href={routes.collection(item.slug)}
               className={styles.tile}
               style={{ "--tile-hue": item.hue } as CSSProperties}
             >

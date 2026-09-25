@@ -1,0 +1,202 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { Breadcrumbs, Container } from "@/components/layout";
+import { ProductGrid, SortSelect } from "@/components/product";
+import {
+  ActiveFilters,
+  FilterDrawer,
+  FilterPanel,
+  NoResults,
+} from "@/components/search";
+import listingStyles from "@/components/search/ListingPage.module.css";
+import { PAGINATION, SITE } from "@/lib/constants";
+import { popularSearches } from "@/lib/navigation";
+import {
+  buildListingHref,
+  countActiveFilters,
+  LISTING_SORT_OPTIONS,
+  parseListingParams,
+  toSearchParams,
+} from "@/lib/search-params";
+import {
+  getCategoryService,
+  getCollectionService,
+  getSearchService,
+} from "@/lib/services";
+import {
+  allCategorySlugs,
+  getGroup,
+  isGroupSlug,
+  parentGroupSlug,
+} from "@/lib/taxonomy";
+import type { ProductGroupSlug } from "@/lib/types";
+
+interface CategoryPageProps {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export function generateStaticParams(): Array<{ slug: string }> {
+  return allCategorySlugs().map((slug) => ({ slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: CategoryPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const category = await getCategoryService().getCategoryBySlug(slug);
+  if (!category) return { title: "Category not found" };
+  const url = `${SITE.url}/category/${slug}`;
+  const description =
+    category.description ??
+    `${category.name} — Indian vectors, characters and creative assets on ${SITE.name}.`;
+  return {
+    title: category.name,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${category.name} · ${SITE.name}`,
+      description,
+      url,
+      siteName: SITE.name,
+      type: "website",
+    },
+  };
+}
+
+/**
+ * Taxonomy listing: groups (Vector Creatives, Character Bundle, Freebies)
+ * and subcategories (Flyers, Mythological, …). The page slug acts as a base
+ * constraint merged with URL filters; data flows through `searchProducts()`.
+ */
+export default async function CategoryPage({
+  params,
+  searchParams,
+}: CategoryPageProps) {
+  const { slug } = await params;
+  const category = await getCategoryService().getCategoryBySlug(slug);
+  // No loading.tsx in this segment on purpose: a Suspense fallback would
+  // absorb this notFound() and serve HTTP 200 with the skeleton forever
+  // (vercel/next.js#98954).
+  if (!category) notFound();
+
+  const basePath = `/category/${slug}`;
+  const listing = parseListingParams((await searchParams) ?? {});
+  const input = toSearchParams(listing, PAGINATION.defaultPageSize);
+  // Base constraint OR-merges with same-kind URL filters (selecting another
+  // subcategory broadens the listing; chips make the state explicit).
+  if (isGroupSlug(slug)) {
+    input.filters = {
+      ...input.filters,
+      groups: Array.from(
+        new Set([...(input.filters?.groups ?? []), slug as ProductGroupSlug]),
+      ),
+    };
+  } else {
+    input.filters = {
+      ...input.filters,
+      categorySlugs: Array.from(
+        new Set([...(input.filters?.categorySlugs ?? []), slug]),
+      ),
+    };
+  }
+
+  const [result, collections] = await Promise.all([
+    getSearchService().searchProducts(input),
+    getCollectionService().listCollections(),
+  ]);
+
+  const categoryFacet =
+    result.facets.find((facet) => facet.key === "category")?.values ?? [];
+  const fileTypeFacet =
+    result.facets.find((facet) => facet.key === "fileType")?.values ?? [];
+  const activeCount = countActiveFilters(listing);
+  const { items, pagination } = result;
+  const parentSlug = parentGroupSlug(category.slug);
+  const parent = parentSlug ? getGroup(parentSlug) : null;
+
+  return (
+    <Container>
+      <div className={listingStyles.page}>
+        <Breadcrumbs
+          items={[
+            { label: "Home", href: "/" },
+            ...(parent
+              ? [{ label: parent.name, href: `/category/${parent.slug}` }]
+              : []),
+            { label: category.name },
+          ]}
+        />
+
+        <header className={listingStyles.header}>
+          {parent && <p className={listingStyles.eyebrow}>{parent.name}</p>}
+          <h1 className={listingStyles.title}>{category.name}</h1>
+          {category.description && (
+            <p className={listingStyles.description}>{category.description}</p>
+          )}
+          <p className={listingStyles.sub} role="status">
+            {pagination.totalItems}{" "}
+            {pagination.totalItems === 1 ? "product" : "products"}
+          </p>
+        </header>
+
+        <div className={listingStyles.toolbar}>
+          <FilterDrawer
+            params={listing}
+            categoryFacet={categoryFacet}
+            fileTypeFacet={fileTypeFacet}
+            collections={collections}
+            activeCount={activeCount}
+            basePath={basePath}
+            hideGroups
+            className={listingStyles.drawerTrigger}
+          />
+          <SortSelect
+            id="category-sort"
+            value={listing.sort}
+            options={LISTING_SORT_OPTIONS}
+          />
+        </div>
+
+        <ActiveFilters
+          params={listing}
+          collections={collections}
+          basePath={basePath}
+        />
+
+        <div className={listingStyles.layout}>
+          <aside className={listingStyles.sidebar} aria-label="Filters">
+            <FilterPanel
+              params={listing}
+              categoryFacet={categoryFacet}
+              fileTypeFacet={fileTypeFacet}
+              collections={collections}
+              basePath={basePath}
+              idPrefix="category-filter"
+              hideGroups
+            />
+          </aside>
+          <div className={listingStyles.results}>
+            {items.length === 0 ? (
+              <NoResults
+                query=""
+                popularSearches={popularSearches}
+                collections={collections}
+              />
+            ) : (
+              <ProductGrid
+                products={items}
+                pagination={{
+                  page: pagination.page,
+                  totalPages: pagination.totalPages,
+                  buildHref: (page) =>
+                    buildListingHref(basePath, { ...listing, page }),
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </Container>
+  );
+}

@@ -19,6 +19,10 @@ export interface FilterPanelProps {
   /** Base path for filter URLs ("/search", later category pages). */
   basePath?: string;
   idPrefix?: string;
+  /** Hide the group section (category pages already constrain by group). */
+  hideGroups?: boolean;
+  /** Hide the collection select (collection pages already constrain). */
+  hideCollection?: boolean;
 }
 
 const FILE_TYPES = ["AI", "EPS", "PNG", "JPG", "SVG", "PSD", "PDF"];
@@ -54,6 +58,8 @@ export function FilterPanel({
   collections,
   basePath = "/search",
   idPrefix = "filter",
+  hideGroups = false,
+  hideCollection = false,
 }: FilterPanelProps) {
   const router = useRouter();
   const push = (patch: Partial<ListingParams>) => {
@@ -94,6 +100,7 @@ export function FilterPanel({
         </Link>
       </div>
 
+      {!hideGroups && (
       <fieldset className={styles.group}>
         <legend className={styles.legend}>Product Group</legend>
         {productGroups.map((group) => (
@@ -111,6 +118,7 @@ export function FilterPanel({
           </label>
         ))}
       </fieldset>
+      )}
 
       {vectorGroup && (
         <fieldset className={styles.group}>
@@ -221,6 +229,7 @@ export function FilterPanel({
         ))}
       </fieldset>
 
+      {!hideCollection && (
       <div className={styles.group}>
         <label htmlFor={`${idPrefix}-collection`} className={styles.legend}>
           Collection
@@ -241,6 +250,7 @@ export function FilterPanel({
           ))}
         </select>
       </div>
+      )}
     </div>
   );
 }

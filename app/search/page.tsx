@@ -12,22 +12,12 @@ import { popularSearches } from "@/lib/navigation";
 import {
   buildListingHref,
   countActiveFilters,
+  LISTING_SORT_OPTIONS,
   parseListingParams,
   toSearchParams,
 } from "@/lib/search-params";
 import { getCollectionService, getSearchService } from "@/lib/services";
 import styles from "./page.module.css";
-
-const SORT_OPTIONS = [
-  { value: "relevance", label: "Relevance" },
-  { value: "newest", label: "Recent" },
-  { value: "best-selling", label: "Popular" },
-  { value: "oldest", label: "Older" },
-  { value: "price-asc", label: "Price: Low to High" },
-  { value: "price-desc", label: "Price: High to Low" },
-  { value: "title-asc", label: "Title A–Z" },
-  { value: "title-desc", label: "Title Z–A" },
-];
 
 interface SearchPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -104,7 +94,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <SortSelect
             id="search-sort"
             value={listing.sort}
-            options={SORT_OPTIONS}
+            options={LISTING_SORT_OPTIONS}
           />
         </div>
 

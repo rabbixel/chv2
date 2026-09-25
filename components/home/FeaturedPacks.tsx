@@ -18,7 +18,7 @@ export function FeaturedPacks({ packs }: FeaturedPacksProps) {
   const renderCard = (pack: Collection, large: boolean) => (
     <Link
       key={pack.id}
-      href={routes.search(pack.query)}
+      href={routes.collection(pack.slug)}
       className={cn(styles.card, large && styles.lead)}
       style={{ "--pack-hue": pack.hue } as CSSProperties}
     >

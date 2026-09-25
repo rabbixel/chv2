@@ -5,23 +5,31 @@
  * eventually — components already treat it as data, not markup.
  */
 
+import { routes } from "@/lib/routes";
+
 export interface DiscoveryTile {
   label: string;
   caption: string;
   /** Search query powering the tile. */
   query: string;
   hue: number;
+  /**
+   * Explicit listing URL. Tiles that map cleanly onto the taxonomy link to
+   * category pages; the rest fall back to keyword search. Discovery stays a
+   * separate layer — it is not forced to mirror taxonomy slugs.
+   */
+  href?: string;
 }
 
 /** Main discovery categories (distinct from the backend taxonomy). */
 export const discoveryTiles: DiscoveryTile[] = [
-  { label: "Logos", caption: "Marks, badges & monograms", query: "logo", hue: 212 },
+  { label: "Logos", caption: "Marks, badges & monograms", query: "logo", hue: 212, href: routes.category("logo-design") },
   { label: "Banners", caption: "Promo & social banners", query: "banner", hue: 22 },
-  { label: "Characters", caption: "Mythology to modern", query: "character", hue: 268 },
+  { label: "Characters", caption: "Mythology to modern", query: "character", hue: 268, href: routes.category("character-bundle") },
   { label: "Bundles", caption: "Consistent packs", query: "bundle", hue: 152 },
-  { label: "Websites", caption: "Heroes & web graphics", query: "website", hue: 200 },
-  { label: "Flyers", caption: "Local business flyers", query: "flyer", hue: 340 },
-  { label: "Freebies", caption: "Top-notch free assets", query: "freebie", hue: 130 },
+  { label: "Websites", caption: "Heroes & web graphics", query: "website", hue: 200, href: routes.category("website") },
+  { label: "Flyers", caption: "Local business flyers", query: "flyer", hue: 340, href: routes.category("flyers") },
+  { label: "Freebies", caption: "Top-notch free assets", query: "freebie", hue: 130, href: routes.category("freebies") },
   { label: "Cards", caption: "Greetings & invites", query: "card", hue: 48 },
 ];
 
