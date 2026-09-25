@@ -99,7 +99,12 @@ export async function SiteHeader() {
           />
         </div>
       </div>
-      <PrimaryNav categories={categories} className={styles.primaryNav} />
+      <PrimaryNav
+        categories={categories.filter(
+          (category) => category.parentId === null,
+        )}
+        className={styles.primaryNav}
+      />
     </header>
   );
 }

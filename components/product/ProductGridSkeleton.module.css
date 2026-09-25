@@ -1,0 +1,46 @@
+.card {
+  height: 100%;
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-md);
+  overflow: hidden;
+}
+
+.media,
+.line {
+  display: block;
+  background-color: var(--ch-neutral-100);
+  animation: ch-pulse 1.4s ease-in-out infinite;
+}
+
+.media {
+  aspect-ratio: 4 / 3;
+  border-bottom: 1px solid var(--ch-color-border);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-2);
+  padding: var(--ch-space-4);
+}
+
+.line {
+  height: 0.875rem;
+  border-radius: var(--ch-radius-xs);
+}
+
+.short {
+  width: 55%;
+}
+
+@keyframes ch-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}

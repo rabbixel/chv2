@@ -2,17 +2,27 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { Badge, Card } from "@/components/ui";
 import { routes } from "@/lib/routes";
-import type { Product } from "@/lib/types";
+import { categoryDisplayName } from "@/lib/taxonomy";
+import type { Product, ProductKind } from "@/lib/types";
 import {
   cn,
   discountPercent,
   formatCompact,
   formatMoney,
 } from "@/lib/utils";
+import { WishlistButton } from "./WishlistButton";
 import styles from "./ProductCard.module.css";
+
+const KIND_LABELS: Record<ProductKind, string> = {
+  vector: "Vector",
+  bundle: "Bundle",
+  freebie: "Freebie",
+};
 
 export interface ProductCardProps {
   product: Product;
+  /** Initial wishlist state (resolved by the listing page later). */
+  wishlisted?: boolean;
 }
 
 function PlaceholderArt({ product }: { product: Product }) {
@@ -29,29 +39,38 @@ function PlaceholderArt({ product }: { product: Product }) {
   );
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, wishlisted = false }: ProductCardProps) {
   const href = routes.product(product.slug);
   const percent = discountPercent(product.compareAtPrice, product.price);
   const cover = product.images[0];
+  const kicker = [
+    KIND_LABELS[product.kind],
+    categoryDisplayName(product.categorySlugs[0] ?? product.productGroup),
+    product.isCustomizable ? "Customizable" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Card padding="none" interactive className={styles.card}>
-      <Link
-        href={href}
-        className={styles.media}
-        aria-label={product.title}
-        tabIndex={-1}
-      >
-        {cover?.url ? (
-          // Real CDN imagery lands with the API; until then every product
-          // carries a deterministic flat placeholder (see data/products.ts).
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover.url} alt="" className={styles.image} loading="lazy" />
-        ) : (
-          <PlaceholderArt product={product} />
-        )}
-        <span className={styles.badges}>
-          {product.price.amount === 0 && (
+      <div className={styles.mediaWrap}>
+        <Link
+          href={href}
+          className={styles.media}
+          aria-label={product.title}
+          tabIndex={-1}
+        >
+          {cover?.url ? (
+            // Real CDN imagery lands with the API; until then every product
+            // carries a deterministic flat placeholder (see data/products.ts).
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cover.url} alt="" className={styles.image} loading="lazy" />
+          ) : (
+            <PlaceholderArt product={product} />
+          )}
+        </Link>
+        <span className={styles.badges} aria-hidden="true">
+          {product.isFree && (
             <Badge variant="success" size="sm">
               Free
             </Badge>
@@ -72,9 +91,15 @@ export function ProductCard({ product }: ProductCardProps) {
             </Badge>
           )}
         </span>
-      </Link>
+        <WishlistButton
+          productId={product.id}
+          productTitle={product.title}
+          initialWishlisted={wishlisted}
+          className={styles.wishlist}
+        />
+      </div>
       <div className={styles.body}>
-        <p className={styles.fileTypes}>{product.fileTypes.join(" · ")}</p>
+        <p className={styles.kicker}>{kicker}</p>
         <h3 className={styles.title}>
           <Link href={href} className={styles.titleLink}>
             {product.title}
@@ -93,7 +118,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
         </p>
         <p className={styles.priceRow}>
-          {product.price.amount === 0 ? (
+          {product.isFree ? (
             <span className={styles.free}>Free download</span>
           ) : (
             <>

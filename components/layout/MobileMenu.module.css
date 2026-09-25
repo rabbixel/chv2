@@ -95,6 +95,15 @@
   margin-bottom: var(--ch-space-2);
 }
 
+.groupLink {
+  color: var(--ch-color-text);
+}
+
+.groupLink:hover {
+  color: var(--ch-color-brand-strong);
+  text-decoration: none;
+}
+
 .shortcuts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -99,9 +99,10 @@ lib/
   routes.ts           storefront URL builders (incl. placeholder routes)
   navigation.ts       popular searches + nav config (API-owned in future)
   homepage.ts         discovery tiles, character cats, keywords (Run 03)
+  taxonomy.ts         product groups/subcategories — single source of truth
   cache.ts            ISR revalidation windows + cache tags
   design-tokens.ts    TS mirror of breakpoints/containers
-data/                 mock licences, categories, collections, 43-product seed catalogue
+data/                 mock licences, taxonomy categories, collections, 52-product seed
 public/               favicon, robots.txt
 ```
 

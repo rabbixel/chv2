@@ -1,3 +1,13 @@
+.wrapper {
+  min-width: 0;
+}
+
+.count {
+  margin-bottom: var(--ch-space-4);
+  font-size: var(--ch-text-sm);
+  color: var(--ch-color-text-muted);
+}
+
 .grid {
   display: grid;
   gap: var(--ch-space-4);
@@ -6,6 +16,12 @@
 
 .cell {
   min-width: 0;
+}
+
+.pagination {
+  margin-top: var(--ch-space-8);
+  display: flex;
+  justify-content: center;
 }
 
 @media (min-width: 768px) {

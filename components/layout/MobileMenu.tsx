@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { SearchBar, type SearchBarCategory } from "@/components/search";
 import { Icon } from "@/components/ui";
 import { routes } from "@/lib/routes";
+import { productGroups } from "@/lib/taxonomy";
 import { cn } from "@/lib/utils";
 import styles from "./MobileMenu.module.css";
 
@@ -25,7 +26,8 @@ const BROWSE_LINKS = [
 /**
  * Mobile navigation drawer. Rendered inside the server header but fully
  * client-interactive: focus-trapped dialog, Escape/overlay close, scroll
- * lock and focus restoration.
+ * lock and focus restoration. Category names come from the centralized
+ * taxonomy (`lib/taxonomy.ts`) — never duplicated here.
  */
 export function MobileMenu({
   categories,
@@ -183,27 +185,43 @@ export function MobileMenu({
                   ))}
                 </ul>
               </section>
-              <section aria-label="Categories" className={styles.group}>
-                <p className={styles.groupTitle}>Categories</p>
-                <ul className={styles.links}>
-                  {categories.map((category) => (
-                    <li key={category.slug}>
-                      <Link
-                        href={routes.category(category.slug)}
-                        className={styles.link}
-                        onClick={close}
-                      >
-                        {category.name}
-                        <Icon
-                          name="chevron-right"
-                          size={16}
-                          className={styles.linkChevron}
-                        />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              {productGroups.map((group) => (
+                <section
+                  key={group.slug}
+                  aria-label={group.name}
+                  className={styles.group}
+                >
+                  <p className={styles.groupTitle}>
+                    <Link
+                      href={routes.category(group.slug)}
+                      className={styles.groupLink}
+                      onClick={close}
+                    >
+                      {group.name}
+                    </Link>
+                  </p>
+                  {group.subcategories.length > 0 && (
+                    <ul className={styles.links}>
+                      {group.subcategories.map((sub) => (
+                        <li key={sub.slug}>
+                          <Link
+                            href={routes.category(sub.slug)}
+                            className={styles.link}
+                            onClick={close}
+                          >
+                            {sub.name}
+                            <Icon
+                              name="chevron-right"
+                              size={16}
+                              className={styles.linkChevron}
+                            />
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ))}
             </nav>
           </div>
         </span>

@@ -5,12 +5,15 @@
   overflow: hidden;
 }
 
-.media {
+.mediaWrap {
   position: relative;
+  border-bottom: 1px solid var(--ch-color-border);
+}
+
+.media {
   display: block;
   aspect-ratio: 4 / 3;
   background-color: var(--ch-neutral-100);
-  border-bottom: 1px solid var(--ch-color-border);
 }
 
 .media:hover {
@@ -58,9 +61,17 @@
   position: absolute;
   top: var(--ch-space-2);
   left: var(--ch-space-2);
+  right: 3.25rem;
   display: flex;
   gap: var(--ch-space-1);
   flex-wrap: wrap;
+  pointer-events: none;
+}
+
+.wishlist {
+  position: absolute;
+  top: var(--ch-space-2);
+  right: var(--ch-space-2);
 }
 
 .body {
@@ -71,12 +82,15 @@
   flex: 1;
 }
 
-.fileTypes {
+.kicker {
   font-size: var(--ch-text-xs);
   font-weight: var(--ch-weight-semibold);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ch-color-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .title {

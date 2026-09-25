@@ -33,7 +33,7 @@ function mockOrders(): Order[] {
   const firstItems = [orderItem("prod-republic-day-bundle", "commercial")];
   const secondItems = [
     orderItem("prod-ramayana-gods-bundle", "personal"),
-    orderItem("prod-vintage-badge-logos", "personal"),
+    orderItem("prod-logo-template-collection", "personal"),
   ];
   const total = (items: OrderItem[]) =>
     items.reduce((sum, item) => sum + item.lineTotal.amount, 0);
