@@ -1,6 +1,8 @@
 export { Breadcrumbs } from "./Breadcrumbs";
 export type { BreadcrumbsProps, Crumb } from "./Breadcrumbs";
 export { Container } from "./Container";
+export { CartCountBadge } from "./CartCountBadge";
+export type { CartCountBadgeProps } from "./CartCountBadge";
 export type { ContainerProps } from "./Container";
 export { MobileMenu } from "./MobileMenu";
 export type { MobileMenuProps } from "./MobileMenu";

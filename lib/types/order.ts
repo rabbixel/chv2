@@ -34,6 +34,22 @@ export interface OrderPayment {
   status: PaymentStatus;
   /** Provider-side reference (e.g. Razorpay payment id). No secrets. */
   reference?: string;
+  /** Backend-created provider order id (Razorpay `order_*`) for checkout.js. */
+  providerOrderId?: string;
+  /** Failure reason surfaced on the failed-payment screen. */
+  failureReason?: string;
+}
+
+/** Customer snapshot captured at checkout (receipts, GST invoice). */
+export interface OrderCustomer {
+  fullName: string;
+  email: string;
+  phone: string;
+  line1?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
 }
 
 export interface Order {
@@ -48,6 +64,7 @@ export interface Order {
   taxTotal: Money;
   grandTotal: Money;
   status: OrderStatus;
+  customer?: OrderCustomer;
   payment: OrderPayment;
   createdAt: ISODateString;
   updatedAt: ISODateString;

@@ -1,6 +1,8 @@
 "use client";
 
-import { Container } from "@/components/layout";
+// Direct import: the layout barrel re-exports SiteHeader, which would pull
+// server-only services into this client boundary.
+import { Container } from "@/components/layout/Container";
 import { Button, EmptyState } from "@/components/ui";
 import { routes } from "@/lib/routes";
 

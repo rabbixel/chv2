@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { addToCart } from "@/app/cart/actions";
 import { Badge, Button, Icon } from "@/components/ui";
+import { CART_UPDATED_EVENT } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import type { License, Money, Product } from "@/lib/types";
+import type { License, LicenseCode, Money, Product } from "@/lib/types";
 import { discountPercent, formatMoney } from "@/lib/utils";
 import styles from "./PurchasePanel.module.css";
 
@@ -25,15 +28,49 @@ function scaledPrice(base: Money, multiplier: number): Money {
  * site's variable pricing), price, purchase actions and the customization
  * quote action (only when the product supports it).
  *
- * Cart writes are UI-only in this run (instant optimistic state).
- * Persistence moves to the cart API (server action + `cartService`) once
- * sessions exist — `data-product-id` / `data-license` are the hooks.
+ * Cart writes go through the `addToCart` server action (session cart +
+ * header badge sync); the added state mirrors the live site's flyout.
  */
 export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
-  const [licenseCode, setLicenseCode] = useState<string>(
+  const router = useRouter();
+  const [licenseCode, setLicenseCode] = useState<LicenseCode>(
     product.licenses[0] ?? "personal",
   );
   const [added, setAdded] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const announce = (count: number) => {
+    window.dispatchEvent(
+      new CustomEvent(CART_UPDATED_EVENT, { detail: { count } }),
+    );
+  };
+
+  const handleAdd = () => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        const result = await addToCart(product.id, licenseCode);
+        announce(result.itemCount);
+        setAdded(true);
+      } catch {
+        setActionError("Could not add to cart. Please try again.");
+      }
+    });
+  };
+
+  const handleBuyNow = () => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        const result = await addToCart(product.id, licenseCode);
+        announce(result.itemCount);
+        router.push(routes.checkout());
+      } catch {
+        setActionError("Could not add to cart. Please try again.");
+      }
+    });
+  };
 
   const selected =
     licenses.find((license) => license.code === licenseCode) ?? licenses[0];
@@ -110,6 +147,11 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
         </fieldset>
       )}
 
+      {actionError && (
+        <p role="alert" className={styles.error}>
+          {actionError}
+        </p>
+      )}
       {added ? (
         <>
           <p role="status" className={styles.added}>
@@ -125,14 +167,22 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
         </>
       ) : (
         <>
-          <Button size="lg" fullWidth onClick={() => setAdded(true)}>
+          <Button
+            size="lg"
+            fullWidth
+            onClick={handleAdd}
+            loading={pending}
+            disabled={pending}
+          >
             Add to cart
           </Button>
           <Button
             variant="secondary"
             size="lg"
             fullWidth
-            href={routes.checkout()}
+            onClick={handleBuyNow}
+            loading={pending}
+            disabled={pending}
           >
             Buy now
           </Button>

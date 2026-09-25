@@ -95,6 +95,17 @@
   color: var(--ch-color-text);
 }
 
+.error {
+  margin: 0;
+  padding: var(--ch-space-3) var(--ch-space-4);
+  font-size: var(--ch-text-sm);
+  font-weight: var(--ch-weight-medium);
+  color: var(--ch-color-danger);
+  background-color: var(--ch-color-danger-soft);
+  border: 1px solid var(--ch-color-danger-border);
+  border-radius: var(--ch-radius-md);
+}
+
 .added {
   display: flex;
   gap: var(--ch-space-2);

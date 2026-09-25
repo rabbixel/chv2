@@ -15,7 +15,11 @@ export type { DownloadService } from "./downloadService";
 export { getLicenseService } from "./licenseService";
 export type { LicenseService } from "./licenseService";
 export { getOrderService } from "./orderService";
-export type { OrderService } from "./orderService";
+export type {
+  CreateOrderInput,
+  OrderService,
+  VerifyPaymentInput,
+} from "./orderService";
 export {
   getProductService,
   type ProductListParams,

@@ -27,5 +27,11 @@ export interface Cart {
   items: CartItem[];
   itemCount: number;
   subtotal: Money;
+  /** Applied coupon code, if any. */
+  couponCode?: string;
+  /** Coupon discount (absent when no coupon applies). */
+  discount?: Money;
+  /** Grand total: subtotal minus discount. Digital goods, no shipping. */
+  total: Money;
   updatedAt: ISODateString;
 }

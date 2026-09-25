@@ -73,6 +73,9 @@ npm run dev                  # http://localhost:3000
    (`lib/cache.ts` revalidation windows + tags). The browser only ever
    receives the current page — never thousands of products.
 4. URLs are built via `lib/routes.ts`; money renders via `formatMoney()`.
+5. **Client components mutate through server actions** (`app/*/actions.ts`),
+   which call services — never import services or `@/data` from client code.
+   Session state (cart) syncs to the UI via cookies + `revalidatePath`.
 
 ### Category + collection listings (Run 06)
 
@@ -96,11 +99,26 @@ npm run dev                  # http://localhost:3000
   shell for no-JS clients, while unmatched URLs render the full
   not-found page server-side.
 
+### Cart + checkout (Run 08)
+
+- `/cart` (session lines with license picker, remove, wishlist toggle,
+  totals) and `/checkout` (customer info, coupon, Razorpay method,
+  terms, place order) plus `/checkout/pay|success|failed` order steps.
+- Mock backend: cookie-session cart + in-memory orders with a `HATTI10`
+  (10% off) test coupon. The header badge stays static-safe via the
+  cart-count cookie. Real mode (`USE_MOCK_API=false`) calls the typed
+  API, including `POST /v1/payments/verify`.
+- Razorpay is integration-ready: `lib/payments/razorpay.ts` opens
+  checkout.js with a backend-created order id; only the publishable key
+  id is browser-safe — secrets and S3 credentials stay backend-only.
+  Mock mode drives states through an explicitly labelled test sandbox;
+  nothing fakes a real payment.
+
 ## Project structure
 
 ```
 app/                  layout, homepage, search, category + collection listings,
-                      product pages
+                      product + cart + checkout pages
 styles/tokens.css     design tokens (single source of truth)
 components/
   ui/                 Button, IconButton, Icon, Input, Badge, Card, Spinner,
@@ -109,7 +127,8 @@ components/
                       Breadcrumbs, SiteFooter
   product/            ProductCard, ProductGrid
   search/             SearchBar
-  cart/               CartItemRow, CartSummary
+  cart/               CartItemRow, CartSummary, CartLicenseSelect
+  checkout/           SubmitButton, RazorpayButton
   account/            AccountMenu
 lib/
   types/              Product, Category, ProductImage, Customer, Cart, CartItem,
@@ -117,6 +136,7 @@ lib/
                       SearchResult, Pagination (+ common primitives)
   services/           interfaces + mock/API implementations + accessors
   api/                typed client (ApiError, apiFetch) + endpoint builders
+  payments/           Razorpay checkout.js client (publishable key only)
   utils/              cn, format (INR/dates/files), pagination helpers
   constants.ts        site + pagination defaults (env-aware, browser-safe)
   routes.ts           storefront URL builders (incl. placeholder routes)
@@ -144,8 +164,12 @@ subtle shadows, minimal motion with `prefers-reduced-motion` support.
 
 See `.env.example`. Only `NEXT_PUBLIC_*` values reach the browser.
 `USE_MOCK_API=false` + `NEXT_PUBLIC_API_BASE_URL` (or server-only
-`API_BASE_URL`) switches read paths to the typed API client. Payment and
-storage credentials are backend-only and must never be added here.
+`API_BASE_URL`) switches read paths to the typed API client. Mock mode
+(`true`, default) uses the cookie-session cart, in-memory orders and the
+test payment sandbox. Real payments need the backend plus
+`NEXT_PUBLIC_RAZORPAY_KEY_ID` (publishable key id — safe for browsers).
+Payment and storage credentials are backend-only and must never be added
+here.
 
 ## Roadmap (upcoming runs)
 
@@ -153,5 +177,6 @@ storage credentials are backend-only and must never be added here.
 - Category + collection listing pages (Run 06 — shared filter/sort/pagination)
 - Product detail pages (Run 07 — gallery, licence picker, product information)
 - Search results page (Run 05 — facets, URL-synced filters, sort)
-- Cart drawer + cart page, checkout (Razorpay via backend), account area
+- Cart page + checkout (Run 08 — session cart, coupons, Razorpay-ready)
+- Cart drawer, account area
 - Real API integration, CDN imagery, auth, sitemaps/SEO pass

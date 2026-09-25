@@ -9,6 +9,7 @@ import {
   getCategoryService,
   getWishlistService,
 } from "@/lib/services";
+import { CartCountBadge } from "./CartCountBadge";
 import { MobileMenu } from "./MobileMenu";
 import { PrimaryNav } from "./PrimaryNav";
 import styles from "./SiteHeader.module.css";
@@ -86,9 +87,7 @@ export async function SiteHeader() {
             <IconButton label="Sign in" href={routes.signIn()}>
               <Icon name="user" />
             </IconButton>
-            <IconButton label="Cart" href={routes.cart()} badge={cart.itemCount}>
-              <Icon name="bag" />
-            </IconButton>
+            <CartCountBadge initialCount={cart.itemCount} />
           </nav>
         </div>
         <div className={`ch-container ${styles.searchMobile}`}>

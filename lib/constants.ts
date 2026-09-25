@@ -33,3 +33,13 @@ function readEnvInt(
   if (Number.isNaN(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
 }
+
+export const CART_COOKIE = "ch_cart";
+/** Non-httpOnly mirror of the item count so the header badge stays live. */
+export const CART_COUNT_COOKIE = "ch_cart_count";
+
+/**
+ * Window event fired after same-page cart mutations (product-page
+ * add-to-cart) with `{ count: number }` detail for the header badge.
+ */
+export const CART_UPDATED_EVENT = "ch:cart-updated";
