@@ -1,0 +1,23 @@
+.empty {
+  text-align: center;
+}
+
+.title {
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-xl);
+  font-weight: var(--ch-weight-semibold);
+  letter-spacing: var(--ch-tracking-tight);
+}
+
+.description {
+  margin-top: var(--ch-space-2);
+  color: var(--ch-color-text-muted);
+  font-size: var(--ch-text-base);
+  text-wrap: balance;
+}
+
+.action {
+  margin-top: var(--ch-space-5);
+  display: flex;
+  justify-content: center;
+}

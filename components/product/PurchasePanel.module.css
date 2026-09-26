@@ -1,0 +1,116 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-4);
+  padding: var(--ch-space-6);
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-lg);
+}
+
+.priceRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ch-space-3);
+  align-items: baseline;
+}
+
+.price {
+  margin: 0;
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-3xl);
+  font-weight: var(--ch-weight-bold);
+  color: var(--ch-color-text);
+}
+
+.compareAt {
+  font-size: var(--ch-text-lg);
+  color: var(--ch-color-text-faint);
+}
+
+.free {
+  margin: 0;
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-2xl);
+  font-weight: var(--ch-weight-semibold);
+  color: var(--ch-color-success);
+}
+
+.licenseNote {
+  margin: 0;
+  font-size: var(--ch-text-sm);
+  color: var(--ch-color-text-muted);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-2);
+  padding: var(--ch-space-4);
+  margin: 0;
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-md);
+}
+
+.optionsLegend {
+  padding: 0 var(--ch-space-1);
+  font-size: var(--ch-text-sm);
+  font-weight: var(--ch-weight-semibold);
+  color: var(--ch-color-text);
+}
+
+.option {
+  display: flex;
+  gap: var(--ch-space-3);
+  align-items: center;
+  padding: var(--ch-space-2) var(--ch-space-3);
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: var(--ch-radius-sm);
+}
+
+.option:hover {
+  border-color: var(--ch-color-border);
+}
+
+.option:has(:checked) {
+  background-color: var(--ch-brand-50);
+  border-color: var(--ch-brand-600);
+}
+
+.radio {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--ch-brand-600);
+}
+
+.optionName {
+  font-weight: var(--ch-weight-medium);
+  color: var(--ch-color-text);
+}
+
+.optionPrice {
+  margin-left: auto;
+  font-weight: var(--ch-weight-semibold);
+  color: var(--ch-color-text);
+}
+
+.error {
+  margin: 0;
+  padding: var(--ch-space-3) var(--ch-space-4);
+  font-size: var(--ch-text-sm);
+  font-weight: var(--ch-weight-medium);
+  color: var(--ch-color-danger);
+  background-color: var(--ch-color-danger-soft);
+  border: 1px solid var(--ch-color-danger-border);
+  border-radius: var(--ch-radius-md);
+}
+
+.added {
+  display: flex;
+  gap: var(--ch-space-2);
+  align-items: center;
+  margin: 0;
+  font-weight: var(--ch-weight-semibold);
+  color: var(--ch-color-success);
+}

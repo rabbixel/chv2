@@ -1,0 +1,40 @@
+.nav {
+  min-width: 0;
+}
+
+.list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ch-space-2);
+  font-size: var(--ch-text-sm);
+}
+
+.item {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.link {
+  color: var(--ch-color-text-muted);
+  white-space: nowrap;
+}
+
+.link:hover {
+  color: var(--ch-color-text);
+}
+
+.current {
+  min-width: 0;
+  color: var(--ch-color-text);
+  font-weight: var(--ch-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.separator {
+  color: var(--ch-neutral-300);
+  user-select: none;
+}

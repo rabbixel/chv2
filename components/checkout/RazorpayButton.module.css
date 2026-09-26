@@ -1,0 +1,37 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-3);
+}
+
+.notice {
+  margin: 0;
+  font-size: var(--ch-text-sm);
+  color: var(--ch-color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--ch-text-sm);
+  font-weight: var(--ch-weight-medium);
+  color: var(--ch-color-danger);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ch-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ch-space-4);
+  background-color: rgb(33 30 25 / 0.55);
+}
+
+.overlayCard {
+  display: inline-flex;
+  padding: var(--ch-space-6) var(--ch-space-8);
+  background-color: var(--ch-color-surface);
+  border-radius: var(--ch-radius-lg);
+  box-shadow: var(--ch-shadow-lg);
+}

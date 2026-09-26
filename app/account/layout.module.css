@@ -1,0 +1,31 @@
+.shell {
+  padding-block: var(--ch-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-4);
+}
+
+.greeting {
+  font-size: var(--ch-text-sm);
+  color: var(--ch-color-text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--ch-space-6);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: 15rem 1fr;
+  }
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-5);
+}

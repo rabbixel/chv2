@@ -1,0 +1,32 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--ch-color-text-muted);
+  background-color: rgb(255 255 255 / 0.94);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-full);
+  box-shadow: var(--ch-shadow-sm);
+  cursor: pointer;
+  transition:
+    color var(--ch-duration-fast) var(--ch-ease-out),
+    border-color var(--ch-duration-fast) var(--ch-ease-out),
+    transform var(--ch-duration-fast) var(--ch-ease-out);
+}
+
+.button:hover {
+  color: var(--ch-color-danger);
+  border-color: var(--ch-color-danger-border);
+  transform: scale(1.06);
+}
+
+.active {
+  color: var(--ch-color-danger);
+  border-color: var(--ch-color-danger-border);
+}
+
+.active svg {
+  fill: currentcolor;
+}

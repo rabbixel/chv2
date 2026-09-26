@@ -1,0 +1,30 @@
+.section {
+  padding-block: var(--ch-space-12);
+}
+
+.section + .section {
+  border-top: 1px solid var(--ch-color-border);
+}
+
+.tight {
+  padding-block: var(--ch-space-8);
+}
+
+.band {
+  background-color: var(--ch-color-surface);
+  border-block: 1px solid var(--ch-color-border);
+}
+
+.band .section + .section {
+  border-top: 0;
+}
+
+@media (min-width: 768px) {
+  .section {
+    padding-block: var(--ch-space-16);
+  }
+
+  .tight {
+    padding-block: var(--ch-space-10);
+  }
+}

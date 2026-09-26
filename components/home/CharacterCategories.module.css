@@ -1,0 +1,91 @@
+.grid {
+  display: grid;
+  gap: var(--ch-space-4);
+  grid-template-columns: 1fr;
+}
+
+.card {
+  --card-hue: 150;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-md);
+  overflow: hidden;
+  color: var(--ch-color-text);
+  transition:
+    border-color var(--ch-duration-fast) var(--ch-ease-out),
+    box-shadow var(--ch-duration-normal) var(--ch-ease-out),
+    transform var(--ch-duration-normal) var(--ch-ease-out);
+}
+
+.card:hover {
+  border-color: var(--ch-color-border-strong);
+  box-shadow: var(--ch-shadow-md);
+  transform: translateY(-2px);
+  text-decoration: none;
+  color: var(--ch-color-text);
+}
+
+.art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7rem;
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-5xl);
+  font-weight: var(--ch-weight-semibold);
+  color: hsl(var(--card-hue) 32% 28%);
+  background-color: hsl(var(--card-hue) 32% 88%);
+  background-image: radial-gradient(
+    circle,
+    hsl(var(--card-hue) 28% 74%) 1.5px,
+    transparent 1.5px
+  );
+  background-size: 18px 18px;
+  border-bottom: 1px solid var(--ch-color-border);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-1);
+  padding: var(--ch-space-4);
+  flex: 1;
+}
+
+.name {
+  font-weight: var(--ch-weight-semibold);
+  font-size: var(--ch-text-lg);
+  letter-spacing: var(--ch-tracking-tight);
+}
+
+.blurb {
+  font-size: var(--ch-text-sm);
+  color: var(--ch-color-text-muted);
+  line-height: var(--ch-leading-sm);
+}
+
+.meta {
+  margin-top: auto;
+  padding-top: var(--ch-space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ch-space-1);
+  font-size: var(--ch-text-sm);
+  font-weight: var(--ch-weight-semibold);
+  color: var(--ch-color-brand);
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
