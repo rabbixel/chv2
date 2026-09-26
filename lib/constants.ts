@@ -9,9 +9,7 @@ export const SITE = {
     "Creative Hatti is a curated marketplace for fonts, graphics, templates and design resources.",
   locale: "en-IN",
   currency: "INR",
-  url:
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-    "http://localhost:3000",
+    url: readSiteUrl(),
 } as const;
 
 export const PAGINATION = {
@@ -20,6 +18,11 @@ export const PAGINATION = {
   /** How many page buttons the Pagination component renders around current. */
   siblingCount: 1,
 } as const;
+
+function readSiteUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  return raw ? raw : "http://localhost:3000";
+}
 
 function readEnvInt(
   key: string,
