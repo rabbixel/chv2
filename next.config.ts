@@ -1,8 +1,5 @@
 import type { NextConfig } from "next";
 console.log(">>> CREATIVE HATTI NEXT CONFIG LOADED <<<");
-const wordpressImageUrl = new URL(
-  process.env.NEXT_PUBLIC_WORDPRESS_URL ?? "https://www.creativehatti.com",
-);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -12,6 +9,11 @@ images: {
     {
       protocol: "http",
       hostname: "creativehatti.test",
+      pathname: "/wp-content/uploads/**",
+    },
+    {
+      protocol: "http",
+      hostname: "www.creativehatti.test",
       pathname: "/wp-content/uploads/**",
     },
 

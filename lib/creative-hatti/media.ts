@@ -1,4 +1,7 @@
-const LOCAL_WORDPRESS_HOSTNAMES = new Set(["creativehatti.test"]);
+const LOCAL_WORDPRESS_HOSTNAMES = new Set([
+  "creativehatti.test",
+  "www.creativehatti.test",
+]);
 const DEFAULT_PRODUCTION_WORDPRESS_URL = "https://www.creativehatti.com";
 
 function productionWordPressUrl(): URL {
