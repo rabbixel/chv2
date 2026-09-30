@@ -1,14 +1,40 @@
 import type { NextConfig } from "next";
+console.log(">>> CREATIVE HATTI NEXT CONFIG LOADED <<<");
+const wordpressImageUrl = new URL(
+  process.env.NEXT_PUBLIC_WORDPRESS_URL ?? "https://www.creativehatti.com",
+);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  images: {
-    // Product CDN. `next/image` optimizes, resizes and caches these at
-    // the edge; placeholders still render while running on mock data.
-    remotePatterns: [
-      { protocol: "https", hostname: "cdn.creativehatti.com" },
-    ],
-  },
+images: {
+  remotePatterns: [
+    // Local WordPress during development
+    {
+      protocol: "http",
+      hostname: "creativehatti.test",
+      pathname: "/wp-content/uploads/**",
+    },
+
+    // Production WordPress media
+    {
+      protocol: "https",
+      hostname: "www.creativehatti.com",
+      pathname: "/wp-content/uploads/**",
+    },
+    {
+      protocol: "https",
+      hostname: "creativehatti.com",
+      pathname: "/wp-content/uploads/**",
+    },
+
+    // CDN
+    {
+      protocol: "https",
+      hostname: "cdn.creativehatti.com",
+      pathname: "/**",
+    },
+  ],
+},
   async headers() {
     const security = [
       { key: "X-Content-Type-Options", value: "nosniff" },

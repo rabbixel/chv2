@@ -5,18 +5,18 @@
 
 export const apiEndpoints = {
   products: {
-    list: "/v1/products",
-    detail: (slug: string) => `/v1/products/${encodeURIComponent(slug)}`,
+    list: "/products",
+    detail: (slug: string) => `/products/slug/${encodeURIComponent(slug)}`,
     related: (slug: string) =>
-      `/v1/products/${encodeURIComponent(slug)}/related`,
+      `/products/slug/${encodeURIComponent(slug)}/related`,
   },
   categories: {
-    list: "/v1/categories",
-    detail: (slug: string) => `/v1/categories/${encodeURIComponent(slug)}`,
+    list: "/categories",
+    detail: (slug: string) => `/categories/${encodeURIComponent(slug)}`,
     products: (slug: string) =>
-      `/v1/categories/${encodeURIComponent(slug)}/products`,
+      `/categories/${encodeURIComponent(slug)}/products`,
   },
-  search: "/v1/search",
+  search: "/search",
   collections: {
     list: "/v1/collections",
     detail: (slug: string) => `/v1/collections/${encodeURIComponent(slug)}`,

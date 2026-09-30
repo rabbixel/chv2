@@ -2,6 +2,11 @@ import { categories } from "@/data/categories";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
+import { categoryFromApi } from "@/lib/creative-hatti/adapters";
+import type {
+  ChApiCategory,
+  ChApiEnvelope,
+} from "@/lib/creative-hatti/types";
 import type { Category, Slug } from "@/lib/types";
 
 export interface CategoryService {
@@ -28,10 +33,14 @@ class MockCategoryService implements CategoryService {
 
 class ApiCategoryService implements CategoryService {
   async listCategories(): Promise<Category[]> {
-    return apiFetch<Category[]>(apiEndpoints.categories.list, {
-      revalidate: REVALIDATE_SECONDS.catalog,
-      tags: [cacheTags.categories],
-    });
+    const result = await apiFetch<ChApiEnvelope<ChApiCategory[]>>(
+      apiEndpoints.categories.list,
+      {
+        revalidate: REVALIDATE_SECONDS.catalog,
+        tags: [cacheTags.categories],
+      },
+    );
+    return result.data.map(categoryFromApi);
   }
 
   async getCategoryBySlug(slug: Slug): Promise<Category | null> {
@@ -49,7 +58,7 @@ let cached: CategoryService | null = null;
 
 export function getCategoryService(): CategoryService {
   cached ??=
-    process.env.USE_MOCK_API === "false"
+    process.env.USE_MOCK_API !== "true" && process.env.CH_API_URL
       ? new ApiCategoryService()
       : new MockCategoryService();
   return cached;
