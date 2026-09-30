@@ -9,6 +9,7 @@ export interface CharacterCategoryWithCount {
   name: string;
   blurb: string;
   query: string;
+  categorySlug: string;
   hue: number;
   count: number;
 }
@@ -32,7 +33,7 @@ export function CharacterCategories({ categories }: CharacterCategoriesProps) {
         {categories.map((category) => (
           <li key={category.name}>
             <Link
-              href={routes.search(category.query)}
+              href={routes.category(category.categorySlug)}
               className={styles.card}
               style={{ "--card-hue": category.hue } as CSSProperties}
             >

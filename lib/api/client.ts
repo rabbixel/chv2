@@ -5,8 +5,9 @@
  * all traffic goes through this client (via the service layer), so base
  * URLs, caching, error shapes and auth headers stay in one place.
  *
- * RUN 01: the mock services don't hit the network yet; this client exists so
- * future runs can swap implementations without touching components.
+ * Public catalogue traffic is server-side and uses CH_API_URL, e.g.
+ * http://creativehatti.test/wp-json/ch/v1. Browser-exposed API env vars are
+ * intentionally avoided for this phase.
  */
 
 export class ApiError extends Error {
@@ -35,11 +36,7 @@ export interface ApiFetchOptions {
 }
 
 function resolveBaseUrl(): string {
-  // Server-only override wins (may carry internal hostnames); the public var
-  // is the browser-safe fallback. Empty during RUN 01 (mock mode).
-  return (
-    process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
-  ).replace(/\/$/, "");
+  return (process.env.CH_API_URL ?? "").replace(/\/$/, "");
 }
 
 export function isApiConfigured(): boolean {

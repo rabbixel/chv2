@@ -25,7 +25,6 @@ import {
   getCategoryService,
   getCollectionService,
   getProductService,
-  getSearchService,
 } from "@/lib/services";
 import styles from "./page.module.css";
 
@@ -44,25 +43,20 @@ export const metadata: Metadata = {
  * content config), and every tile links to a working search query.
  */
 export default async function HomePage() {
-  const searchService = getSearchService();
   const mainPromise = Promise.all([
     getProductService().listFeaturedProducts(8),
     getCategoryService().listCategories(),
     getCollectionService().listFeaturedPacks(),
     getCollectionService().listSeasonal(),
   ]);
-  const countsPromise = Promise.all(
-    characterCategories.map((category) =>
-      searchService.searchProducts({ query: category.query, pageSize: 1 }),
-    ),
-  );
   const [choice, categories, packs, seasonal] = await mainPromise;
-  const countResults = await countsPromise;
 
   const characters: CharacterCategoryWithCount[] = characterCategories.map(
-    (category, index) => ({
+    (category) => ({
       ...category,
-      count: countResults[index].pagination.totalItems,
+      count:
+        categories.find((entry) => entry.slug === category.categorySlug)
+          ?.productCount ?? 0,
     }),
   );
   const navCategories = categories.map((category) => ({

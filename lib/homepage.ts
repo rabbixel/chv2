@@ -38,6 +38,8 @@ export interface CharacterCategory {
   blurb: string;
   /** Search query used to count mock products for this category. */
   query: string;
+  /** Real taxonomy slug used when the catalogue API is enabled. */
+  categorySlug: string;
   hue: number;
 }
 
@@ -46,24 +48,28 @@ export const characterCategories: CharacterCategory[] = [
     name: "Mythology Character",
     blurb: "Gods, epics and divine poses from Indian mythology.",
     query: "mythology",
+    categorySlug: "mythological",
     hue: 268,
   },
   {
     name: "Profession Character",
     blurb: "Doctors, vendors and everyday Indian professions.",
     query: "profession",
+    categorySlug: "profession",
     hue: 212,
   },
   {
     name: "Cultural Character",
     blurb: "Dancers, weddings and living traditions.",
     query: "cultural",
+    categorySlug: "cultural",
     hue: 12,
   },
   {
     name: "Festival Characters",
     blurb: "Garba nights, Janmashtami and festive figures.",
     query: "festival characters",
+    categorySlug: "festival-events",
     hue: 48,
   },
 ];

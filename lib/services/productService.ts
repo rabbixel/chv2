@@ -2,6 +2,16 @@ import { products } from "@/data/products";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
+import {
+  apiCategorySlug,
+  paginatedFromApi,
+  productFromApi,
+} from "@/lib/creative-hatti/adapters";
+import type {
+  ChApiEnvelope,
+  ChApiProductCard,
+  ChApiProductDetail,
+} from "@/lib/creative-hatti/types";
 import type {
   Paginated,
   PaginationParams,
@@ -130,41 +140,56 @@ class MockProductService implements ProductService {
 /* ------------------------------ API ------------------------------ */
 
 class ApiProductService implements ProductService {
-  listProducts(params: ProductListParams = {}): Promise<Paginated<Product>> {
+  async listProducts(params: ProductListParams = {}): Promise<Paginated<Product>> {
     const { page, pageSize } = normalizePaginationParams(params);
-    return apiFetch<Paginated<Product>>(apiEndpoints.products.list, {
-      searchParams: {
-        page,
-        pageSize,
-        category: params.categorySlug,
-        tag: params.tag,
-        onSale: params.onSale,
-        featured: params.featured,
-        sort: params.sort,
+    const result = await apiFetch<ChApiEnvelope<ChApiProductCard[]>>(
+      apiEndpoints.products.list,
+      {
+        searchParams: {
+          page,
+          per_page: pageSize,
+          category: params.categorySlug
+            ? apiCategorySlug(params.categorySlug)
+            : undefined,
+          featured: params.featured,
+          orderby: params.sort === "oldest" ? "date" : undefined,
+          order: params.sort === "oldest" ? "asc" : "desc",
+        },
+        revalidate: REVALIDATE_SECONDS.catalog,
+        tags: [cacheTags.products],
       },
-      revalidate: REVALIDATE_SECONDS.catalog,
-      tags: [cacheTags.products],
-    });
+    );
+    return paginatedFromApi(result, productFromApi);
   }
 
   async getProductBySlug(slug: Slug): Promise<Product | null> {
     try {
-      return await apiFetch<Product>(apiEndpoints.products.detail(slug), {
-        revalidate: REVALIDATE_SECONDS.product,
-        tags: [cacheTags.product(slug)],
-      });
+      const result = await apiFetch<ChApiEnvelope<ChApiProductDetail>>(
+        apiEndpoints.products.detail(slug),
+        {
+          revalidate: REVALIDATE_SECONDS.product,
+          tags: [cacheTags.product(slug)],
+        },
+      );
+      return productFromApi(result.data);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }
   }
 
-  listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
-    return apiFetch<Product[]>(apiEndpoints.products.related(slug), {
-      searchParams: { limit },
-      revalidate: REVALIDATE_SECONDS.catalog,
-      tags: [cacheTags.product(slug)],
+  async listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
+    const current = await this.getProductBySlug(slug);
+    const categorySlug = current?.categorySlugs[0];
+    if (!categorySlug) return [];
+    const result = await this.listProducts({
+      categorySlug,
+      pageSize: limit + 1,
+      sort: "newest",
     });
+    return result.items
+      .filter((product) => product.slug !== slug)
+      .slice(0, limit);
   }
 
   async listFeaturedProducts(limit = 8): Promise<Product[]> {
@@ -196,7 +221,7 @@ let cached: ProductService | null = null;
 /** Pages and components consume products only through this accessor. */
 export function getProductService(): ProductService {
   cached ??=
-    process.env.USE_MOCK_API === "false"
+    process.env.USE_MOCK_API !== "true" && process.env.CH_API_URL
       ? new ApiProductService()
       : new MockProductService();
   return cached;
