@@ -1,16 +1,11 @@
 import { SectionHeading } from "./SectionHeading";
 import styles from "./TrustedBy.module.css";
+import Image from "next/image";
+import type { TrustedBrand } from "@/lib/services/homepageService";
+import { isLocalWordPressMediaUrl } from "@/lib/creative-hatti/media";
 
-const PLACEHOLDERS = [
-  "Partner One",
-  "Partner Two",
-  "Partner Three",
-  "Partner Four",
-  "Partner Five",
-  "Partner Six",
-];
-
-export function TrustedBy() {
+export function TrustedBy({ brands }: { brands: TrustedBrand[] }) {
+  if (!brands.length) return null;
   return (
     <section aria-labelledby="trusted-heading">
       <SectionHeading
@@ -21,11 +16,12 @@ export function TrustedBy() {
       <h2 id="trusted-heading" className="ch-visually-hidden">
         Trusted by leading brands
       </h2>
-      <ul className={styles.grid} aria-label="Partner logo placeholders">
-        {PLACEHOLDERS.map((label) => (
-          <li key={label} className={styles.tile} aria-hidden="true">
-            <span className={styles.mark}>◆</span>
-            <span className={styles.label}>{label}</span>
+      <ul className={styles.grid} aria-label="Trusted clients">
+        {brands.map((brand) => (
+          <li key={brand.id} className={styles.tile}>
+            <Image src={brand.image.url} alt={brand.name} width={brand.image.width ?? 240}
+              height={brand.image.height ?? 120} sizes="(max-width: 640px) 40vw, 160px"
+              className={styles.logo} unoptimized={isLocalWordPressMediaUrl(brand.image.url)} />
           </li>
         ))}
       </ul>

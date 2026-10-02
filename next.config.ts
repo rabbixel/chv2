@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 images: {
   remotePatterns: [
+    { protocol: "https", hostname: "creativehatti.test", pathname: "/wp-content/uploads/**" },
+    { protocol: "https", hostname: "www.creativehatti.test", pathname: "/wp-content/uploads/**" },
+    { protocol: "https", hostname: "api.creativehatti.com", pathname: "/wp-content/uploads/**" },
     // Local WordPress during development
     {
       protocol: "http",

@@ -15,8 +15,6 @@ import {
 } from "@/components/home";
 import {
   characterCategories,
-  discoveryTiles,
-  trendingKeywords,
 } from "@/lib/homepage";
 import { SITE } from "@/lib/constants";
 import { popularSearches } from "@/lib/navigation";
@@ -24,6 +22,7 @@ import { organizationJsonLd } from "@/lib/seo";
 import {
   getCategoryService,
   getCollectionService,
+  getHomepageService,
   getProductService,
 } from "@/lib/services";
 import styles from "./page.module.css";
@@ -47,18 +46,24 @@ export default async function HomePage() {
     getProductService().listFeaturedProducts(8),
     getCategoryService().listCategories(),
     getCollectionService().listFeaturedPacks(),
-    getCollectionService().listSeasonal(),
+    getHomepageService().getSections(),
   ]);
-  const [choice, categories, packs, seasonal] = await mainPromise;
+  const [choice, categories, packs, homepageSections] = await mainPromise;
+  const content = homepageSections;
 
-  const characters: CharacterCategoryWithCount[] = characterCategories.map(
-    (category) => ({
-      ...category,
-      count:
-        categories.find((entry) => entry.slug === category.categorySlug)
-          ?.productCount ?? 0,
-    }),
-  );
+  const categoryCount = (slug: string) =>
+    categories.find((entry) => entry.slug === slug)?.productCount ?? 0;
+  const characters: CharacterCategoryWithCount[] =
+    homepageSections?.characterCategories
+      ? homepageSections.characterCategories.map((category) => ({
+        ...category,
+        count: categoryCount(category.categorySlug) || category.count,
+      }))
+      : characterCategories.map((category) => ({
+          ...category,
+          count: categoryCount(category.categorySlug),
+        }));
+  const featuredPacks = homepageSections?.featuredPacks ?? packs;
   const navCategories = categories.map((category) => ({
     name: category.name,
     slug: category.slug,
@@ -71,7 +76,7 @@ export default async function HomePage() {
 
       <Container>
         <div className={styles.section}>
-          <DiscoveryGrid tiles={discoveryTiles} />
+          <DiscoveryGrid tiles={content.discoveryTiles} />
         </div>
       </Container>
 
@@ -92,20 +97,20 @@ export default async function HomePage() {
       <div className={styles.band}>
         <Container>
           <div className={styles.section}>
-            <FeaturedPacks packs={packs} />
+            <FeaturedPacks packs={featuredPacks} />
           </div>
         </Container>
       </div>
 
       <Container>
         <div className={styles.section}>
-          <SeasonalCollections items={seasonal} />
+          <SeasonalCollections items={content.seasonalCollections} />
         </div>
         <div className={`${styles.section} ${styles.tight}`}>
-          <TrendingKeywords keywords={trendingKeywords} />
+          <TrendingKeywords keywords={content.keywords} />
         </div>
         <div className={`${styles.section} ${styles.tight}`}>
-          <TrustedBy />
+          <TrustedBy brands={content.trustedBrands} />
         </div>
       </Container>
       <JsonLd data={organizationJsonLd()} />

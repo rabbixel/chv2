@@ -1,4 +1,6 @@
 import type { ID, Slug } from "./common";
+import type { ProductImage } from "./product";
+import type { CardArtworkVariant } from "./homepage";
 
 export type CollectionKind = "festival" | "seasonal" | "topical";
 
@@ -10,6 +12,13 @@ export type CollectionKind = "festival" | "seasonal" | "topical";
 export interface Collection {
   id: ID;
   slug: Slug;
+  /** Product used as the collection card cover when its image is available. */
+  coverProductSlug?: Slug;
+  /** Optional category target and editorial artwork for homepage cards. */
+  categorySlug?: Slug;
+  href?: string;
+  coverImage?: ProductImage;
+  artwork?: CardArtworkVariant;
   title: string;
   tagline: string;
   query: string;

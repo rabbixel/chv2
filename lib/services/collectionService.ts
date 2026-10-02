@@ -36,10 +36,18 @@ class MockCollectionService implements CollectionService {
 
 class ApiCollectionService implements CollectionService {
   async listCollections(): Promise<Collection[]> {
-    return apiFetch<Collection[]>(apiEndpoints.collections.list, {
-      revalidate: REVALIDATE_SECONDS.catalog,
-      tags: [cacheTags.categories],
-    });
+    try {
+      return await apiFetch<Collection[]>(apiEndpoints.collections.list, {
+        revalidate: REVALIDATE_SECONDS.catalog,
+        tags: [cacheTags.categories],
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        // The catalogue API has no collection route yet; keep editorial defaults available.
+        return new MockCollectionService().listCollections();
+      }
+      throw error;
+    }
   }
 
   async getCollectionBySlug(slug: Slug): Promise<Collection | null> {

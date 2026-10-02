@@ -6,6 +6,7 @@
  */
 
 import { routes } from "@/lib/routes";
+import type { CardArtworkVariant, ProductImage } from "@/lib/types";
 
 export interface DiscoveryTile {
   label: string;
@@ -19,6 +20,8 @@ export interface DiscoveryTile {
    * separate layer — it is not forced to mirror taxonomy slugs.
    */
   href?: string;
+  image?: ProductImage;
+  icon?: string;
 }
 
 /** Main discovery categories (distinct from the backend taxonomy). */
@@ -41,6 +44,8 @@ export interface CharacterCategory {
   /** Real taxonomy slug used when the catalogue API is enabled. */
   categorySlug: string;
   hue: number;
+  artwork: CardArtworkVariant;
+  image?: ProductImage;
 }
 
 export const characterCategories: CharacterCategory[] = [
@@ -50,6 +55,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "mythology",
     categorySlug: "mythological",
     hue: 268,
+    artwork: "mythology",
   },
   {
     name: "Profession Character",
@@ -57,6 +63,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "profession",
     categorySlug: "profession",
     hue: 212,
+    artwork: "profession",
   },
   {
     name: "Cultural Character",
@@ -64,6 +71,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "cultural",
     categorySlug: "cultural",
     hue: 12,
+    artwork: "cultural",
   },
   {
     name: "Festival Characters",
@@ -71,6 +79,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "festival characters",
     categorySlug: "festival-events",
     hue: 48,
+    artwork: "festival",
   },
 ];
 
@@ -88,6 +97,10 @@ export const trendingKeywords: string[] = [
   "Creative Design",
   "Vector Character",
   "Social Media",
+  "Logo Design", "Flyer", "Website", "Business Card", "Invitation",
+  "Character Bundle", "Indian Wedding", "Mythology", "Profession",
+  "Food", "Education", "Healthcare", "Dussehra", "Dhanteras", "Diwali",
+  "Festival Banner", "Greeting Card", "Background Pattern",
 ];
 
 /** Hero brand stats (brand claims, not mock counts). */

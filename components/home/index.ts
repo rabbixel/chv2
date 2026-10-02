@@ -20,3 +20,4 @@ export type { SectionHeadingProps } from "./SectionHeading";
 export { TrendingKeywords } from "./TrendingKeywords";
 export type { TrendingKeywordsProps } from "./TrendingKeywords";
 export { TrustedBy } from "./TrustedBy";
+export { TileArtwork } from "./TileArtwork";

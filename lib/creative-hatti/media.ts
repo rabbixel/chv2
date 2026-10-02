@@ -4,6 +4,14 @@ const LOCAL_WORDPRESS_HOSTNAMES = new Set([
 ]);
 const DEFAULT_PRODUCTION_WORDPRESS_URL = "https://www.creativehatti.com";
 
+export function isLocalWordPressMediaUrl(value: string): boolean {
+  try {
+    return LOCAL_WORDPRESS_HOSTNAMES.has(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
 function productionWordPressUrl(): URL {
   const configured =
     process.env.NEXT_PUBLIC_WORDPRESS_URL ??
@@ -28,7 +36,7 @@ export function productionWordPressHostname(): string {
 export function normalizeWordPressMediaUrl(value: string): string {
   try {
     const url = new URL(value);
-    if (!LOCAL_WORDPRESS_HOSTNAMES.has(url.hostname)) return value;
+    if (!isLocalWordPressMediaUrl(value)) return value;
     const production = productionWordPressUrl();
     url.protocol = production.protocol;
     url.hostname = production.hostname;

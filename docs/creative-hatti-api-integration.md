@@ -27,6 +27,21 @@ UI code continues to read catalogue data only through `@/lib/services`.
 - `/category/[slug]` uses backend category filtering through `GET /products?category=...`.
 - `/product/[slug]` uses `GET /products/slug/{slug}` for product detail, gallery, metadata, SEO, and Open Graph.
 - `/sitemap/1.xml` includes the latest 48 products from the catalogue API.
+- The homepage's character and featured-pack cards can be curated in WordPress
+  through the separate `Creative Hatti Homepage Sections` plugin. Its
+  `GET /homepage-sections` endpoint is read by `HomepageService`; disabled
+  sections continue to use the storefront's built-in content.
+
+## Homepage card curation
+
+Install `wordpress/creative-hatti-home-sections/` into the WordPress plugins
+directory and activate it. In **Settings → Homepage Sections**, select EDD
+`download_category` terms, set optional card copy and accent hues, choose a
+fallback illustration, and pick thumbnail images from the Media Library.
+The plugin exposes only this public editorial content at
+`/wp-json/ch/v1/homepage-sections`; edits remain behind WordPress's
+`manage_options` capability.
+The storefront refreshes these choices at least once per minute.
 
 ## Field Mapping
 
@@ -77,4 +92,3 @@ Verified against:
 - `GET /products?per_page=2&featured=true`
 - `GET /products/slug/portrait-of-tennis-players-playing-on-a-rooftop`
 - `GET /categories/freebies`
-

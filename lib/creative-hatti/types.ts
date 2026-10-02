@@ -76,3 +76,52 @@ export interface ChApiCategory {
   image_url?: string;
   image?: ChApiImage | null;
 }
+
+export interface ChApiHomepageCharacter {
+  id: string;
+  name: string;
+  blurb: string;
+  query: string;
+  category_slug: string;
+  hue: number;
+  artwork: string;
+  count: number;
+  image?: ChApiImage | null;
+}
+
+export interface ChApiHomepagePack {
+  id: string;
+  slug: string;
+  title: string;
+  tagline: string;
+  query: string;
+  hue: number;
+  kind: "festival" | "seasonal" | "topical";
+  featured: true;
+  sort_order: number;
+  category_slug: string;
+  image?: ChApiImage | null;
+  artwork: string;
+}
+
+export interface ChApiHomepageSections {
+  discovery_tiles?: ChApiHomepageTile[];
+  seasonal_collections?: ChApiHomepageTile[];
+  keywords?: string[];
+  trusted_brands?: Array<{ id: number; name: string; image: ChApiImage }>;
+  character_categories_enabled: boolean;
+  featured_packs_enabled: boolean;
+  character_categories: ChApiHomepageCharacter[];
+  featured_packs: ChApiHomepagePack[];
+}
+
+export interface ChApiHomepageTile {
+  id: string;
+  title: string;
+  caption?: string;
+  query: string;
+  category_slug?: string;
+  hue?: number;
+  icon?: string;
+  image?: ChApiImage | null;
+}

@@ -9,26 +9,15 @@
   align-items: center;
   justify-content: center;
   gap: var(--ch-space-2);
-  min-height: 4.5rem;
+  min-height: var(--ch-space-20);
   padding: var(--ch-space-3);
   color: var(--ch-color-text-faint);
   background-color: var(--ch-color-surface);
-  border: 1px dashed var(--ch-color-border-strong);
+  border: 1px solid var(--ch-color-border);
   border-radius: var(--ch-radius-md);
 }
 
-.mark {
-  font-size: var(--ch-text-sm);
-}
-
-.label {
-  font-size: var(--ch-text-sm);
-  font-weight: var(--ch-weight-medium);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.logo { width: 100%; height: var(--ch-space-12); object-fit: contain; }
 
 @media (min-width: 640px) {
   .grid {

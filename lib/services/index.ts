@@ -7,6 +7,8 @@ export type { AuthService } from "./authService";
 export { getCartService } from "./cartService";
 export type { CartService } from "./cartService";
 export { getCategoryService } from "./categoryService";
+export { getHomepageService } from "./homepageService";
+export type { HomepageSections, HomepageService } from "./homepageService";
 export { getCollectionService } from "./collectionService";
 export type { CollectionService } from "./collectionService";
 export type { CategoryService } from "./categoryService";

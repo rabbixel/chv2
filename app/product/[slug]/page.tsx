@@ -45,7 +45,7 @@ export const dynamicParams = true;
 export const revalidate = 1800;
 
 /** Build-time static set cap — the 44k+ long tail renders on demand (ISR). */
-const STATIC_PRODUCT_LIMIT = 24;
+const STATIC_PRODUCT_LIMIT = 10;
 
 export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
   const service = getProductService();
