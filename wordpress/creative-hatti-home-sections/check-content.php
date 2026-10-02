@@ -18,7 +18,7 @@ $titles = array_column( CH_Home_Content::active( $rows, '2026-10-02' ), 'title' 
 verify( array_slice( $titles, 0, 3 ) === array( 'Dussehra', 'Dhanteras', 'Diwali' ), 'October must promote upcoming festivals.' );
 verify( in_array( 'Dussehra', array_column( CH_Home_Content::active( $rows, '2026-10-22' ), 'title' ), true ), 'The final visibility day is inclusive.' );
 verify( ! in_array( 'Dussehra', array_column( CH_Home_Content::active( $rows, '2026-10-23' ), 'title' ), true ), 'Expired festivals must disappear.' );
-verify( count( CH_Home_Content::active( $rows, '2027-10-02' ) ) === 4, 'Lunar dates must not repeat into another year.' );
+verify( count( CH_Home_Content::active( $rows, '2027-10-02' ) ) === 7, 'Lunar dates must not repeat into another year.' );
 $rows[0]['pinned'] = true;
 $rows[0]['show_from'] = '2026-10-10';
 $rows[0]['hide_after'] = '2026-10-12';

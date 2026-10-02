@@ -33,6 +33,9 @@ final class CH_Home_Content {
    array( 'Greeting Cards', 'greeting card', '', 0 ),
    array( 'Social Media', 'social media', '', 0 ),
    array( 'Logo Templates', 'logo', '', 0 ),
+   array( 'Business Flyers', 'flyer', '', 0 ),
+   array( 'Indian Culture', 'cultural', '', 0 ),
+   array( 'Character Bundles', 'character bundle', '', 0 ),
   );
   return array_map( function ( $item ) {
    return array( 'title' => $item[0], 'query' => $item[1], 'event_date' => $item[2], 'priority' => $item[3],

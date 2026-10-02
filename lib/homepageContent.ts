@@ -21,6 +21,9 @@ export const celebrationSchedule: CelebrationSchedule[] = [
   { title: "Greeting Cards", query: "greeting card", priority: 0 },
   { title: "Social Media", query: "social media", priority: 0 },
   { title: "Logo Templates", query: "logo", priority: 0 },
+  { title: "Business Flyers", query: "flyer", priority: 0 },
+  { title: "Indian Culture", query: "cultural", priority: 0 },
+  { title: "Character Bundles", query: "character bundle", priority: 0 },
 ];
 
 export function indiaDate(now = new Date()): string {
