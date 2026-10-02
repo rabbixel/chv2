@@ -17,8 +17,8 @@
 }
 
 .image {
-  object-fit: cover;
-  object-position: center 38%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .illustration {

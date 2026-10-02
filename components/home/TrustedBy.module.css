@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--ch-space-2);
-  min-height: var(--ch-space-20);
+  min-height: var(--ch-space-24);
   padding: var(--ch-space-3);
   color: var(--ch-color-text-faint);
   background-color: var(--ch-color-surface);
@@ -17,7 +17,7 @@
   border-radius: var(--ch-radius-md);
 }
 
-.logo { width: 100%; height: var(--ch-space-12); object-fit: contain; }
+.logo { width: 100%; height: var(--ch-space-16); object-fit: contain; }
 
 @media (min-width: 640px) {
   .grid {

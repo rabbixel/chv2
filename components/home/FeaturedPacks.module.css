@@ -31,10 +31,10 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  min-height: 9rem;
+  min-height: var(--ch-pack-preview-height);
   padding: 0;
   overflow: hidden;
-  background-color: hsl(var(--pack-hue) 30% 90%);
+  background-color: var(--ch-color-brand-soft);
   border-bottom: 1px solid var(--ch-color-border);
 }
 
@@ -43,7 +43,7 @@
   flex-direction: column;
   gap: var(--ch-space-1);
   padding: var(--ch-space-2) var(--ch-space-4);
-  background-color: hsl(var(--pack-hue) 30% 90%);
+  background-color: var(--ch-color-brand-soft);
 }
 
 .kicker {
@@ -51,7 +51,7 @@
   font-weight: var(--ch-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: hsl(var(--pack-hue) 32% 36%);
+  color: var(--ch-color-brand);
 }
 
 .packTitle {
@@ -60,7 +60,7 @@
   font-weight: var(--ch-weight-semibold);
   letter-spacing: var(--ch-tracking-tight);
   line-height: 1.15;
-  color: hsl(var(--pack-hue) 34% 24%);
+  color: var(--ch-color-text);
   text-wrap: balance;
 }
 
@@ -103,7 +103,7 @@
   }
 
   .lead .art {
-    min-height: 12rem;
+    min-height: var(--ch-pack-preview-height);
   }
 
   .lead .artCopy {

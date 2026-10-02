@@ -1,11 +1,5 @@
 .hero {
   background-color: var(--ch-brand-950);
-  background-image: radial-gradient(
-    circle,
-    rgb(255 255 255 / 0.09) 1.25px,
-    transparent 1.25px
-  );
-  background-size: 22px 22px;
   color: var(--ch-color-text-inverse);
   border-bottom: 1px solid var(--ch-brand-900);
 }
@@ -21,9 +15,9 @@
 }
 
 .eyebrow {
-  background-color: rgb(255 255 255 / 0.1);
-  border-color: rgb(255 255 255 / 0.22);
-  color: var(--ch-accent-border);
+  background-color: var(--ch-brand-900);
+  border-color: var(--ch-cyan);
+  color: var(--ch-color-text-inverse);
 }
 
 .title {
@@ -37,7 +31,7 @@
   margin-top: var(--ch-space-4);
   font-size: var(--ch-text-lg);
   line-height: var(--ch-leading-lg);
-  color: var(--ch-neutral-300);
+  color: var(--ch-color-on-brand-muted);
   text-wrap: balance;
   max-width: 42rem;
 }
@@ -66,7 +60,7 @@
 .stat dt {
   order: 2;
   font-size: var(--ch-text-sm);
-  color: var(--ch-neutral-300);
+  color: var(--ch-color-on-brand-muted);
 }
 
 .stat dd {
@@ -86,4 +80,47 @@
   .title {
     font-size: var(--ch-text-5xl);
   }
+}
+
+.layout { display: grid; gap: var(--ch-space-6); }
+.withArtwork { padding-block: var(--ch-space-8); }
+.withArtwork .inner { padding-block: 0; }
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ch-space-3);
+  width: 100%;
+  max-width: var(--ch-hero-art-width);
+  margin-inline: auto;
+  align-self: center;
+}
+.gallery li { min-width: 0; }
+.gallery li:nth-child(n + 3) { display: none; }
+.preview {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-brand-300);
+  border-radius: var(--ch-radius-sm);
+}
+.preview:hover { border-color: var(--ch-cyan); }
+.previewImage { object-fit: contain; }
+
+@media (min-width: 768px) {
+  .withArtwork {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--ch-space-8);
+    padding-block: var(--ch-space-10);
+  }
+  .withArtwork .inner { align-items: flex-start; text-align: left; max-width: var(--ch-hero-copy-width); }
+  .withArtwork .stats { justify-content: flex-start; gap: var(--ch-space-4); }
+  .withArtwork .title { font-size: var(--ch-text-4xl); }
+  .gallery li:nth-child(n + 3) { display: block; }
+}
+
+@media (min-width: 1024px) {
+  .withArtwork .title { font-size: var(--ch-text-5xl); }
 }

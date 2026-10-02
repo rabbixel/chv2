@@ -23,7 +23,7 @@ export function TileArtwork({ image, name }: { image?: ProductImage; name: strin
   const path = paths[key] ?? Object.entries(paths).find(([candidate]) => key.includes(candidate))?.[1] ?? paths.cards;
   return image ? (
     <Image src={image.url} alt="" width={image.width ?? 120} height={image.height ?? 120}
-      sizes="64px" className={styles.image} unoptimized={isLocalWordPressMediaUrl(image.url) || image.url.endsWith(".svg")} />
+      sizes="(max-width: 639px) 50vw, 25vw" className={styles.image} unoptimized={isLocalWordPressMediaUrl(image.url) || image.url.endsWith(".svg")} />
   ) : (
     <svg className={styles.vector} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={path} /></svg>

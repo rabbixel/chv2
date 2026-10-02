@@ -1,5 +1,5 @@
 .section {
-  padding-block: var(--ch-space-12);
+  padding-block: var(--ch-space-8);
 }
 
 .section + .section {
@@ -21,7 +21,7 @@
 
 @media (min-width: 768px) {
   .section {
-    padding-block: var(--ch-space-16);
+    padding-block: var(--ch-space-10);
   }
 
   .tight {

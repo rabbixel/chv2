@@ -70,7 +70,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero categories={navCategories} popularSearches={popularSearches.map((item) => item.searchQuery)} />
+      <Hero categories={navCategories} popularSearches={popularSearches.map((item) => item.searchQuery)} products={choice} />
       <PopularSearches searches={popularSearches} />
 
       <Container>

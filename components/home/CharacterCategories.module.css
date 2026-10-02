@@ -29,7 +29,7 @@
 }
 
 .art {
-  min-height: 7rem;
+  aspect-ratio: 4 / 3;
   display: flex;
   border-bottom: 1px solid var(--ch-color-border);
 }

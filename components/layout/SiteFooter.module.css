@@ -1,8 +1,17 @@
 .footer {
   margin-top: auto;
-  background-color: var(--ch-color-ink);
+  background-color: var(--ch-brand-950);
   color: var(--ch-color-text-inverse);
 }
+
+.logoLink {
+  display: inline-block;
+  padding: var(--ch-space-2) var(--ch-space-3);
+  background-color: var(--ch-color-surface);
+  border-radius: var(--ch-radius-xs);
+}
+
+.logo { display: block; width: var(--ch-logo-width); height: auto; }
 
 .grid {
   display: grid;
