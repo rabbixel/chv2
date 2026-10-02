@@ -17,7 +17,6 @@ import {
   characterCategories,
 } from "@/lib/homepage";
 import { SITE } from "@/lib/constants";
-import { popularSearches } from "@/lib/navigation";
 import { organizationJsonLd } from "@/lib/seo";
 import {
   getCategoryService,
@@ -27,9 +26,8 @@ import {
 } from "@/lib/services";
 import styles from "./page.module.css";
 
-// Matches REVALIDATE_SECONDS.static in lib/cache.ts (segment
-// configs must be literals — keep the two in sync).
-export const revalidate = 86400;
+// Refresh date-driven searches even in mock mode; API data may use a shorter TTL.
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   alternates: { canonical: SITE.url },
@@ -47,8 +45,9 @@ export default async function HomePage() {
     getCategoryService().listCategories(),
     getCollectionService().listFeaturedPacks(),
     getHomepageService().getSections(),
+    getHomepageService().getPopularSearches(),
   ]);
-  const [choice, categories, packs, homepageSections] = await mainPromise;
+  const [choice, categories, packs, homepageSections, popularSearches] = await mainPromise;
   const content = homepageSections;
 
   const categoryCount = (slug: string) =>
@@ -71,7 +70,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero categories={navCategories} popularSearches={popularSearches} />
+      <Hero categories={navCategories} popularSearches={popularSearches.map((item) => item.searchQuery)} />
       <PopularSearches searches={popularSearches} />
 
       <Container>

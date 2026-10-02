@@ -16,6 +16,7 @@ import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
 import { frontendCategorySlug } from "@/lib/creative-hatti/adapters";
 import type { DiscoveryTile } from "@/lib/homepage";
 import { defaultHomepageContent } from "@/lib/homepageContent";
+import { getSeasonalSearches, type SearchChip } from "@/lib/seasonal-searches";
 
 export interface TrustedBrand { id: string; name: string; image: ProductImage }
 
@@ -30,6 +31,7 @@ export interface HomepageSections {
 
 export interface HomepageService {
   getSections(): Promise<HomepageSections>;
+  getPopularSearches(now?: Date): Promise<SearchChip[]>;
 }
 
 function imageFromApi(image?: ChApiImage | null): ProductImage | undefined {
@@ -61,12 +63,20 @@ function artworkVariant(value: string): CardArtworkVariant {
 }
 
 class MockHomepageService implements HomepageService {
+  async getPopularSearches(now?: Date): Promise<SearchChip[]> {
+    return getSeasonalSearches(now);
+  }
   async getSections(): Promise<HomepageSections> {
     return { characterCategories: null, featuredPacks: null, ...defaultHomepageContent() };
   }
 }
 
 class ApiHomepageService implements HomepageService {
+  async getPopularSearches(now?: Date): Promise<SearchChip[]> {
+    // Future WordPress adapter supplies events/manual/featured to this selector.
+    // No new endpoint or backend contract is needed for the local calendar phase.
+    return getSeasonalSearches(now);
+  }
   async getSections(): Promise<HomepageSections> {
     let response: ChApiEnvelope<ChApiHomepageSections>;
     try {
