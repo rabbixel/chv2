@@ -20,7 +20,7 @@ export function HattiChoice({ products }: HattiChoiceProps) {
       <h2 id="hatti-choice-heading" className="ch-visually-hidden">
         Creative Hatti&apos;s Choice
       </h2>
-      <ProductGrid products={products} />
+      <ProductGrid products={products} artworkPreview />
     </section>
   );
 }

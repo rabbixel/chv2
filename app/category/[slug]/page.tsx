@@ -86,7 +86,7 @@ export default async function CategoryPage({
   // (vercel/next.js#98954).
   if (!category) notFound();
 
-  const basePath = `/category/${slug}`;
+  const basePath = slug === "illustrations" ? routes.illustrations() : routes.category(slug);
   const listing = parseListingParams((await searchParams) ?? {});
   const input = toSearchParams(listing, PAGINATION.defaultPageSize);
   // Base constraint OR-merges with same-kind URL filters (selecting another

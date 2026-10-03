@@ -1,7 +1,19 @@
 .footer {
   margin-top: auto;
-  background-color: var(--ch-color-ink);
+  background-color: var(--ch-brand-950);
   color: var(--ch-color-text-inverse);
+}
+
+.logoLink {
+  display: inline-block;
+}
+
+.logo {
+  display: block;
+  width: var(--ch-logo-width);
+  height: auto;
+  /* Reuse the official transparent mark as its monochrome white variant. */
+  filter: brightness(0) invert(1);
 }
 
 .grid {

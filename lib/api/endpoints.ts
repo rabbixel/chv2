@@ -4,6 +4,12 @@
  */
 
 export const apiEndpoints = {
+  wordpress: {
+    pages: "/pages",
+    media: "/media",
+    mediaDetail: (id: number) => `/media/${id}`,
+    downloads: "/edd-downloads",
+  },
   products: {
     list: "/products",
     detail: (slug: string) => `/products/slug/${encodeURIComponent(slug)}`,
@@ -17,6 +23,7 @@ export const apiEndpoints = {
       `/categories/${encodeURIComponent(slug)}/products`,
   },
   search: "/search",
+  homepageSections: "/homepage-sections",
   collections: {
     list: "/v1/collections",
     detail: (slug: string) => `/v1/collections/${encodeURIComponent(slug)}`,

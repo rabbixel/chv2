@@ -9,6 +9,7 @@ export const collections: Collection[] = [
   {
     id: "col-maha-shivratri",
     slug: "maha-shivratri",
+    coverProductSlug: "maha-shivratri-pack",
     title: "Maha Shivratri",
     tagline: "Shivratri cards, banners and festive creatives.",
     query: "shivratri",
@@ -20,6 +21,7 @@ export const collections: Collection[] = [
   {
     id: "col-republic-day",
     slug: "republic-day",
+    coverProductSlug: "republic-day-bundle",
     title: "Republic Day",
     tagline: "Tricolour bundles, patriotic vectors and banners.",
     query: "republic day",
@@ -32,6 +34,7 @@ export const collections: Collection[] = [
   {
     id: "col-vasant-panchami",
     slug: "vasant-panchami",
+    coverProductSlug: "vasant-panchami-kit",
     title: "Vasant Panchami",
     tagline: "Saraswati templates in spring yellows.",
     query: "vasant panchami",
@@ -43,6 +46,7 @@ export const collections: Collection[] = [
   {
     id: "col-valentine-day",
     slug: "valentine-day",
+    coverProductSlug: "valentine-day-cards",
     title: "Valentine Day",
     tagline: "Cards and love-themed templates.",
     query: "valentine",
@@ -54,6 +58,7 @@ export const collections: Collection[] = [
   {
     id: "col-navratri",
     slug: "navratri",
+    coverProductSlug: "navratri-nights-bundle",
     title: "Navratri",
     tagline: "Garba nights, dandiya characters and festive bundles.",
     query: "navratri",

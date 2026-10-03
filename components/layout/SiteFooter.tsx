@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import styles from "./SiteFooter.module.css";
@@ -51,7 +52,9 @@ export function SiteFooter() {
     <footer className={styles.footer}>
       <div className={`ch-container ${styles.grid}`}>
         <div className={styles.brand}>
-          <p className={styles.name}>{SITE.name}</p>
+          <Link href={routes.home()} aria-label={`${SITE.name} — home`} className={styles.logoLink}>
+            <Image src="/brand/creative-hatti-logo.png" alt={SITE.name} width={200} height={49} className={styles.logo} />
+          </Link>
           <p className={styles.blurb}>{SITE.description}</p>
           <p className={styles.meta}>
             Prices in {SITE.currency} · Secure checkout

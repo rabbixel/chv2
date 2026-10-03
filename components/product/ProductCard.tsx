@@ -22,6 +22,8 @@ const KIND_LABELS: Record<ProductKind, string> = {
 
 export interface ProductCardProps {
   product: Product;
+  /** Homepage merchandising: show the entire artwork in a larger square slot. */
+  artworkPreview?: boolean;
   /** Initial wishlist state (resolved by the listing page later). */
   wishlisted?: boolean;
   /**
@@ -49,6 +51,7 @@ export function ProductCard({
   product,
   wishlisted = false,
   titleAs = "h3",
+  artworkPreview = false,
 }: ProductCardProps) {
   const Title = titleAs;
   const href = routes.product(product.slug);
@@ -63,7 +66,7 @@ export function ProductCard({
     .join(" · ");
 
   return (
-    <Card padding="none" interactive className={styles.card}>
+    <Card padding="none" interactive className={cn(styles.card, artworkPreview && styles.artworkPreview)}>
       <div className={styles.mediaWrap}>
         <Link
           href={href}
@@ -77,7 +80,9 @@ export function ProductCard({
             <ProductImageView
               image={cover}
               title={product.title}
-              sizes="(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"
+              sizes={artworkPreview
+                ? "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
+                : "(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"}
               decorative
               className={styles.image}
             />

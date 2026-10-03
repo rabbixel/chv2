@@ -11,4 +11,5 @@ export type * from "./cart";
 export type * from "./order";
 export type * from "./download";
 export type * from "./wishlist";
+export type * from "./homepage";
 export type * from "./search";

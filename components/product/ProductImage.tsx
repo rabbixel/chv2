@@ -1,4 +1,5 @@
 import NextImage from "next/image";
+import { isLocalWordPressMediaUrl } from "@/lib/creative-hatti/media";
 import type { ProductImage as ProductImageType } from "@/lib/types";
 
 export interface ProductImageProps {
@@ -36,6 +37,10 @@ export function ProductImage({
       sizes={sizes}
       priority={priority}
       className={className}
+      unoptimized={
+        process.env.NODE_ENV !== "production" &&
+        isLocalWordPressMediaUrl(image.url)
+      }
       draggable={false}
     />
   );

@@ -60,7 +60,7 @@ export function apiCategorySlug(slug: string): string {
   return FRONTEND_TO_API_CATEGORY[slug] ?? slug;
 }
 
-function frontendCategorySlug(slug: string): string {
+export function frontendCategorySlug(slug: string): string {
   return API_TO_FRONTEND_CATEGORY[slug] ?? slug;
 }
 
@@ -253,7 +253,6 @@ export function facetValuesFromCategories(categories: Category[]) {
   return categories
     .filter((category) => category.productCount > 0)
     .sort((a, b) => b.productCount - a.productCount)
-    .slice(0, 16)
     .map((category) => ({
       value: category.slug,
       label: category.name,

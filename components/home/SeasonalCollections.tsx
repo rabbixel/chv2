@@ -4,12 +4,14 @@ import { routes } from "@/lib/routes";
 import type { Collection } from "@/lib/types";
 import { SectionHeading } from "./SectionHeading";
 import styles from "./SeasonalCollections.module.css";
+import { TileArtwork } from "./TileArtwork";
 
 export interface SeasonalCollectionsProps {
   items: Collection[];
 }
 
 export function SeasonalCollections({ items }: SeasonalCollectionsProps) {
+  if (!items.length) return null;
   return (
     <section aria-labelledby="seasonal-heading">
       <SectionHeading
@@ -24,12 +26,12 @@ export function SeasonalCollections({ items }: SeasonalCollectionsProps) {
         {items.map((item) => (
           <li key={item.id}>
             <Link
-              href={routes.collection(item.slug)}
+              href={item.href ?? routes.collection(item.slug)}
               className={styles.tile}
               style={{ "--tile-hue": item.hue } as CSSProperties}
             >
               <span className={styles.swatch} aria-hidden="true">
-                {item.title.charAt(0)}
+                <TileArtwork image={item.coverImage} name={item.query} />
               </span>
               <span className={styles.label}>{item.title}</span>
             </Link>

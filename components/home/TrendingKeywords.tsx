@@ -7,10 +7,11 @@ export interface TrendingKeywordsProps {
 }
 
 export function TrendingKeywords({ keywords }: TrendingKeywordsProps) {
+  if (!keywords.length) return null;
   return (
     <section aria-labelledby="trending-heading" className={styles.section}>
       <h2 id="trending-heading" className={styles.heading}>
-        Trending Keywords
+        Explore popular themes
       </h2>
       <ul className={styles.chips}>
         {keywords.map((keyword) => (

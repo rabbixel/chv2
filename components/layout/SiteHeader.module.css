@@ -8,10 +8,20 @@
 
 .announcement {
   padding: var(--ch-space-1) var(--ch-gutter);
-  background-color: var(--ch-color-ink);
+  background-color: var(--ch-brand-900);
   color: var(--ch-color-text-inverse);
   font-size: var(--ch-text-sm);
   text-align: center;
+}
+
+.brandLogo {
+  display: block;
+  width: var(--ch-logo-mobile-width);
+  height: auto;
+}
+
+@media (min-width: 768px) {
+  .brandLogo { width: var(--ch-logo-width); }
 }
 
 .main {

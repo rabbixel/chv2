@@ -15,12 +15,15 @@ export const REVALIDATE_SECONDS = {
   search: 60,
   /** Marketing / static content. */
   static: 86_400,
+  /** WordPress-managed homepage card selections. */
+  homepage: 60,
 } as const;
 
 export const cacheTags = {
   products: "products",
   product: (slug: string) => `product:${slug}`,
   categories: "categories",
+  homepage: "homepage",
   categoryProducts: (slug: string) => `category-products:${slug}`,
   search: "search",
   licenses: "licenses",

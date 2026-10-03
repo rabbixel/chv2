@@ -6,6 +6,7 @@
  */
 
 import { routes } from "@/lib/routes";
+import type { CardArtworkVariant, ProductImage } from "@/lib/types";
 
 export interface DiscoveryTile {
   label: string;
@@ -19,18 +20,20 @@ export interface DiscoveryTile {
    * separate layer — it is not forced to mirror taxonomy slugs.
    */
   href?: string;
+  image?: ProductImage;
+  icon?: string;
 }
 
 /** Main discovery categories (distinct from the backend taxonomy). */
 export const discoveryTiles: DiscoveryTile[] = [
   { label: "Logos", caption: "Marks, badges & monograms", query: "logo", hue: 212, href: routes.category("logo-design") },
   { label: "Banners", caption: "Promo & social banners", query: "banner", hue: 22 },
-  { label: "Characters", caption: "Mythology to modern", query: "character", hue: 268, href: routes.category("character-bundle") },
+  { label: "Characters", caption: "Mythology to modern", query: "character", hue: 268, href: routes.illustrations() },
   { label: "Bundles", caption: "Consistent packs", query: "bundle", hue: 152 },
   { label: "Websites", caption: "Heroes & web graphics", query: "website", hue: 200, href: routes.category("website") },
   { label: "Flyers", caption: "Local business flyers", query: "flyer", hue: 340, href: routes.category("flyers") },
   { label: "Freebies", caption: "Top-notch free assets", query: "freebie", hue: 130, href: routes.category("freebies") },
-  { label: "Cards", caption: "Greetings & invites", query: "card", hue: 48 },
+  { label: "Browse all Collections", caption: "Festival, seasonal & themed graphics", query: "collections", hue: 48, href: routes.collections(), icon: "cards" },
 ];
 
 export interface CharacterCategory {
@@ -41,6 +44,8 @@ export interface CharacterCategory {
   /** Real taxonomy slug used when the catalogue API is enabled. */
   categorySlug: string;
   hue: number;
+  artwork: CardArtworkVariant;
+  image?: ProductImage;
 }
 
 export const characterCategories: CharacterCategory[] = [
@@ -50,6 +55,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "mythology",
     categorySlug: "mythological",
     hue: 268,
+    artwork: "mythology",
   },
   {
     name: "Profession Character",
@@ -57,6 +63,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "profession",
     categorySlug: "profession",
     hue: 212,
+    artwork: "profession",
   },
   {
     name: "Cultural Character",
@@ -64,6 +71,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "cultural",
     categorySlug: "cultural",
     hue: 12,
+    artwork: "cultural",
   },
   {
     name: "Festival Characters",
@@ -71,6 +79,7 @@ export const characterCategories: CharacterCategory[] = [
     query: "festival characters",
     categorySlug: "festival-events",
     hue: 48,
+    artwork: "festival",
   },
 ];
 
@@ -88,6 +97,10 @@ export const trendingKeywords: string[] = [
   "Creative Design",
   "Vector Character",
   "Social Media",
+  "Logo Design", "Flyer", "Website", "Business Card", "Invitation",
+  "Character Bundle", "Indian Wedding", "Mythology", "Profession",
+  "Food", "Education", "Healthcare", "Dussehra", "Dhanteras", "Diwali",
+  "Festival Banner", "Greeting Card", "Background Pattern",
 ];
 
 /** Hero brand stats (brand claims, not mock counts). */

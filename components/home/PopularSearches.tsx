@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { routes } from "@/lib/routes";
 import styles from "./PopularSearches.module.css";
+import type { SearchChip } from "@/lib/seasonal-searches";
 
 export interface PopularSearchesProps {
-  searches: string[];
+  searches: SearchChip[];
 }
 
 export function PopularSearches({ searches }: PopularSearchesProps) {
@@ -18,9 +19,9 @@ export function PopularSearches({ searches }: PopularSearchesProps) {
           </h2>
           <ul className={styles.chips}>
             {searches.map((term) => (
-              <li key={term}>
-                <Link href={routes.search(term)} className={styles.chip}>
-                  {term}
+              <li key={term.searchQuery}>
+                <Link href={routes.search(term.searchQuery)} className={styles.chip}>
+                  {term.name}
                 </Link>
               </li>
             ))}

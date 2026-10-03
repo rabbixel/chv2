@@ -161,7 +161,7 @@ function sortResults(items: Product[], sort: SearchSortKey): Product[] {
 }
 
 function buildFacets(items: Product[]): SearchFacet[] {
-  const countBy = (pick: (product: Product) => string[]) => {
+  const countBy = (pick: (product: Product) => string[], limit?: number) => {
     const counts = new Map<string, number>();
     for (const product of items) {
       for (const value of pick(product)) {
@@ -170,7 +170,7 @@ function buildFacets(items: Product[]): SearchFacet[] {
     }
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 16)
+      .slice(0, limit)
       .map(([value, count]) => ({
         value,
         label: value,
@@ -183,7 +183,7 @@ function buildFacets(items: Product[]): SearchFacet[] {
       label: "Category",
       values: countBy((p) => p.categorySlugs),
     },
-    { key: "fileType", label: "File type", values: countBy((p) => p.fileTypes) },
+    { key: "fileType", label: "File type", values: countBy((p) => p.fileTypes, 16) },
   ];
 }
 

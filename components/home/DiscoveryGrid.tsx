@@ -5,12 +5,14 @@ import type { DiscoveryTile } from "@/lib/homepage";
 import { routes } from "@/lib/routes";
 import { SectionHeading } from "./SectionHeading";
 import styles from "./DiscoveryGrid.module.css";
+import { TileArtwork } from "./TileArtwork";
 
 export interface DiscoveryGridProps {
   tiles: DiscoveryTile[];
 }
 
 export function DiscoveryGrid({ tiles }: DiscoveryGridProps) {
+  if (!tiles.length) return null;
   return (
     <section aria-labelledby="discovery-heading">
       <SectionHeading
@@ -30,7 +32,7 @@ export function DiscoveryGrid({ tiles }: DiscoveryGridProps) {
               style={{ "--tile-hue": tile.hue } as CSSProperties}
             >
               <span className={styles.swatch} aria-hidden="true">
-                {tile.label.charAt(0)}
+                <TileArtwork image={tile.image} name={tile.icon || tile.label} />
               </span>
               <span className={styles.text}>
                 <span className={styles.label}>{tile.label}</span>

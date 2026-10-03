@@ -33,14 +33,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--ch-space-12);
+  height: var(--ch-space-12);
   font-family: var(--ch-font-display);
   font-size: var(--ch-text-xl);
   font-weight: var(--ch-weight-semibold);
-  color: hsl(var(--tile-hue) 32% 28%);
-  background-color: hsl(var(--tile-hue) 32% 88%);
-  border: 1px solid hsl(var(--tile-hue) 28% 72%);
+  color: var(--ch-color-brand);
+  background-color: var(--ch-color-brand-soft);
+  overflow: hidden;
+  border: 1px solid var(--ch-color-brand-border);
   border-radius: var(--ch-radius-sm);
 }
 

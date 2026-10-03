@@ -12,31 +12,36 @@
 :root {
   color-scheme: light;
 
-  /* ---------- Neutrals (warm paper scale) ---------- */
-  --ch-neutral-50: #faf9f6;
-  --ch-neutral-100: #f0ece4;
-  --ch-neutral-200: #e0d9cb;
-  --ch-neutral-300: #c8bfae;
-  --ch-neutral-400: #a79c87;
-  --ch-neutral-500: #887d69;
-  --ch-neutral-600: #6e6554;
-  --ch-neutral-700: #595349;
-  --ch-neutral-800: #48443c;
-  --ch-neutral-900: #37332c;
-  --ch-neutral-950: #211e19;
+  /* ---------- Neutrals (cool gallery surfaces) ---------- */
+  --ch-neutral-50: #f8faff;
+  --ch-neutral-100: #eef2f8;
+  --ch-neutral-200: #dce3ef;
+  --ch-neutral-300: #bdc8db;
+  --ch-neutral-400: #929fb6;
+  --ch-neutral-500: #738099;
+  --ch-neutral-600: #59667f;
+  --ch-neutral-700: #45516a;
+  --ch-neutral-800: #333d54;
+  --ch-neutral-900: #252e43;
+  --ch-neutral-950: #171e32;
 
-  /* ---------- Brand (deep botanical green) ---------- */
-  --ch-brand-50: #eef6f1;
-  --ch-brand-100: #d7e9de;
-  --ch-brand-200: #b0d3c0;
-  --ch-brand-300: #7fb69c;
-  --ch-brand-400: #52967a;
-  --ch-brand-500: #337a60;
-  --ch-brand-600: #25624d;
-  --ch-brand-700: #1f4f3f;
-  --ch-brand-800: #1b4034;
-  --ch-brand-900: #15332a;
-  --ch-brand-950: #0b201a;
+  /* ---------- Creative Hatti blue and cyan ---------- */
+  --ch-brand-50: #f0f2ff;
+  --ch-brand-100: #e1e6ff;
+  --ch-brand-200: #c1ccfa;
+  --ch-brand-300: #98a8f2;
+  --ch-brand-400: #7082e6;
+  --ch-brand-500: #4759dc;
+  --ch-brand-600: #303dcc;
+  --ch-brand-700: #252eaa;
+  --ch-brand-800: #202681;
+  --ch-brand-900: #191b60;
+  --ch-brand-950: #131348;
+  --ch-cyan: #00bfd2;
+  --ch-cyan-soft: #e8fafd;
+  --ch-cyan-border: #a4e3eb;
+  --ch-cyan-strong: #006d7b;
+  --ch-color-on-brand-muted: #d5def7;
 
   /* ---------- Accent (marigold — ratings, highlights) ---------- */
   --ch-accent-soft: #faf0da;
@@ -45,14 +50,14 @@
   --ch-accent-strong: #8f5310;
 
   /* ---------- Semantic ---------- */
-  --ch-color-canvas: #f6f4ee;
+  --ch-color-canvas: #f6f8fc;
   --ch-color-surface: #ffffff;
   --ch-color-surface-muted: var(--ch-neutral-100);
   --ch-color-surface-sunken: var(--ch-neutral-200);
 
   --ch-color-text: var(--ch-neutral-950);
   --ch-color-text-muted: var(--ch-neutral-700);
-  /* Faint stays at neutral-600 (not 500): the lightest warm gray that
+  /* Faint stays at neutral-600 (not 500): a muted blue-gray that
      still clears 4.5:1 for small secondary text on canvas and white. */
   --ch-color-text-faint: var(--ch-neutral-600);
   --ch-color-text-inverse: var(--ch-neutral-50);
@@ -77,8 +82,8 @@
   --ch-color-info-soft: #e8effa;
   --ch-color-info-border: #bccdf0;
 
-  --ch-color-success: var(--ch-brand-700);
-  --ch-color-success-soft: var(--ch-brand-50);
+  --ch-color-success: #25624d;
+  --ch-color-success-soft: #eef6f1;
 
   --ch-focus-ring-color: var(--ch-brand-600);
 
@@ -140,14 +145,14 @@
   --ch-radius-xl: 20px;
   --ch-radius-full: 999px;
 
-  /* ---------- Shadows (warm-tinted, subtle) ---------- */
-  --ch-shadow-xs: 0 1px 2px rgb(33 30 25 / 0.06);
+  /* ---------- Shadows (blue-tinted, subtle) ---------- */
+  --ch-shadow-xs: 0 1px 2px rgb(23 30 50 / 0.06);
   --ch-shadow-sm:
-    0 1px 2px rgb(33 30 25 / 0.07), 0 2px 8px rgb(33 30 25 / 0.06);
+    0 1px 2px rgb(23 30 50 / 0.07), 0 2px 8px rgb(23 30 50 / 0.06);
   --ch-shadow-md:
-    0 2px 6px rgb(33 30 25 / 0.08), 0 10px 28px rgb(33 30 25 / 0.09);
+    0 2px 6px rgb(23 30 50 / 0.08), 0 10px 28px rgb(23 30 50 / 0.09);
   --ch-shadow-lg:
-    0 4px 12px rgb(33 30 25 / 0.1), 0 20px 48px rgb(33 30 25 / 0.12);
+    0 4px 12px rgb(23 30 50 / 0.1), 0 20px 48px rgb(23 30 50 / 0.12);
 
   /* ---------- Layout ---------- */
   --ch-container-sm: 680px;
@@ -156,6 +161,12 @@
   --ch-container-xl: 1360px;
   --ch-gutter: 1rem;
   --ch-header-height: 68px;
+  --ch-logo-width: 12.5rem;
+  --ch-logo-mobile-width: 6.75rem;
+  --ch-hero-copy-width: 40rem;
+  --ch-hero-art-width: 30rem;
+  --ch-category-preview-size: 7rem;
+  --ch-pack-preview-height: 18rem;
 
   /* ---------- Elevation ---------- */
   --ch-z-header: 50;

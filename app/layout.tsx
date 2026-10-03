@@ -27,8 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en-IN">
-      <body>
+    // Scribe adds data-scribe-recorder-ready before hydration. Keep this
+    // exception on the document root; component mismatches still report.
+    <html lang="en-IN" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <a href="#main-content" className="ch-skip-link">
           Skip to content
         </a>

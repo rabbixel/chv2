@@ -1,0 +1,30 @@
+.ch-home-sections .card {
+  max-width: 760px;
+  margin-top: 20px;
+  padding: 12px 20px;
+}
+
+.ch-home-row {
+  margin: 16px 0;
+}
+
+.ch-home-row .inside {
+  padding-bottom: 12px;
+}
+
+.ch-home-row label + label {
+  margin-left: 16px;
+}
+
+.ch-home-image-preview {
+  display: block;
+  max-width: 180px;
+  max-height: 120px;
+  margin-bottom: 8px;
+  object-fit: contain;
+}
+
+.ch-home-image-preview[hidden],
+.ch-home-remove-image[hidden] {
+  display: none;
+}

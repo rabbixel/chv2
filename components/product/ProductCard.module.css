@@ -26,7 +26,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
 }
+
+.artworkPreview .media { aspect-ratio: 1; background-color: var(--ch-color-surface); }
+.artworkPreview .image { object-fit: contain; object-position: center; }
 
 .placeholder {
   --ch-art-hue: 150;
