@@ -6,12 +6,15 @@
 
 .logoLink {
   display: inline-block;
-  padding: var(--ch-space-2) var(--ch-space-3);
-  background-color: var(--ch-color-surface);
-  border-radius: var(--ch-radius-xs);
 }
 
-.logo { display: block; width: var(--ch-logo-width); height: auto; }
+.logo {
+  display: block;
+  width: var(--ch-logo-width);
+  height: auto;
+  /* Reuse the official transparent mark as its monochrome white variant. */
+  filter: brightness(0) invert(1);
+}
 
 .grid {
   display: grid;

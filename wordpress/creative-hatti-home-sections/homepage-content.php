@@ -250,7 +250,7 @@ final class CH_Home_Content {
   <div class="card"><h2>Trusted clients</h2>
    <label><input type="checkbox" name="ch_home_sections[trusted_enabled]" value="1" <?php checked( ! isset( $settings['trusted_enabled'] ) || $settings['trusted_enabled'] ); ?>>Sync logos from the trusted-by page</label>
    <p>Leave the page ID blank to use the published page at trusted-by. WPBakery image/gallery shortcodes and Gutenberg images are supported. Logos retain page order; duplicates and missing images are skipped. Image alt text or attachment title supplies the brand name.</p>
-   <label>Source page ID <input type="number" min="1" name="ch_home_sections[trusted_page_id]" value="<?php echo esc_attr( $settings['trusted_page_id'] ?? '' ); ?>"></label>
+   <label>Source page ID (optional) <input type="number" min="1" name="ch_home_sections[trusted_page_id]" value="<?php echo esc_attr( ! empty( $settings['trusted_page_id'] ) ? $settings['trusted_page_id'] : '' ); ?>"></label>
    <p><?php echo esc_html( count( self::trusted( $settings ) ) . ' valid client images found.' ); ?></p>
   </div>
   <?php
@@ -268,7 +268,8 @@ final class CH_Home_Content {
     <?php if ( ! is_wp_error( $terms ) ) { foreach ( $terms as $term ) { ?>
      <option value="<?php echo esc_attr( $term->term_id ); ?>" <?php selected( $row['category_id'] ?? 0, $term->term_id ); ?>><?php echo esc_html( $term->name ); ?></option>
     <?php } } ?></select></label></p>
-   <p><label>Product ID for featured image <input type="number" min="1" name="<?php echo esc_attr( $prefix . '[product_id]' ); ?>" value="<?php echo esc_attr( $row['product_id'] ?? '' ); ?>"></label></p>
+   <p><label>Product ID for featured image (optional) <input type="number" min="0" name="<?php echo esc_attr( $prefix . '[product_id]' ); ?>" value="<?php echo esc_attr( ! empty( $row['product_id'] ) ? $row['product_id'] : '' ); ?>"></label></p>
+   <p class="description">Leave blank when choosing artwork below. A selected image takes priority over the product's featured image.</p>
    <p class="ch-home-image"><input type="hidden" class="ch-home-image-id" name="<?php echo esc_attr( $prefix . '[image_id]' ); ?>" value="<?php echo esc_attr( $row['image_id'] ?? 0 ); ?>">
     <img class="ch-home-image-preview" src="<?php echo esc_url( $image['url'] ?? '' ); ?>" alt="" <?php echo $image ? '' : 'hidden'; ?>>
     <button type="button" class="button ch-home-select-image">Choose artwork</button><button type="button" class="button ch-home-remove-image" <?php echo $image ? '' : 'hidden'; ?>>Remove image</button>

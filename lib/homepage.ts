@@ -28,12 +28,12 @@ export interface DiscoveryTile {
 export const discoveryTiles: DiscoveryTile[] = [
   { label: "Logos", caption: "Marks, badges & monograms", query: "logo", hue: 212, href: routes.category("logo-design") },
   { label: "Banners", caption: "Promo & social banners", query: "banner", hue: 22 },
-  { label: "Characters", caption: "Mythology to modern", query: "character", hue: 268, href: routes.category("character-bundle") },
+  { label: "Characters", caption: "Mythology to modern", query: "character", hue: 268, href: routes.illustrations() },
   { label: "Bundles", caption: "Consistent packs", query: "bundle", hue: 152 },
   { label: "Websites", caption: "Heroes & web graphics", query: "website", hue: 200, href: routes.category("website") },
   { label: "Flyers", caption: "Local business flyers", query: "flyer", hue: 340, href: routes.category("flyers") },
   { label: "Freebies", caption: "Top-notch free assets", query: "freebie", hue: 130, href: routes.category("freebies") },
-  { label: "Cards", caption: "Greetings & invites", query: "card", hue: 48 },
+  { label: "Browse all Collections", caption: "Festival, seasonal & themed graphics", query: "collections", hue: 48, href: routes.collections(), icon: "cards" },
 ];
 
 export interface CharacterCategory {

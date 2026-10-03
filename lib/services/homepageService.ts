@@ -17,6 +17,8 @@ import { frontendCategorySlug } from "@/lib/creative-hatti/adapters";
 import type { DiscoveryTile } from "@/lib/homepage";
 import { defaultHomepageContent } from "@/lib/homepageContent";
 import { getSeasonalSearches, type SearchChip } from "@/lib/seasonal-searches";
+import { getProductService } from "./productService";
+import { getCollectionDirectoryService } from "./collectionDirectoryService";
 
 export interface TrustedBrand { id: string; name: string; image: ProductImage }
 
@@ -32,6 +34,30 @@ export interface HomepageSections {
 export interface HomepageService {
   getSections(): Promise<HomepageSections>;
   getPopularSearches(now?: Date): Promise<SearchChip[]>;
+}
+
+async function updateDiscoveryDestinations(sections: HomepageSections): Promise<HomepageSections> {
+  const hasCharacters = sections.discoveryTiles.some((tile) => tile.icon === "characters" || tile.label === "Characters");
+  const hasCollections = sections.discoveryTiles.some((tile) => tile.icon === "cards" || tile.label === "Cards" || tile.label === "Browse all Collections");
+  const [character, collectionImage] = await Promise.all([
+    hasCharacters ? getProductService().getProductBySlug("indian-woman-is-with-greet-hands") : null,
+    hasCollections ? getCollectionDirectoryService().getPreview() : undefined,
+  ]);
+  let characterImage = character?.images.find((image) => image.url);
+  if (hasCharacters && !characterImage) {
+    const result = await getProductService().listProducts({ categorySlug: "illustrations", pageSize: 1 });
+    characterImage = result.items[0]?.images.find((image) => image.url);
+  }
+  return { ...sections, discoveryTiles: sections.discoveryTiles.map((tile) => {
+    if (tile.icon === "characters" || tile.label === "Characters") {
+      return { ...tile, href: routes.illustrations(), image: characterImage };
+    }
+    if (tile.icon === "cards" || tile.label === "Cards" || tile.label === "Browse all Collections") {
+      return { ...tile, label: "Browse all Collections", caption: "Festival, seasonal & themed graphics", href: routes.collections(),
+        image: collectionImage };
+    }
+    return tile;
+  }) };
 }
 
 function imageFromApi(image?: ChApiImage | null): ProductImage | undefined {
@@ -67,7 +93,7 @@ class MockHomepageService implements HomepageService {
     return getSeasonalSearches(now);
   }
   async getSections(): Promise<HomepageSections> {
-    return { characterCategories: null, featuredPacks: null, ...defaultHomepageContent() };
+    return updateDiscoveryDestinations({ characterCategories: null, featuredPacks: null, ...defaultHomepageContent() });
   }
 }
 
@@ -92,7 +118,7 @@ class ApiHomepageService implements HomepageService {
     const defaults = defaultHomepageContent();
     const destination = (item: { category_slug?: string; query: string }) => item.category_slug
       ? routes.category(frontendCategorySlug(item.category_slug)) : routes.search(item.query);
-    return {
+    return updateDiscoveryDestinations({
       discoveryTiles: response.data.discovery_tiles?.slice(0, 12).map((item) => ({
         label: item.title, caption: item.caption ?? "", query: item.query,
         hue: item.hue ?? 150, icon: item.icon, image: imageFromApi(item.image), href: destination(item),
@@ -136,7 +162,7 @@ class ApiHomepageService implements HomepageService {
             artwork: artworkVariant(item.artwork),
           }))
         : null,
-    };
+    });
   }
 }
 

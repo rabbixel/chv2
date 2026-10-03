@@ -25,6 +25,10 @@ export class ApiError extends Error {
 }
 
 export interface ApiFetchOptions {
+  /** Existing public WordPress REST resources alongside the CH catalogue API. */
+  wordpress?: boolean;
+  /** Public WordPress pagination totals, when that endpoint supplies them. */
+  onPagination?: (total: number, totalPages: number) => void;
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** Query parameters; `undefined`/`null` values are dropped. */
   searchParams?: Record<string, string | number | boolean | undefined | null>;
@@ -56,7 +60,10 @@ export async function apiFetch<TResponse>(
     );
   }
 
-  const url = new URL(`${baseUrl}${path.startsWith("/") ? path : `/${path}`}`);
+  const resourceBase = options.wordpress
+    ? new URL("../../wp/v2", `${baseUrl}/`).toString().replace(/\/$/, "")
+    : baseUrl;
+  const url = new URL(`${resourceBase}${path.startsWith("/") ? path : `/${path}`}`);
   for (const [key, value] of Object.entries(options.searchParams ?? {})) {
     if (value !== undefined && value !== null) {
       url.searchParams.set(key, String(value));
@@ -84,6 +91,9 @@ export async function apiFetch<TResponse>(
   }
 
   if (response.status === 204) return undefined as TResponse;
+  if (options.onPagination) {
+    options.onPagination(Number(response.headers.get("X-WP-Total") ?? 0), Number(response.headers.get("X-WP-TotalPages") ?? 0));
+  }
   return (await response.json()) as TResponse;
 }
 

@@ -11,6 +11,8 @@ export { getHomepageService } from "./homepageService";
 export type { HomepageSections, HomepageService } from "./homepageService";
 export { getCollectionService } from "./collectionService";
 export type { CollectionService } from "./collectionService";
+export { getCollectionDirectoryService } from "./collectionDirectoryService";
+export type { CollectionDirectoryEntry, CollectionDirectoryService } from "./collectionDirectoryService";
 export type { CategoryService } from "./categoryService";
 export { getCustomerService } from "./customerService";
 export type { CustomerService } from "./customerService";

@@ -20,3 +20,4 @@ export { SortSelect } from "./SortSelect";
 export type { SortOption, SortSelectProps } from "./SortSelect";
 export { WishlistButton } from "./WishlistButton";
 export type { WishlistButtonProps } from "./WishlistButton";
+export { DirectoryCollection } from "./DirectoryCollection";

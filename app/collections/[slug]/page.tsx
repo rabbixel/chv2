@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
 import { Breadcrumbs, Container } from "@/components/layout";
 import { JsonLd } from "@/components/seo";
-import { ProductGrid, SortSelect } from "@/components/product";
+import { DirectoryCollection, ProductGrid, SortSelect } from "@/components/product";
 import {
   ActiveFilters,
   FilterDrawer,
@@ -22,7 +21,7 @@ import {
 } from "@/lib/search-params";
 import { routes } from "@/lib/routes";
 import { breadcrumbJsonLd } from "@/lib/seo";
-import { getCollectionService, getSearchService } from "@/lib/services";
+import { getCollectionDirectoryService, getCollectionService, getSearchService } from "@/lib/services";
 
 interface CollectionPageProps {
   params: Promise<{ slug: string }>;
@@ -42,7 +41,10 @@ export async function generateMetadata({
 }: CollectionPageProps): Promise<Metadata> {
   const { slug } = await params;
   const collection = await getCollectionService().getCollectionBySlug(slug);
-  if (!collection) return { title: "Collection not found" };
+  if (!collection) {
+    const entry = await getCollectionDirectoryService().getEntry(slug);
+    return entry ? { title: entry.title, alternates: { canonical: `${SITE.url}${routes.collection(slug)}` } } : { title: "Collection not found" };
+  }
   const url = `${SITE.url}/collections/${slug}`;
   const description = `${collection.title} — ${collection.tagline} Curated Indian creative assets on ${SITE.name}.`;
   return {
@@ -74,7 +76,10 @@ export default async function CollectionPage({
   // No loading.tsx in this segment on purpose: a Suspense fallback would
   // absorb this notFound() and serve HTTP 200 with the skeleton forever
   // (vercel/next.js#98954).
-  if (!collection) notFound();
+  if (!collection) {
+    const listing = parseListingParams((await searchParams) ?? {});
+    return <DirectoryCollection slug={slug} page={listing.page} />;
+  }
 
   const basePath = `/collections/${slug}`;
   const listing = parseListingParams((await searchParams) ?? {});

@@ -4,6 +4,12 @@
  */
 
 export const apiEndpoints = {
+  wordpress: {
+    pages: "/pages",
+    media: "/media",
+    mediaDetail: (id: number) => `/media/${id}`,
+    downloads: "/edd-downloads",
+  },
   products: {
     list: "/products",
     detail: (slug: string) => `/products/slug/${encodeURIComponent(slug)}`,
