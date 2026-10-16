@@ -4,6 +4,7 @@ import { products } from "@/data/products";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { CART_COOKIE, CART_COUNT_COOKIE } from "@/lib/constants";
+import { getWordPressOptionalSessionBridgeHeaders } from "./authService";
 import type {
   Cart,
   CartItem,
@@ -27,8 +28,8 @@ export interface CartService {
   getCart(): Promise<Cart>;
   /** Current session cart (guest cookie; sample items for new sessions). */
   getSessionCart(): Promise<Cart>;
-  addItem(productId: ID, license: LicenseCode): Promise<Cart>;
-  updateItem(key: string, license: LicenseCode): Promise<Cart>;
+  addItem(productId: ID, license: LicenseCode, priceId?: number | null): Promise<Cart>;
+  updateItem(key: string, license: LicenseCode, priceId?: number): Promise<Cart>;
   removeItem(key: string): Promise<Cart>;
   applyCoupon(code: string): Promise<Cart>;
   removeCoupon(): Promise<Cart>;
@@ -236,51 +237,121 @@ class MockCartService implements CartService {
 /* ------------------------------ API ------------------------------ */
 
 class ApiCartService implements CartService {
-  getCart(): Promise<Cart> {
-    return apiFetch<Cart>(apiEndpoints.cart);
+  private async rawItems(): Promise<Array<{ product_id: number; price_id: number | null; quantity: number }>> {
+    const raw = (await cookies()).get(CART_COOKIE)?.value;
+    if (!raw) return [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.slice(0, 20).flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return [];
+        const row = entry as Record<string, unknown>;
+        const productId = Number(row.product_id);
+        const priceId = row.price_id === null ? null : Number(row.price_id);
+        const quantity = Number(row.quantity);
+        return Number.isSafeInteger(productId) && productId > 0 &&
+          (priceId === null || (Number.isSafeInteger(priceId) && priceId >= 0)) &&
+          Number.isSafeInteger(quantity) && quantity > 0 && quantity <= 10
+          ? [{ product_id: productId, price_id: priceId, quantity }]
+          : [];
+      });
+    } catch { return []; }
   }
 
-  getSessionCart(): Promise<Cart> {
-    return this.getCart();
-  }
-
-  addItem(productId: ID, license: LicenseCode): Promise<Cart> {
-    return apiFetch<Cart>(apiEndpoints.cart, {
-      method: "POST",
-      body: { productId, license },
+  private async validate(items: Array<{ product_id: number; price_id: number | null; quantity: number }>): Promise<Cart> {
+    const headers = await getWordPressOptionalSessionBridgeHeaders();
+    const envelope = await apiFetch<{ data: { currency: string; items: Array<Record<string, unknown>>; subtotal: number; item_count: number } }>(apiEndpoints.cart, {
+      method: "POST", body: { items }, headers, cache: "no-store", redirect: "error",
     });
+    const currency = envelope.data.currency || "INR";
+    const mapped: CartItem[] = envelope.data.items.map((row) => {
+      const id = Number(row.product_id);
+      const priceId = row.price_id === null ? null : Number(row.price_id);
+      const amount = Number(row.unit_price ?? 0);
+      const quantity = Number(row.quantity ?? 1);
+      return {
+        key: `${id}:${priceId ?? "base"}`, productId: String(id),
+        productSlug: String(row.slug ?? "unavailable"), title: String(row.title ?? "Product unavailable"),
+        ...(typeof row.thumbnail === "string" && row.thumbnail ? { thumbnailUrl: row.thumbnail } : {}),
+        priceId, optionName: String(row.option_name ?? ""),
+        available: Boolean(row.available),
+        ...(typeof row.message === "string" ? { availabilityMessage: row.message } : {}),
+        priceOptions: Array.isArray(row.price_options) ? row.price_options.map((option) => {
+          const value = option as Record<string, unknown>;
+          return { id: Number(value.id), name: String(value.name ?? ""), price: { amount: Number(value.amount ?? 0), currency } };
+        }) : [],
+        license: "personal", quantity,
+        unitPrice: { amount, currency },
+        lineTotal: { amount: Number(row.line_total ?? amount * quantity), currency },
+      };
+    });
+    const subtotal = Number(envelope.data.subtotal ?? 0);
+    return { id: "cart-session", currency, items: mapped, itemCount: Number(envelope.data.item_count ?? mapped.reduce((n, i) => n + i.quantity, 0)), subtotal: { amount: subtotal, currency }, total: { amount: subtotal, currency }, updatedAt: new Date().toISOString() };
   }
 
-  updateItem(key: string, license: LicenseCode): Promise<Cart> {
-    return apiFetch<Cart>(apiEndpoints.cart, {
-      method: "PATCH",
-      body: { key, license },
-    });
+  private async save(items: Array<{ product_id: number; price_id: number | null; quantity: number }>): Promise<Cart> {
+    if (items.length > 20) throw new Error("Your cart can contain up to 20 products.");
+    const cart = await this.validate(items);
+    const persisted = cart.items.map((item) => ({ product_id: Number(item.productId), price_id: item.priceId ?? null, quantity: item.quantity }));
+    const jar = await cookies();
+    const options = { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax" as const, httpOnly: true, secure: process.env.NODE_ENV === "production" };
+    jar.set(CART_COOKIE, JSON.stringify(persisted), options);
+    jar.set(CART_COUNT_COOKIE, String(cart.itemCount), { ...options, httpOnly: false });
+    return cart;
   }
 
-  removeItem(key: string): Promise<Cart> {
-    return apiFetch<Cart>(apiEndpoints.cart, {
-      method: "DELETE",
-      searchParams: { key },
-    });
+  async getCart(): Promise<Cart> { return { ...EMPTY_CART, id: "cart-live", items: [] }; }
+  async getSessionCart(): Promise<Cart> { return this.validate(await this.rawItems()); }
+
+  async addItem(productId: ID, _license: LicenseCode, priceId: number | null = null): Promise<Cart> {
+    const id = Number(productId);
+    if (!Number.isSafeInteger(id) || id <= 0 || (priceId !== null && (!Number.isSafeInteger(priceId) || priceId < 0))) throw new Error("Invalid product option.");
+    const items = await this.rawItems();
+    const existing = items.find((entry) => entry.product_id === id && entry.price_id === priceId);
+    if (!existing && items.length >= 20) throw new Error("Your cart can contain up to 20 products.");
+    if (existing) existing.quantity = Math.min(existing.quantity + 1, 10);
+    else items.push({ product_id: id, price_id: priceId, quantity: 1 });
+    return this.save(items);
+  }
+
+  async updateItem(key: string, license: LicenseCode, priceId?: number): Promise<Cart> {
+    const row = (await this.getSessionCart()).items.find((item) => item.key === key);
+    if (!row) throw new Error("Cart item not found.");
+    const id = Number(row.productId);
+    if (row.priceOptions?.length) return this.updatePrice(key, priceId ?? row.priceId ?? null);
+    return this.save((await this.rawItems()).map((entry) => entry.product_id === id ? { ...entry, price_id: null } : entry));
+  }
+
+  private async updatePrice(key: string, priceId: number | null): Promise<Cart> {
+    const items = await this.rawItems();
+    const cart = await this.getSessionCart();
+    const current = cart.items.find((item) => item.key === key);
+    if (!current) throw new Error("Cart item not found.");
+    const id = Number(current.productId);
+    const item = items.find((entry) => entry.product_id === id && entry.price_id === current.priceId);
+    if (!item) throw new Error("Cart item not found.");
+    item.price_id = priceId;
+    return this.save(items);
+  }
+
+  async removeItem(key: string): Promise<Cart> {
+    const cart = await this.getSessionCart();
+    const target = cart.items.find((item) => item.key === key);
+    if (!target) return cart;
+    const id = Number(target.productId);
+    return this.save((await this.rawItems()).filter((entry) => !(entry.product_id === id && entry.price_id === target.priceId)));
   }
 
   applyCoupon(code: string): Promise<Cart> {
-    return apiFetch<Cart>(apiEndpoints.cart, {
-      method: "POST",
-      body: { coupon: code },
-    });
+    throw new Error(`Coupon "${code}" is not available in this cart.`);
   }
 
   removeCoupon(): Promise<Cart> {
-    return apiFetch<Cart>(apiEndpoints.cart, {
-      method: "DELETE",
-      searchParams: { coupon: true },
-    });
+    return this.getSessionCart();
   }
 
   clearCart(): Promise<Cart> {
-    return apiFetch<Cart>(apiEndpoints.cart, { method: "DELETE" });
+    return this.save([]);
   }
 }
 

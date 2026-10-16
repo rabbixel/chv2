@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { isSafeNextPath } from "@/lib/auth";
+import { assertSameOriginRequest, isSafeNextPath } from "@/lib/auth";
 import { routes } from "@/lib/routes";
 import {
   AuthError,
   getAuthService,
   getCartService,
   getCustomerService,
+  getCustomerProfileService,
   getDownloadService,
   getWishlistService,
   toAuthError,
@@ -43,6 +44,7 @@ function authError(
 }
 
 export async function loginAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   const next = safeNext(field(formData, "next"));
   const email = field(formData, "email");
   const preserve = `&email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`;
@@ -56,7 +58,7 @@ export async function loginAction(formData: FormData): Promise<void> {
     authError(
       routes.login(),
       error,
-      "Could not log you in. Please try again.",
+      "The email or password is incorrect.",
       preserve,
     );
   }
@@ -88,6 +90,7 @@ export async function registerAction(formData: FormData): Promise<void> {
 }
 
 export async function logoutAction(): Promise<void> {
+  await assertSameOriginRequest();
   await getAuthService().logout();
   revalidatePath(routes.home());
   revalidatePath(routes.account());
@@ -146,6 +149,46 @@ export async function resendActivationAction(formData: FormData): Promise<void> 
   );
 }
 
+export async function requestGuestClaimAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
+  try {
+    await getAuthService().requestGuestClaim(field(formData, "email"));
+  } catch {
+    redirect(
+      `${routes.claimAccount()}?error=${encodeURIComponent("We could not process that request. Please try again shortly.")}`,
+    );
+  }
+  redirect(`${routes.claimAccount()}?sent=1`);
+}
+
+export async function completeGuestClaimAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
+  try {
+    await getAuthService().completeGuestClaim({
+      token: field(formData, "token") || undefined,
+      firstName: field(formData, "firstName"),
+      lastName: field(formData, "lastName"),
+      password: String(formData.get("password") ?? ""),
+    });
+  } catch (error) {
+    if (error instanceof AuthError && error.code === "claim-login-required") {
+      redirect(routes.login(routes.claimVerify()));
+    }
+    const message = error instanceof AuthError
+      ? error.message
+      : "We could not verify this link. Request a new one and try again.";
+    redirect(`${routes.claimVerify()}?error=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(routes.account());
+  redirect(routes.account());
+}
+
+export async function signOutForGuestClaimAction(): Promise<void> {
+  await assertSameOriginRequest();
+  await getAuthService().logout();
+  redirect(routes.login(routes.claimVerify()));
+}
+
 /* ------------------------- Wishlist actions ------------------------- */
 
 export async function addWishlistItemToCart(
@@ -192,6 +235,21 @@ export async function requestDownloadAction(
 /* ------------------------- Settings actions ------------------------- */
 
 export async function updateProfileAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
+  if (process.env.CH_AUTH_MODE === "wordpress") {
+    try {
+      await getCustomerProfileService().update({
+        firstName: field(formData, "firstName"),
+        lastName: field(formData, "lastName"),
+      });
+    } catch (error) {
+      authError(routes.accountProfile(), error, "Could not save your profile. Please try again.");
+    }
+    revalidatePath(routes.accountProfile());
+    revalidatePath(routes.accountSettings());
+    revalidatePath(routes.account());
+    redirect(`${routes.accountProfile()}?saved=1`);
+  }
   try {
     await getCustomerService().updateProfile({
       firstName: field(formData, "firstName"),

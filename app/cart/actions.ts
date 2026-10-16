@@ -19,8 +19,9 @@ export async function getCart(): Promise<Cart> {
 export async function addToCart(
   productId: ID,
   license: LicenseCode,
+  priceId?: number | null,
 ): Promise<{ itemCount: number }> {
-  const cart = await getCartService().addItem(productId, license);
+  const cart = await getCartService().addItem(productId, license, priceId);
   revalidatePath(routes.cart());
   revalidatePath(routes.checkout());
   return { itemCount: cart.itemCount };
@@ -45,8 +46,10 @@ export async function removeFromCart(formData: FormData): Promise<void> {
 export async function updateCart(formData: FormData): Promise<void> {
   const key = String(formData.get("key") ?? "");
   const license = String(formData.get("license") ?? "");
+  const rawPriceId = formData.get("price_id");
+  const priceId = rawPriceId === null || rawPriceId === "" ? undefined : Number(rawPriceId);
   try {
-    await getCartService().updateItem(key, license as LicenseCode);
+    await getCartService().updateItem(key, license as LicenseCode, priceId);
   } catch {
     cartError("Could not update that item. Please try again.");
   }

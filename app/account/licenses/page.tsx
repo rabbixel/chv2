@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import { getLicenseService } from "@/lib/services";
+import { getCustomerLicenseService, getLicenseService, isWordPressAuthEnabled } from "@/lib/services";
+import type { Paginated, CustomerLicense } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import styles from "../section.module.css";
 
@@ -13,7 +16,29 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE.url}/account/licenses` },
 };
 
-export default async function AccountLicensesPage() {
+export const dynamic = "force-dynamic";
+
+interface AccountLicensesPageProps {
+  searchParams: Promise<{ page?: string | string[] }>;
+}
+
+export default async function AccountLicensesPage({ searchParams }: AccountLicensesPageProps) {
+  if (isWordPressAuthEnabled()) {
+    const query = await searchParams;
+    const rawPage = Array.isArray(query.page) ? query.page[0] : query.page;
+    const page = rawPage && /^[1-9][0-9]{0,4}$/.test(rawPage) ? Number(rawPage) : 1;
+    let licenses: Paginated<CustomerLicense>;
+    try {
+      licenses = await getCustomerLicenseService().list({ page, pageSize: 20 });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect(routes.login(routes.accountLicenses()));
+      }
+      return <div><h1 className={styles.title}>Licenses</h1><EmptyState title="Licenses could not be loaded" description="Please refresh the page or try again shortly." /></div>;
+    }
+    return <WordPressLicenses licenses={licenses} />;
+  }
+
   const owned = await getLicenseService().listOwnedLicenses();
   const definitions = await getLicenseService().listLicenses();
   const nameByCode = new Map(definitions.map((entry) => [entry.code, entry.name]));
@@ -72,6 +97,51 @@ export default async function AccountLicensesPage() {
       <p className={styles.note}>
         Questions about usage? Read the license terms on any product page.
       </p>
+    </div>
+  );
+}
+
+function WordPressLicenses({ licenses }: { licenses: Paginated<CustomerLicense> }) {
+  return (
+    <div>
+      <h1 className={styles.title}>Licenses</h1>
+      <p className={styles.lede}>License records associated with your purchases.</p>
+      {licenses.items.length === 0 ? (
+        <EmptyState title="No licenses yet" description="No software licenses are associated with your account." action={<Button href={routes.accountOrders()}>View orders</Button>} />
+      ) : (
+        <>
+          <div className={styles.list}>
+            {licenses.items.map((license) => (
+              <Card key={license.id}>
+                <div className={styles.row}>
+                  <div className={styles.rowMain}>
+                    <p className={styles.rowTitle}>
+                      {license.productUrl ? <Link href={license.productUrl}>{license.productTitle}</Link> : license.productTitle}
+                    </p>
+                    {license.maskedKey && <p className={styles.mono}>{license.maskedKey}</p>}
+                    <p className={styles.rowMeta}>
+                      {license.purchaseId && license.purchaseNumber ? <>Order <Link href={routes.accountOrder(license.purchaseId)}>{license.purchaseNumber}</Link></> : "Purchase reference unavailable"}
+                      {license.activationLimit !== null ? ` · ${license.activationCount} of ${license.activationLimit} activations` : ` · ${license.activationCount} activations`}
+                      {license.lifetime ? " · Lifetime" : license.expiresAt ? ` · Expires ${formatDate(license.expiresAt)}` : ""}
+                    </p>
+                  </div>
+                  <div className={styles.rowSide}>
+                    <Badge variant={license.status === "active" ? "success" : "neutral"}>{license.status}</Badge>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+          {licenses.pagination.totalPages > 1 && (
+            <nav aria-label="License pages" className={styles.row}>
+              {licenses.pagination.hasPrevPage ? <Link href={`${routes.accountLicenses()}?page=${licenses.pagination.page - 1}`}>Previous</Link> : <span />}
+              <span className={styles.rowMeta}>Page {licenses.pagination.page} of {licenses.pagination.totalPages}</span>
+              {licenses.pagination.hasNextPage ? <Link href={`${routes.accountLicenses()}?page=${licenses.pagination.page + 1}`}>Next</Link> : <span />}
+            </nav>
+          )}
+        </>
+      )}
+      <p className={styles.note}>License keys are masked. License activation and management are not available here yet.</p>
     </div>
   );
 }

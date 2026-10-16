@@ -14,6 +14,11 @@ export interface CartItem {
   productSlug: Slug;
   title: string;
   thumbnailUrl?: string;
+  priceId?: number | null;
+  optionName?: string;
+  available?: boolean;
+  availabilityMessage?: string;
+  priceOptions?: Array<{ id: number; name: string; price: Money }>;
   license: LicenseCode;
   /** Digital goods are quantity-1; kept for API compatibility. */
   quantity: number;

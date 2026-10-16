@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { updateCart } from "@/app/cart/actions";
 import type { LicenseCode } from "@/lib/types";
+import type { CartItem } from "@/lib/types";
 import styles from "./CartLicenseSelect.module.css";
 
 const LICENSE_LABELS: Record<LicenseCode, string> = {
@@ -16,6 +17,8 @@ export interface CartLicenseSelectProps {
   title: string;
   current: LicenseCode;
   options: LicenseCode[];
+  priceOptions?: CartItem["priceOptions"];
+  currentPriceId?: number | null;
 }
 
 /**
@@ -28,12 +31,23 @@ export function CartLicenseSelect({
   title,
   current,
   options,
+  priceOptions,
+  currentPriceId,
 }: CartLicenseSelectProps) {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
     <form ref={formRef} action={updateCart} className={styles.form}>
       <input type="hidden" name="key" value={itemKey} />
+      {priceOptions?.length ? <>
+        <label className={styles.label}>
+          <span className="ch-visually-hidden">Price option for {title}</span>
+          <select name="price_id" defaultValue={currentPriceId ?? ""} onChange={() => formRef.current?.requestSubmit()} className={styles.select}>
+            {priceOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </select>
+        </label>
+        <input type="hidden" name="license" value="personal" />
+      </> : <>
       <label className={styles.label}>
         <span className="ch-visually-hidden">Licence for {title}</span>
         <select
@@ -49,6 +63,7 @@ export function CartLicenseSelect({
           ))}
         </select>
       </label>
+      </>}
       <button type="submit" className={styles.update}>
         Update
       </button>

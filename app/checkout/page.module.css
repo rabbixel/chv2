@@ -36,6 +36,28 @@
   border-radius: var(--ch-radius-md);
 }
 
+.pendingNotice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-3);
+  padding: var(--ch-space-5);
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-md);
+}
+
+.pendingNotice p { margin: 0; color: var(--ch-color-text-muted); }
+
+.quoteActions { display: flex; justify-content: flex-start; }
+
+.totals { display: flex; flex-direction: column; gap: var(--ch-space-2); margin: 0; }
+
+.totalRow { display: flex; justify-content: space-between; gap: var(--ch-space-3); color: var(--ch-color-text-muted); }
+
+.totalRow dd { margin: 0; color: var(--ch-color-text); white-space: nowrap; }
+
+.grandTotal { padding-top: var(--ch-space-3); border-top: 1px solid var(--ch-color-border); font-weight: var(--ch-weight-bold); color: var(--ch-color-text); }
+
 .layout {
   display: grid;
   grid-template-columns: 1fr;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui";
 import { routes } from "@/lib/routes";
@@ -31,21 +32,22 @@ export function CartItemRow({
   return (
     <li className={styles.row}>
       <span className={styles.thumb} aria-hidden="true">
-        {item.title.charAt(0)}
+        {item.thumbnailUrl ? <Image src={item.thumbnailUrl} alt="" fill sizes="48px" unoptimized /> : item.title.charAt(0)}
       </span>
       <div className={styles.details}>
-        <Link href={routes.product(item.productSlug)} className={styles.title}>
+          {item.available === false ? <span className={styles.title}>{item.title}</span> : <Link href={routes.product(item.productSlug)} className={styles.title}>
           {item.title}
-        </Link>
+          </Link>}
         <p className={styles.meta}>
           {licenseControl ?? (
             <Badge variant="neutral" size="sm">
-              {LICENSE_LABELS[item.license]} licence
+              {item.optionName || `${LICENSE_LABELS[item.license]} licence`}
             </Badge>
           )}
           <span className={styles.unit}>{formatMoney(item.unitPrice)}</span>
         </p>
       </div>
+      {item.available === false && item.availabilityMessage && <p className={styles.unavailable}>{item.availabilityMessage}</p>}
       <p className={styles.total}>{formatMoney(item.lineTotal)}</p>
       {actions ??
         (onRemove && (

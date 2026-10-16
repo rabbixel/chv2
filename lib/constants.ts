@@ -45,6 +45,8 @@ export const CART_COOKIE = "ch_cart";
 export const CART_COUNT_COOKIE = "ch_cart_count";
 /** HttpOnly session id for the signed-in customer (mock + backend). */
 export const AUTH_SESSION_COOKIE = "ch_session";
+/** HttpOnly short-lived claim proof retained while an existing user logs in. */
+export const CLAIM_SESSION_COOKIE = "ch_claim";
 /**
  * Non-httpOnly login mirror (`"1"` when signed in, absent otherwise) so
  * the static header can render the right link without reading the

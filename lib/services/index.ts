@@ -2,10 +2,17 @@
  * Service layer barrel. Pages and components import service accessors from
  * `@/lib/services` — never from `@/data` or `@/lib/api` directly.
  */
-export { AuthError, getAuthService, toAuthError } from "./authService";
-export type { AuthService } from "./authService";
+export {
+  AuthError,
+  getAuthService,
+  isWordPressAuthEnabled,
+  toAuthError,
+} from "./authService";
+export type { AuthIdentity, AuthService, GuestClaimInput } from "./authService";
 export { getCartService } from "./cartService";
 export type { CartService } from "./cartService";
+export { getCheckoutService } from "./checkoutService";
+export type { CheckoutService } from "./checkoutService";
 export { getCategoryService } from "./categoryService";
 export { getHomepageService } from "./homepageService";
 export type { HomepageSections, HomepageService } from "./homepageService";
@@ -21,6 +28,14 @@ export type { DownloadService } from "./downloadService";
 export { getLicenseService } from "./licenseService";
 export type { LicenseService } from "./licenseService";
 export { getOrderService } from "./orderService";
+export { getCustomerOrderService } from "./customerOrderService";
+export type { CustomerOrderService } from "./customerOrderService";
+export { getCustomerDownloadService } from "./customerDownloadService";
+export type { CustomerDownloadService } from "./customerDownloadService";
+export { getCustomerLicenseService } from "./customerLicenseService";
+export type { CustomerLicenseService } from "./customerLicenseService";
+export { getCustomerProfileService } from "./customerProfileService";
+export type { CustomerProfileService } from "./customerProfileService";
 export type {
   CreateOrderInput,
   OrderService,

@@ -42,6 +42,13 @@ export interface ProductAttribute {
   value: string;
 }
 
+export interface ProductPriceOption {
+  id: number;
+  name: string;
+  price: Money;
+  isDefault: boolean;
+}
+
 export interface ProductVendor {
   id: ID;
   name: string;
@@ -64,6 +71,8 @@ export interface Product {
 
   /** Base price (personal license) in minor units. */
   price: Money;
+  /** Authoritative EDD variable price choices, when present. */
+  priceOptions?: ProductPriceOption[];
   /** Original price when on sale; absent otherwise. */
   compareAtPrice?: Money;
 

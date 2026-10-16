@@ -1,7 +1,13 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import { AUTH_SESSION_COOKIE, AUTH_STATE_COOKIE } from "@/lib/constants";
+import {
+  AUTH_SESSION_COOKIE,
+  AUTH_STATE_COOKIE,
+  CLAIM_SESSION_COOKIE,
+} from "@/lib/constants";
 import type {
   AuthErrorCode,
   AuthUser,
@@ -16,11 +22,59 @@ export interface AuthService {
   register(input: RegisterInput): Promise<AuthUser>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<AuthUser | null>;
+  /** Internal identity context; the EDD customer id must stay server-side. */
+  getCurrentIdentity(): Promise<AuthIdentity | null>;
   updateProfile(input: UpdateProfileInput): Promise<AuthUser>;
   forgotPassword(email: string): Promise<void>;
   resetPassword(input: ResetPasswordInput): Promise<void>;
   /** Re-send the activation email for accounts pending activation. */
   resendActivation(email: string): Promise<void>;
+  requestGuestClaim(email: string): Promise<void>;
+  completeGuestClaim(input: GuestClaimInput): Promise<AuthUser>;
+  hasPendingGuestClaim(): Promise<boolean>;
+}
+
+export interface GuestClaimInput {
+  token?: string;
+  firstName?: string;
+  lastName?: string;
+  password?: string;
+}
+
+export interface AuthIdentity {
+  user: AuthUser;
+  eddCustomerId: number | null;
+  emailMismatch: boolean;
+}
+
+interface AuthApiEnvelope<T> {
+  success: boolean;
+  data: T;
+}
+
+interface WordPressProfile {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  created_at: string;
+}
+
+interface WordPressLoginResponse {
+  session: { user_id: number; token: string; expires_at: string };
+  user: WordPressProfile;
+}
+
+interface WordPressIdentityResponse {
+  user: WordPressProfile;
+  edd_customer_id: number | null;
+  identity_email_mismatch: boolean;
+}
+
+interface WordPressClaimResponse {
+  linked: boolean;
+  session: WordPressLoginResponse["session"] | null;
+  user: WordPressProfile;
 }
 
 export class AuthError extends Error {
@@ -89,6 +143,123 @@ function sessionCookieOptions(remember: boolean) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
   };
+}
+
+function claimCookieOptions() {
+  return {
+    path: "/claim-account",
+    maxAge: 60 * 30,
+    sameSite: "strict" as const,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  };
+}
+
+async function storePendingGuestClaim(token: string): Promise<void> {
+  if (!/^[a-f0-9]{64}$/.test(token)) return;
+  (await cookies()).set(CLAIM_SESSION_COOKIE, token, claimCookieOptions());
+}
+
+async function readPendingGuestClaim(): Promise<string | null> {
+  const value = (await cookies()).get(CLAIM_SESSION_COOKIE)?.value ?? "";
+  return /^[a-f0-9]{64}$/.test(value) ? value : null;
+}
+
+async function clearPendingGuestClaim(): Promise<void> {
+  (await cookies()).delete(CLAIM_SESSION_COOKIE);
+}
+
+function wordPressAuthEnabled(): boolean {
+  return process.env.CH_AUTH_MODE === "wordpress";
+}
+
+function bridgeHeaders(authorization?: string): Record<string, string> {
+  const secret = process.env.CH_AUTH_BRIDGE_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new AuthError("validation", "Account sign-in is not configured.");
+  }
+  if (
+    process.env.NODE_ENV === "production" &&
+    !process.env.CH_API_URL?.startsWith("https://")
+  ) {
+    throw new AuthError("validation", "Account sign-in requires a secure connection.");
+  }
+
+  return {
+    "X-CH-Auth-Bridge": secret,
+    ...(authorization ? { Authorization: `Bearer ${authorization}` } : {}),
+  };
+}
+
+function claimFrontendOrigin(): string {
+  const configured = process.env.CH_AUTH_FRONTEND_URL;
+  if (!configured) {
+    throw new AuthError("validation", "Customer account claiming is not configured.");
+  }
+  try {
+    const origin = new URL(configured);
+    if (
+      !["http:", "https:"].includes(origin.protocol) ||
+      origin.username ||
+      origin.password ||
+      (process.env.NODE_ENV === "production" && origin.protocol !== "https:")
+    ) {
+      throw new Error("invalid frontend origin");
+    }
+    return origin.origin;
+  } catch {
+    throw new AuthError("validation", "Customer account claiming is not configured.");
+  }
+}
+
+function fromWordPressProfile(profile: WordPressProfile): AuthUser {
+  const createdAt = new Date(profile.created_at);
+  return {
+    id: String(profile.id),
+    email: profile.email,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    createdAt: Number.isNaN(createdAt.getTime())
+      ? new Date(0).toISOString()
+      : createdAt.toISOString(),
+  };
+}
+
+async function readWordPressSession(): Promise<string | null> {
+  const raw = (await cookies()).get(AUTH_SESSION_COOKIE)?.value ?? "";
+  const match = raw.match(/^([1-9][0-9]*)\.([A-Za-z0-9]{43})$/);
+  return match ? raw : null;
+}
+
+/** Server-only headers for authenticated calls from backend-facing services. */
+export async function getWordPressSessionBridgeHeaders(): Promise<Record<string, string>> {
+  const session = await readWordPressSession();
+  if (!session) {
+    throw new ApiError(401, "invalid_session", "Authentication required.");
+  }
+  return bridgeHeaders(session);
+}
+
+/** Trusted server bridge for guest-safe cart validation, with a session when present. */
+export async function getWordPressOptionalSessionBridgeHeaders(): Promise<Record<string, string>> {
+  return bridgeHeaders(await readWordPressSession() ?? undefined);
+}
+
+async function storeWordPressSession(
+  session: WordPressLoginResponse["session"],
+  remember: boolean,
+): Promise<void> {
+  const jar = await cookies();
+  const options = sessionCookieOptions(remember);
+  jar.set(
+    AUTH_SESSION_COOKIE,
+    `${session.user_id}.${session.token}`,
+    {
+      ...options,
+      ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
+    },
+  );
+  jar.set(AUTH_STATE_COOKIE, "1", { ...options, httpOnly: false });
 }
 
 async function createSession(userId: string, remember: boolean): Promise<void> {
@@ -227,6 +398,11 @@ class MockAuthService implements AuthService {
     return null;
   }
 
+  async getCurrentIdentity(): Promise<AuthIdentity | null> {
+    const user = await this.getCurrentUser();
+    return user ? { user, eddCustomerId: null, emailMismatch: false } : null;
+  }
+
   async updateProfile(input: UpdateProfileInput): Promise<AuthUser> {
     const current = await this.getCurrentUser();
     if (!current) throw new AuthError("validation", "You must be logged in.");
@@ -291,6 +467,20 @@ class MockAuthService implements AuthService {
     // Always succeeds (no enumeration); the backend sends when pending.
   }
 
+  async requestGuestClaim(email: string): Promise<void> {
+    void email;
+    throw new AuthError("validation", "Customer account claiming is not available in mock mode.");
+  }
+
+  async completeGuestClaim(input: GuestClaimInput): Promise<AuthUser> {
+    void input;
+    throw new AuthError("validation", "Customer account claiming is not available in mock mode.");
+  }
+
+  async hasPendingGuestClaim(): Promise<boolean> {
+    return false;
+  }
+
   /* Mock-only password vault (plaintext scaffold — the backend hashes). */
   private static passwords = new Map<string, string>();
 
@@ -307,53 +497,174 @@ class MockAuthService implements AuthService {
 
 class ApiAuthService implements AuthService {
   async login(input: LoginInput): Promise<AuthUser> {
-    return apiFetch<AuthUser>(apiEndpoints.auth.login, {
-      method: "POST",
-      body: input,
-    });
+    const result = await apiFetch<AuthApiEnvelope<WordPressLoginResponse>>(
+      apiEndpoints.auth.login,
+      {
+        method: "POST",
+        body: input,
+        headers: bridgeHeaders(),
+        cache: "no-store",
+        redirect: "error",
+        timeoutMs: 10_000,
+      },
+    );
+    const user = fromWordPressProfile(result.data.user);
+    await storeWordPressSession(result.data.session, input.remember ?? false);
+    return user;
   }
 
   async register(input: RegisterInput): Promise<AuthUser> {
-    return apiFetch<AuthUser>(apiEndpoints.auth.register, {
-      method: "POST",
-      body: input,
-    });
+    void input;
+    throw new AuthError("validation", "Account creation is not available yet.");
   }
 
   async logout(): Promise<void> {
-    await apiFetch<void>(apiEndpoints.auth.logout, { method: "POST" });
+    const session = await readWordPressSession();
+    if (session) {
+      try {
+        await apiFetch<AuthApiEnvelope<{ logged_out: boolean }>>(
+          apiEndpoints.auth.logout,
+          {
+            method: "POST",
+            headers: bridgeHeaders(session),
+            cache: "no-store",
+            redirect: "error",
+            timeoutMs: 10_000,
+          },
+        );
+      } catch (error) {
+        // A server-revoked or expired token is already unusable; clear the
+        // local cookie. Keep it if the backend is temporarily unreachable.
+        if (!(error instanceof ApiError && error.status === 401)) throw error;
+      }
+    }
+    await clearSession();
   }
 
-  getCurrentUser(): Promise<AuthUser | null> {
-    return apiFetch<AuthUser | null>(apiEndpoints.customer.me);
+  async getCurrentUser(): Promise<AuthUser | null> {
+    const identity = await this.getCurrentIdentity();
+    return identity?.user ?? null;
   }
 
-  updateProfile(input: UpdateProfileInput): Promise<AuthUser> {
-    return apiFetch<AuthUser>(apiEndpoints.customer.me, {
-      method: "PATCH",
-      body: input,
-    });
+  async getCurrentIdentity(): Promise<AuthIdentity | null> {
+    const session = await readWordPressSession();
+    if (!session) return null;
+
+    try {
+      const result = await apiFetch<AuthApiEnvelope<WordPressIdentityResponse>>(
+        apiEndpoints.customer.me,
+        {
+          headers: bridgeHeaders(session),
+          cache: "no-store",
+          redirect: "error",
+          timeoutMs: 10_000,
+        },
+      );
+      return {
+        user: fromWordPressProfile(result.data.user),
+        eddCustomerId: result.data.edd_customer_id,
+        emailMismatch: result.data.identity_email_mismatch,
+      };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return null;
+      throw error;
+    }
+  }
+
+  async updateProfile(): Promise<AuthUser> {
+    throw new AuthError("validation", "Profile editing is not available yet.");
   }
 
   async forgotPassword(email: string): Promise<void> {
-    await apiFetch<void>(apiEndpoints.auth.forgotPassword, {
-      method: "POST",
-      body: { email },
-    });
+    void email;
+    throw new AuthError("validation", "Password recovery is not available yet.");
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<void> {
-    await apiFetch<void>(apiEndpoints.auth.resetPassword, {
-      method: "POST",
-      body: input,
-    });
+    void input;
+    throw new AuthError("validation", "Password recovery is not available yet.");
   }
 
   async resendActivation(email: string): Promise<void> {
-    await apiFetch<void>(apiEndpoints.auth.resendActivation, {
-      method: "POST",
-      body: { email },
-    });
+    void email;
+    throw new AuthError("validation", "Account recovery is not available yet.");
+  }
+
+  async requestGuestClaim(email: string): Promise<void> {
+    await apiFetch<AuthApiEnvelope<{ message: string }>>(
+      apiEndpoints.customer.claimRequest,
+      {
+        method: "POST",
+        body: { email, frontend_origin: claimFrontendOrigin() },
+        headers: bridgeHeaders(),
+        cache: "no-store",
+        redirect: "error",
+        timeoutMs: 10_000,
+      },
+    );
+  }
+
+  async completeGuestClaim(input: GuestClaimInput): Promise<AuthUser> {
+    const token = input.token ?? (await readPendingGuestClaim());
+    if (!token || !/^[a-f0-9]{64}$/.test(token)) {
+      throw new AuthError(
+        "invalid-token",
+        "This verification link is invalid or has expired. Request a new link and try again.",
+      );
+    }
+
+    await storePendingGuestClaim(token);
+    const session = await readWordPressSession();
+    try {
+      const result = await apiFetch<AuthApiEnvelope<WordPressClaimResponse>>(
+        apiEndpoints.customer.claimComplete,
+        {
+          method: "POST",
+          body: {
+            token,
+            first_name: input.firstName,
+            last_name: input.lastName,
+            password: input.password,
+          },
+          headers: bridgeHeaders(session ?? undefined),
+          cache: "no-store",
+          redirect: "error",
+          timeoutMs: 10_000,
+        },
+      );
+      if (result.data.session) {
+        await storeWordPressSession(result.data.session, false);
+      }
+      await clearPendingGuestClaim();
+      return fromWordPressProfile(result.data.user);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "claim_login_required") {
+        await storePendingGuestClaim(token);
+        throw new AuthError(
+          "claim-login-required",
+          "Sign in to the WordPress account that uses this verified email, then continue.",
+        );
+      }
+      if (error instanceof ApiError && error.code === "claim_conflict") {
+        await storePendingGuestClaim(token);
+        throw new AuthError(
+          "claim-account-conflict",
+          "This purchase record could not be linked to the signed-in account. Sign in with the verified email or contact support.",
+        );
+      }
+      if (error instanceof ApiError && error.code === "invalid_claim") {
+        await clearPendingGuestClaim();
+        throw new AuthError(
+          "invalid-token",
+          "This verification link is invalid or has expired. Request a new link and try again.",
+        );
+      }
+      throw error;
+    }
+  }
+
+  async hasPendingGuestClaim(): Promise<boolean> {
+    return null !== (await readPendingGuestClaim());
   }
 }
 
@@ -363,10 +674,14 @@ let cached: AuthService | null = null;
 
 export function getAuthService(): AuthService {
   cached ??=
-    process.env.USE_MOCK_API === "false"
+    wordPressAuthEnabled()
       ? new ApiAuthService()
       : new MockAuthService();
   return cached;
+}
+
+export function isWordPressAuthEnabled(): boolean {
+  return wordPressAuthEnabled();
 }
 
 /** Re-throw backend failures as `AuthError` where the code survives. */

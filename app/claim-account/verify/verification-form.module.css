@@ -1,0 +1,25 @@
+.form,
+.signOut {
+  display: grid;
+  gap: var(--ch-space-4);
+}
+
+.signOut {
+  margin-top: var(--ch-space-5);
+}
+
+.note {
+  color: var(--ch-color-text-muted);
+  font-size: var(--ch-text-sm);
+  line-height: 1.6;
+}
+
+.link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ch-color-border);
+  color: var(--ch-color-text);
+  text-decoration: none;
+}

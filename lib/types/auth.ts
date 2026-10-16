@@ -1,9 +1,8 @@
 import type { Customer } from "./customer";
 
 /**
- * The signed-in shopper. Creative Hatti has one customer record per
- * account; the auth service returns the same `Customer` the rest of the
- * storefront uses — no parallel user model.
+ * Safe profile for a signed-in WordPress account. EDD customer linkage stays
+ * in the server-only AuthIdentity context, not in this profile.
  */
 export type AuthUser = Customer;
 
@@ -37,5 +36,7 @@ export type AuthErrorCode =
   | "not-activated"
   | "invalid-token"
   | "expired-token"
+  | "claim-login-required"
+  | "claim-account-conflict"
   | "weak-password"
   | "validation";

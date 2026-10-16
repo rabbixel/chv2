@@ -33,6 +33,12 @@ export interface ApiFetchOptions {
   /** Query parameters; `undefined`/`null` values are dropped. */
   searchParams?: Record<string, string | number | boolean | undefined | null>;
   body?: unknown;
+  /** Server-only headers for authenticated backend bridge requests. */
+  headers?: Record<string, string>;
+  /** Explicit cache policy; authenticated responses must use `no-store`. */
+  cache?: RequestCache;
+  /** Authentication bridge requests fail closed on backend redirects. */
+  redirect?: RequestRedirect;
   /** Next.js ISR window in seconds (GET requests). */
   revalidate?: number | false;
   /** Next.js cache tags for on-demand revalidation. */
@@ -74,21 +80,27 @@ export async function apiFetch<TResponse>(
 
   const response = await fetch(url.toString(), {
     method: options.method ?? "GET",
-    headers: { "Content-Type": "application/json" },
+    redirect: options.redirect,
+    headers: { "Content-Type": "application/json", ...options.headers },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.timeoutMs === undefined ? undefined : AbortSignal.timeout(options.timeoutMs),
-    next:
-      options.revalidate === undefined && options.tags === undefined
+    cache: options.cache,
+    next: options.cache === "no-store"
+      ? undefined
+      : options.revalidate === undefined && options.tags === undefined
         ? undefined
         : { revalidate: options.revalidate, tags: options.tags },
   });
 
   if (!response.ok) {
     const payload = await safeJson(response);
+    const apiError = payload?.error;
     const message =
+      (typeof apiError?.message === "string" && apiError.message) ||
       (typeof payload?.message === "string" && payload.message) ||
       `Request failed with status ${response.status}`;
     const code =
+      (typeof apiError?.code === "string" && apiError.code) ||
       (typeof payload?.code === "string" && payload.code) || "request_failed";
     throw new ApiError(response.status, code, message, payload);
   }
@@ -102,11 +114,19 @@ export async function apiFetch<TResponse>(
 
 async function safeJson(
   response: Response,
-): Promise<{ message?: unknown; code?: unknown } | null> {
+): Promise<{
+  message?: unknown;
+  code?: unknown;
+  error?: { message?: unknown; code?: unknown };
+} | null> {
   try {
     const data: unknown = await response.json();
     if (typeof data === "object" && data !== null) {
-      return data as { message?: unknown; code?: unknown };
+      return data as {
+        message?: unknown;
+        code?: unknown;
+        error?: { message?: unknown; code?: unknown };
+      };
     }
     return null;
   } catch {

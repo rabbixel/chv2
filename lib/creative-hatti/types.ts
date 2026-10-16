@@ -78,6 +78,7 @@ export interface ChApiVariablePrice {
   amount?: number;
   formatted?: string;
   currency?: string;
+  default?: boolean;
 }
 
 export interface ChApiProductDetail extends ChApiProductCard {

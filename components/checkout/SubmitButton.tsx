@@ -12,6 +12,7 @@ export interface SubmitButtonProps {
   size?: ButtonSize;
   fullWidth?: boolean;
   className?: string;
+  disabled?: boolean;
 }
 
 /** Form submit with an automatic pending state (processing feedback). */
@@ -22,6 +23,7 @@ export function SubmitButton({
   size,
   fullWidth,
   className,
+  disabled = false,
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();
   return (
@@ -32,7 +34,7 @@ export function SubmitButton({
       fullWidth={fullWidth}
       className={className}
       loading={pending}
-      disabled={pending}
+      disabled={pending || disabled}
     >
       {pending && pendingLabel ? pendingLabel : children}
     </Button>

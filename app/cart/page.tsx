@@ -51,7 +51,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
   }
 
   const licenseOptions = new Map<string, Parameters<typeof CartLicenseSelect>[0]["options"]>();
-  await Promise.all(
+  if (process.env.USE_MOCK_API !== "false") await Promise.all(
     cart.items.map(async (item) => {
       const product = await getProductService().getProductBySlug(
         item.productSlug,
@@ -78,7 +78,16 @@ export default async function CartPage({ searchParams }: CartPageProps) {
               <CartItemRow
                 key={item.key}
                 item={item}
-                licenseControl={
+                licenseControl={process.env.USE_MOCK_API === "false" ? item.priceOptions && item.priceOptions.length > 1 ? (
+                  <CartLicenseSelect
+                    itemKey={item.key}
+                    title={item.title}
+                    current={item.license}
+                    options={[item.license]}
+                    priceOptions={item.priceOptions}
+                    currentPriceId={item.priceId}
+                  />
+                ) : undefined : (
                   <CartLicenseSelect
                     itemKey={item.key}
                     title={item.title}
@@ -87,7 +96,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
                       licenseOptions.get(item.productId) ?? [item.license]
                     }
                   />
-                }
+                )}
                 actions={
                   <div className={styles.lineActions}>
                     <form action={removeFromCart}>

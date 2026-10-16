@@ -5,7 +5,7 @@ import { Card, Input } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { getSessionUser } from "@/lib/auth";
-import { getCustomerService } from "@/lib/services";
+import { getCustomerService, isWordPressAuthEnabled } from "@/lib/services";
 import {
   logoutAction,
   updatePreferencesAction,
@@ -27,6 +27,7 @@ interface SettingsPageProps {
 export default async function AccountSettingsPage({
   searchParams,
 }: SettingsPageProps) {
+  const wordpressAuth = isWordPressAuthEnabled();
   const [user, preferences] = await Promise.all([
     getSessionUser(),
     getCustomerService().getNotificationPreferences(),
@@ -39,12 +40,12 @@ export default async function AccountSettingsPage({
     <div>
       <h1 className={styles.title}>Settings</h1>
       <p className={styles.lede}>Your session and account preferences.</p>
-      {saved === "profile" && (
+      {!wordpressAuth && saved === "profile" && (
         <p role="status" className={styles.notice}>
           Profile saved.
         </p>
       )}
-      {saved === "notifications" && (
+      {!wordpressAuth && saved === "notifications" && (
         <p role="status" className={styles.notice}>
           Notification preferences saved.
         </p>
@@ -55,6 +56,18 @@ export default async function AccountSettingsPage({
         </p>
       )}
       <div className={styles.list}>
+        {wordpressAuth ? (
+          <Card>
+            <h2 className={styles.splitTitle}>
+              Account settings
+            </h2>
+            <p className={styles.rowMeta}>
+              Update your name in <Link href={routes.accountProfile()}>Profile</Link>. Email changes require verification; password recovery and notification preferences are not connected yet.
+            </p>
+            <p className={styles.rowMeta}>{user?.email ?? ""}</p>
+          </Card>
+        ) : (
+          <>
         <Card>
           <h2 className={styles.splitTitle}>Profile</h2>
           <form action={updateProfileAction} className={formStyles.form}>
@@ -142,6 +155,8 @@ export default async function AccountSettingsPage({
             </div>
           </form>
         </Card>
+          </>
+        )}
         <Card>
           <div className={styles.row}>
             <div className={styles.rowMain}>

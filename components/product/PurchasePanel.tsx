@@ -36,6 +36,10 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
   const [licenseCode, setLicenseCode] = useState<LicenseCode>(
     product.licenses[0] ?? "personal",
   );
+  const [priceId, setPriceId] = useState<number | null>(() => {
+    const selectedOption = product.priceOptions?.find((option) => option.isDefault) ?? product.priceOptions?.[0];
+    return selectedOption?.id ?? null;
+  });
   const [added, setAdded] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -50,7 +54,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     setActionError(null);
     startTransition(async () => {
       try {
-        const result = await addToCart(product.id, licenseCode);
+        const result = await addToCart(product.id, licenseCode, priceId);
         announce(result.itemCount);
         setAdded(true);
       } catch {
@@ -63,7 +67,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     setActionError(null);
     startTransition(async () => {
       try {
-        const result = await addToCart(product.id, licenseCode);
+        const result = await addToCart(product.id, licenseCode, priceId);
         announce(result.itemCount);
         router.push(routes.checkout());
       } catch {
@@ -75,7 +79,8 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
   const selected =
     licenses.find((license) => license.code === licenseCode) ?? licenses[0];
   const multiplier = selected?.priceMultiplier ?? 1;
-  const price = scaledPrice(product.price, multiplier);
+  const selectedPriceOption = product.priceOptions?.find((option) => option.id === priceId) ?? product.priceOptions?.[0];
+  const price = selectedPriceOption?.price ?? scaledPrice(product.price, multiplier);
   const compareAt = product.compareAtPrice
     ? scaledPrice(product.compareAtPrice, multiplier)
     : undefined;
@@ -114,13 +119,23 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
           </Badge>
         )}
       </div>
-      {selected && (
+      {product.priceOptions?.length ? (
+        <p className={styles.licenseNote}>{selectedPriceOption?.name}</p>
+      ) : selected && (
         <p className={styles.licenseNote}>
           {selected.name} license · {selected.description}
         </p>
       )}
 
-      {licenses.length > 1 && (
+      {product.priceOptions && product.priceOptions.length > 0 ? (
+        product.priceOptions.length > 1 && <fieldset className={styles.options}>
+          <legend className={styles.optionsLegend}>Choose your desired option</legend>
+          {product.priceOptions.map((option) => <label key={option.id} className={styles.option}>
+            <input type="radio" name={`price-${product.id}`} value={option.id} checked={option.id === (selectedPriceOption?.id ?? null)} onChange={() => { setPriceId(option.id); setAdded(false); }} className={styles.radio} />
+            <span className={styles.optionName}>{option.name}</span><span className={styles.optionPrice}>{formatMoney(option.price)}</span>
+          </label>)}
+        </fieldset>
+      ) : licenses.length > 1 && (
         <fieldset className={styles.options}>
           <legend className={styles.optionsLegend}>
             Choose your desired option

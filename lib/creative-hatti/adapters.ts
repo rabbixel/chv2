@@ -228,6 +228,15 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
       amount: moneyAmount(apiProduct.price.amount),
       currency: apiProduct.price.currency,
     },
+    priceOptions: detail.variable_prices?.map((option, index) => ({
+      id: Number(option.id ?? index),
+      name: decodeEntities(option.name ?? `Option ${index + 1}`),
+      price: {
+        amount: moneyAmount(Number(option.amount ?? apiProduct.price.amount)),
+        currency: option.currency ?? apiProduct.price.currency,
+      },
+      isDefault: Boolean(option.default),
+    })),
     status: detail.status === "publish" || !detail.status ? "active" : "draft",
     productGroup: group,
     kind: productKind(apiProduct, group),

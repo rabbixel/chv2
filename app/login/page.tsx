@@ -7,7 +7,7 @@ import { Input } from "@/components/ui";
 import { isSafeNextPath } from "@/lib/auth";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import { getAuthService } from "@/lib/services";
+import { getAuthService, isWordPressAuthEnabled } from "@/lib/services";
 import { loginAction, resendActivationAction } from "../account/actions";
 import styles from "./page.module.css";
 
@@ -42,6 +42,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const user = await getAuthService().getCurrentUser();
   if (user) redirect(next);
+  const wordpressAuth = isWordPressAuthEnabled();
 
   const error = param(query, "error");
   const code = param(query, "code");
@@ -58,22 +59,33 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <AuthCard
       title="Welcome back"
-      lede="Log in to your downloads, orders and wishlist."
+      lede={
+        wordpressAuth
+          ? "Log in with your existing Creative Hatti account."
+          : "Log in to your downloads, orders and wishlist."
+      }
       error={error}
       notice={notice}
       footer={
-        <>
+        wordpressAuth ? (
           <span>
-            New to Creative Hatti?{" "}
-            <Link href={routes.register(next)}>Create an account</Link>
+            Need access to a classic-store purchase?{" "}
+            <Link href={routes.claimAccount()}>Claim your account</Link>
           </span>
-          <span>
-            From our classic store?{" "}
-            <Link href={routes.forgotPassword()}>
-              Reset your password to activate your account
-            </Link>
-          </span>
-        </>
+        ) : (
+          <>
+            <span>
+              New to Creative Hatti?{" "}
+              <Link href={routes.register(next)}>Create an account</Link>
+            </span>
+            <span>
+              From our classic store?{" "}
+              <Link href={routes.forgotPassword()}>
+                Reset your password to activate your account
+              </Link>
+            </span>
+          </>
+        )
       }
     >
       <form action={loginAction} className={styles.form}>
@@ -105,9 +117,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             />
             Keep me logged in
           </label>
-          <Link href={routes.forgotPassword()} className={styles.forgot}>
-            Forgot password?
-          </Link>
+          {!wordpressAuth && (
+            <Link href={routes.forgotPassword()} className={styles.forgot}>
+              Forgot password?
+            </Link>
+          )}
         </div>
         <SubmitButton fullWidth pendingLabel="Logging in…">
           Log in
