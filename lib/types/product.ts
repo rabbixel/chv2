@@ -19,6 +19,14 @@ export interface ProductImage {
   alt: string;
   width?: number;
   height?: number;
+  /** Original attachment file path reported by WordPress media metadata. */
+  sourceFile?: string;
+  /** WordPress's unscaled source filename, when the attachment was scaled. */
+  originalFile?: string;
+  /** Original attachment URL from WordPress media metadata, when available. */
+  originalUrl?: string;
+  /** WordPress media parent ID; EDD featured images may be unattached. */
+  parentId?: string;
   /**
    * Deterministic flat placeholder used until real CDN imagery exists.
    * `hue` is 0–360; the card renders a flat swatch + monogram (no gradients).

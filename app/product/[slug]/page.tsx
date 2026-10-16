@@ -319,30 +319,39 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ProductGrid products={related} />
           <div className={styles.relatedMeta}>
             {relatedCollections.length > 0 && (
-              <div>
-                <h3 className={styles.relatedHeading}>Related collection</h3>
-                <ul className={styles.relatedLinks}>
+              <div className={styles.relatedCategory}>
+                <h3 className={styles.relatedHeading}>Explore related collections</h3>
+                <ul className={styles.relatedCategoryLinks}>
                   {relatedCollections.map((collection) => (
-                    <li key={collection.slug}>
-                      <Link href={routes.collection(collection.slug)}>
+                    <li className={styles.relatedCollectionItem} key={collection.slug}>
+                      <Link
+                        className={styles.relatedCollectionLink}
+                        href={routes.collection(collection.slug)}
+                      >
                         {collection.title}
+                        <span aria-hidden="true">→</span>
                       </Link>
-                      <span className={styles.relatedTagline}>
-                        {" "}
-                        — {collection.tagline}
-                      </span>
+                      {collection.tagline && (
+                        <p className={styles.relatedTagline}>
+                          {collection.tagline}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-            <div>
-              <h3 className={styles.relatedHeading}>Related category</h3>
-              <ul className={styles.relatedLinks}>
+            <div className={styles.relatedCategory}>
+              <h3 className={styles.relatedHeading}>Explore related categories</h3>
+              <ul className={styles.relatedCategoryLinks}>
                 {product.categorySlugs.map((categorySlug) => (
                   <li key={categorySlug}>
-                    <Link href={routes.category(categorySlug)}>
+                    <Link
+                      className={styles.relatedCategoryLink}
+                      href={routes.category(categorySlug)}
+                    >
                       {categoryDisplayName(categorySlug)}
+                      <span aria-hidden="true">→</span>
                     </Link>
                   </li>
                 ))}

@@ -27,12 +27,11 @@ interface WordPressPage { slug: string; content: { rendered: string } }
 interface WordPressMedia { id: number; source_url: string; alt_text: string; media_details?: { width?: number; height?: number } }
 const cache = { revalidate: REVALIDATE_SECONDS.catalog, tags: [cacheTags.categories] };
 const COUNT_CONCURRENCY = 4;
-const MIN_COLLECTION_PRODUCT_COUNT = 10;
 const COLLECTION_SEARCH_ALIASES: Record<string, string[]> = {
   "international-yoga-day": ["Yoga Day"],
   janmashtami: ["Janmashtami"],
   "krishna-janmashtami": ["Janmashtami"],
-  // "international-nurses-day": ["Nurse Day", "Nurse"],
+  "international-nurses-day": ["Nurse Day", "Nurse"],
   "happy-mothers-day": ["Mother Day"],
   "mothers-day-graphics": ["Mother Day"],
   "ggs-prakash-divas": ["Guru Granth Sahib"],
@@ -130,7 +129,7 @@ class WordPressCollectionDirectoryService implements CollectionDirectoryService 
       const item = media.find((m) => m.id === card.mediaId);
       const category = categories.find((c) => c.slug === card.slug);
       const total = category?.productCount ?? counts.get(card.slug);
-      if (total !== undefined && total !== null && total < MIN_COLLECTION_PRODUCT_COUNT) return [];
+      if (total === 0) return [];
       return [{ slug: card.slug, title: card.title,
         countLabel: total === undefined || total === null
           ? undefined

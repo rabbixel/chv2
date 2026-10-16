@@ -3,6 +3,15 @@ import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
 import {
+  isLocalWordPressMediaUrl,
+  normalizeWordPressMediaUrl,
+  productionWordPressHostname,
+} from "@/lib/creative-hatti/media";
+import {
+  galleryComparisonCandidates,
+  selectGalleryImages,
+} from "@/lib/creative-hatti/image-matching.mjs";
+import {
   apiCategorySlug,
   paginatedFromApi,
   productFromApi,
@@ -12,11 +21,13 @@ import type {
   ChApiProductCard,
   ChApiProductDetail,
   ChApiSitemapBatch,
+  ChWpMedia,
 } from "@/lib/creative-hatti/types";
 import type {
   Paginated,
   PaginationParams,
   Product,
+  ProductImage,
   Slug,
 } from "@/lib/types";
 import { normalizePaginationParams, paginateItems } from "@/lib/utils";
@@ -208,7 +219,13 @@ class ApiProductService implements ProductService {
           tags: [cacheTags.product(slug)],
         },
       );
-    return productFromApi(result.data);
+      const product = productFromApi(result.data);
+      const candidates = new Set(galleryComparisonCandidates(product.images).flat());
+      const enrichedImages = await mapWithConcurrency(product.images, 4, (image, index) =>
+        candidates.has(index) ? enrichImageMetadata(image) : Promise.resolve(image),
+      );
+      const selected = await selectGalleryImages(enrichedImages, loadImageForComparison);
+      return { ...product, images: selected.images };
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;
@@ -249,6 +266,90 @@ class ApiProductService implements ProductService {
     const result = await this.listProducts({ sort: "newest", pageSize: limit });
     return result.items;
   }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  callback: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const output = new Array<R>(items.length);
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      output[index] = await callback(items[index], index);
+    }
+  }));
+  return output;
+}
+
+async function enrichImageMetadata(image: ProductImage): Promise<ProductImage> {
+  try {
+    const media = await apiFetch<ChWpMedia>(apiEndpoints.wordpress.mediaDetail(Number(image.id)), {
+      wordpress: true,
+      revalidate: REVALIDATE_SECONDS.product,
+      tags: [cacheTags.products],
+      timeoutMs: 8_000,
+    });
+    const details = media.media_details;
+    const file = details?.file?.replaceAll("\\", "/");
+    const originalFile = details?.original_image;
+    let sourceFile = file;
+    let originalUrl = media.source_url;
+    if (file && originalFile) {
+      const directory = file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : "";
+      sourceFile = [directory, originalFile].filter(Boolean).join("/");
+      const parsed = new URL(media.source_url);
+      const parentPath = parsed.pathname.slice(0, parsed.pathname.lastIndexOf("/"));
+      parsed.pathname = `${parentPath}/${originalFile.split("/").map(encodeURIComponent).join("/")}`;
+      originalUrl = parsed.toString();
+    }
+    return {
+      ...image,
+      url: normalizeWordPressMediaUrl(originalUrl || image.url),
+      originalUrl: normalizeWordPressMediaUrl(originalUrl || image.url),
+      sourceFile: sourceFile ?? image.sourceFile,
+      originalFile: originalFile ?? image.originalFile,
+      parentId: media.post === null || media.post === undefined
+        ? image.parentId
+        : String(media.post),
+      width: image.width ?? details?.width,
+      height: image.height ?? details?.height,
+    };
+  } catch {
+    return image;
+  }
+}
+
+async function loadImageForComparison(image: ProductImage): Promise<Uint8Array | null> {
+  const candidates = [image.originalUrl, image.url].filter((url): url is string => Boolean(url));
+  try {
+    const localUrl = new URL(image.url);
+    if (isLocalWordPressMediaUrl(image.url)) {
+      candidates.push(new URL(`${localUrl.pathname}${localUrl.search}`, `https://${productionWordPressHostname()}`).toString());
+    }
+  } catch {
+    return null;
+  }
+
+  for (const url of [...new Set(candidates)]) {
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(8_000),
+        next: { revalidate: REVALIDATE_SECONDS.product },
+      });
+      if (!response.ok || !response.headers.get("content-type")?.startsWith("image/")) continue;
+      const contentLength = Number(response.headers.get("content-length") ?? 0);
+      if (contentLength > 24 * 1024 * 1024) continue;
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength <= 24 * 1024 * 1024) return bytes;
+    } catch {
+      // Try the production media URL when a local copy is missing or unreadable.
+    }
+  }
+  return null;
 }
 
 /* --------------------------- Factory --------------------------- */

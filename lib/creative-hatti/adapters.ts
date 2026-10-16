@@ -114,43 +114,19 @@ function imageFromApi(image: ChApiImage | null | undefined): ProductImage | null
   if (!image?.url) return null;
   return {
     id: String(image.id),
-    url: normalizeWordPressMediaUrl(image.url),
+    url: normalizeWordPressMediaUrl(image.original_url ?? image.url),
     alt: image.alt ?? "",
     width: image.width,
     height: image.height,
+    sourceFile: image.source_file ?? undefined,
+    originalFile: image.original_file ?? undefined,
+    originalUrl: image.original_url
+      ? normalizeWordPressMediaUrl(image.original_url)
+      : undefined,
+    parentId: image.parent_id === null || image.parent_id === undefined
+      ? undefined
+      : String(image.parent_id),
   };
-}
-
-function imageVariant(url: string): {
-  stem: string;
-  variant: "small" | "medium" | "large" | null;
-} {
-  const filename = decodeURIComponent(url.split(/[?#]/, 1)[0]?.split("/").pop() ?? "");
-  const match = filename.match(
-    /^(.*?)(?:-set)?-thumbnail-(small|medium|large)(\.[^.]+)$/i,
-  ) ?? filename.match(/^(.*?)-(small|large)(\.[^.]+)$/i);
-  return match
-    ? {
-        stem: `${match[1].toLowerCase()}${match[3].toLowerCase()}`,
-        variant: match[2].toLowerCase() as "small" | "medium" | "large",
-      }
-    : { stem: filename.toLowerCase(), variant: null };
-}
-
-/** Keep the highest named thumbnail variant for each matching image stem. */
-function productGalleryImages(images: ProductImage[]): ProductImage[] {
-  const bestVariantByStem = new Map<string, number>();
-  const variantRank = { small: 1, medium: 2, large: 3 } as const;
-  for (const image of images) {
-    const { stem, variant } = imageVariant(image.url);
-    if (!variant) continue;
-    const rank = variantRank[variant];
-    bestVariantByStem.set(stem, Math.max(bestVariantByStem.get(stem) ?? 0, rank));
-  }
-  return images.filter((image) => {
-    const { stem, variant } = imageVariant(image.url);
-    return !variant || variantRank[variant] === bestVariantByStem.get(stem);
-  });
 }
 
 function stripHtml(value: string | null | undefined): string | undefined {
@@ -231,10 +207,10 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
   const slugs = categorySlugs(apiProduct.categories);
   const group = groupFromCategories(slugs);
   const featured = Boolean(apiProduct.featured);
-  const images = productGalleryImages([
+  const images = [
     imageFromApi(detail.featured_image ?? apiProduct.image),
     ...(detail.gallery ?? []).map(imageFromApi),
-  ].filter((image): image is ProductImage => Boolean(image)));
+  ].filter((image): image is ProductImage => Boolean(image));
   const fileTypes = splitList(apiProduct.file_type);
   const tags = (detail.tags ?? []).map((tag) => tag.name);
   const createdAt = detail.date ?? new Date(0).toISOString();

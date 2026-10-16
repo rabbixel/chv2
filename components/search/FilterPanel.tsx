@@ -123,7 +123,7 @@ export function FilterPanel({
       {vectorGroup && (
         <fieldset className={styles.group}>
           <legend className={styles.legend}>Vector Creative Categories</legend>
-          {vectorGroup.subcategories.map((sub) => (
+          {vectorGroup.subcategories.filter((sub) => catCount(sub.slug) > 0 || params.cats.includes(sub.slug)).map((sub) => (
             <label key={sub.slug} className={styles.check}>
               <input
                 type="checkbox"
@@ -140,7 +140,7 @@ export function FilterPanel({
       {characterGroup && (
         <fieldset className={styles.group}>
           <legend className={styles.legend}>Character Categories</legend>
-          {characterGroup.subcategories.map((sub) => (
+          {characterGroup.subcategories.filter((sub) => catCount(sub.slug) > 0 || params.cats.includes(sub.slug)).map((sub) => (
             <label key={sub.slug} className={styles.check}>
               <input
                 type="checkbox"
@@ -194,7 +194,7 @@ export function FilterPanel({
 
       <fieldset className={styles.group}>
         <legend className={styles.legend}>File Type</legend>
-        {FILE_TYPES.map((type) => {
+        {FILE_TYPES.filter((type) => fileCount(type) > 0 || params.files.includes(type)).map((type) => {
           const count = fileCount(type);
           return (
             <label

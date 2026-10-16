@@ -35,6 +35,24 @@ export interface ChApiImage {
   width?: number;
   height?: number;
   alt?: string;
+  source_file?: string | null;
+  original_file?: string | null;
+  original_url?: string | null;
+  parent_id?: number | null;
+}
+
+export interface ChWpMediaDetails {
+  width?: number;
+  height?: number;
+  file?: string;
+  original_image?: string;
+}
+
+export interface ChWpMedia {
+  id: number;
+  source_url: string;
+  post?: number | null;
+  media_details?: ChWpMediaDetails;
 }
 
 export interface ChApiProductCard {

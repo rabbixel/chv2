@@ -1,0 +1,2 @@
+Product ID | Product Slug | Attachment ID | Featured/Gallery | Relative uploads path
+11492 | indian-happy-republic-day-wish-patriotic-banner-template | 11493 | Gallery | edd/2021/01/Medium-Thumbnail-900x900-01.jpg
