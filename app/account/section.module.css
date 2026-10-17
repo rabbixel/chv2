@@ -53,6 +53,7 @@
 
 .row {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: var(--ch-space-4);
@@ -60,14 +61,19 @@
 
 .rowMain {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .rowTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: var(--ch-weight-medium);
   margin: 0;
 }
 
 .rowMeta {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--ch-color-text-muted);
   font-size: var(--ch-text-sm);
   margin: var(--ch-space-1) 0 0;

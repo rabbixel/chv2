@@ -4,7 +4,7 @@ import { Breadcrumbs, Container } from "@/components/layout";
 import { Button, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import { getAuthService, getCartService, getCheckoutService, isWordPressAuthEnabled } from "@/lib/services";
+import { getAuthService, getCartService, getCheckoutService, isLiveApiEnabled, isWordPressAuthEnabled } from "@/lib/services";
 import { CheckoutForm } from "./CheckoutForm";
 import styles from "./page.module.css";
 
@@ -40,7 +40,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   </div></Container>;
 
   const hasUnavailable = cart.items.some((item) => item.available === false);
-  const checkoutEnabled = process.env.USE_MOCK_API === "false";
+  const checkoutEnabled = isLiveApiEnabled();
   let identity = null;
   if (checkoutEnabled && isWordPressAuthEnabled()) identity = await getAuthService().getCurrentIdentity();
   const initialName = identity ? [identity.user.firstName, identity.user.lastName].filter(Boolean).join(" ") : "";

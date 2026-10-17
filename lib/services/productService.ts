@@ -31,6 +31,7 @@ import type {
   Slug,
 } from "@/lib/types";
 import { normalizePaginationParams, paginateItems } from "@/lib/utils";
+import { isLiveApiEnabled } from "./apiMode";
 
 export type ProductSortKey =
   | "newest"
@@ -359,8 +360,45 @@ let cached: ProductService | null = null;
 /** Pages and components consume products only through this accessor. */
 export function getProductService(): ProductService {
   cached ??=
-    process.env.USE_MOCK_API !== "true" && process.env.CH_API_URL
+    isLiveApiEnabled()
       ? new ApiProductService()
       : new MockProductService();
   return cached;
+}
+
+/** Resolve account purchase artwork through the same product service as cart. */
+export async function resolveProductImagesByUrl(
+  productUrls: readonly (string | null)[],
+): Promise<Map<string, ProductImage>> {
+  const urlToSlug = new Map<string, string>();
+  for (const value of productUrls) {
+    if (!value) continue;
+    const match = value.match(/^\/product\/([^/?#]+)\/?$/);
+    if (!match) continue;
+    try {
+      const slug = decodeURIComponent(match[1]);
+      if (/^[\w-]+$/.test(slug)) urlToSlug.set(value, slug);
+    } catch {
+      // Ignore malformed product links and let the page use its API fallback.
+    }
+  }
+
+  const productBySlug = new Map<string, Product>();
+  await Promise.all(
+    [...new Set(urlToSlug.values())].map(async (slug) => {
+      try {
+        const product = await getProductService().getProductBySlug(slug);
+        if (product) productBySlug.set(slug, product);
+      } catch {
+        // The purchase snapshot and its full-size API image remain available.
+      }
+    }),
+  );
+
+  const imageByUrl = new Map<string, ProductImage>();
+  for (const [url, slug] of urlToSlug) {
+    const image = productBySlug.get(slug)?.images.find((candidate) => Boolean(candidate.url));
+    if (image) imageByUrl.set(url, image);
+  }
+  return imageByUrl;
 }

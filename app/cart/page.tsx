@@ -11,6 +11,8 @@ import { Button, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { getCartService, getProductService } from "@/lib/services";
+import type { Product } from "@/lib/types";
+import { formatMoney } from "@/lib/utils";
 import { clearCart, removeFromCart } from "./actions";
 import styles from "./page.module.css";
 
@@ -50,15 +52,16 @@ export default async function CartPage({ searchParams }: CartPageProps) {
     );
   }
 
-  const licenseOptions = new Map<string, Parameters<typeof CartLicenseSelect>[0]["options"]>();
-  if (process.env.USE_MOCK_API !== "false") await Promise.all(
-    cart.items.map(async (item) => {
-      const product = await getProductService().getProductBySlug(
-        item.productSlug,
-      );
-      licenseOptions.set(item.productId, product?.licenses ?? [item.license]);
-    }),
-  );
+  const productBySlug = new Map<string, Product>();
+  const productSlugs = [...new Set(cart.items.filter((item) => item.available !== false).map((item) => item.productSlug))];
+  await Promise.all(productSlugs.map(async (slug) => {
+    try {
+      const product = await getProductService().getProductBySlug(slug);
+      if (product) productBySlug.set(slug, product);
+    } catch {
+      // Keep the cart usable if optional image/product detail lookup is unavailable.
+    }
+  }));
 
   return (
     <Container>
@@ -78,6 +81,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
               <CartItemRow
                 key={item.key}
                 item={item}
+                productImage={productBySlug.get(item.productSlug)?.images.find((image) => Boolean(image.url)) ?? null}
                 licenseControl={process.env.USE_MOCK_API === "false" ? item.priceOptions && item.priceOptions.length > 1 ? (
                   <CartLicenseSelect
                     itemKey={item.key}
@@ -92,9 +96,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
                     itemKey={item.key}
                     title={item.title}
                     current={item.license}
-                    options={
-                      licenseOptions.get(item.productId) ?? [item.license]
-                    }
+                    options={productBySlug.get(item.productSlug)?.licenses ?? [item.license]}
                   />
                 )}
                 actions={
@@ -119,7 +121,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
             ))}
           </ul>
           <div className={styles.side}>
-            <CartSummary cart={cart} />
+            <CartSummary cart={cart} action={<div className={styles.desktopCheckout}><Button href={routes.checkout()} fullWidth>Proceed to checkout</Button></div>} />
             <form action={clearCart}>
               <SubmitButton
                 variant="ghost"
@@ -133,6 +135,13 @@ export default async function CartPage({ searchParams }: CartPageProps) {
               Digital downloads — no shipping needed.
             </p>
           </div>
+        </div>
+        <div className={styles.mobileCheckout}>
+          <div className={styles.mobileTotal}>
+            <span>Total</span>
+            <strong>{formatMoney(cart.total)}</strong>
+          </div>
+          <Button href={routes.checkout()} fullWidth>Proceed to checkout</Button>
         </div>
       </div>
     </Container>

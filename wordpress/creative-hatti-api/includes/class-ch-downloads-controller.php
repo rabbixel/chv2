@@ -182,11 +182,11 @@ final class CH_Downloads_Controller {
 				} );
 				$thumbnail = null;
 				$product_url = null;
-				$title = sanitize_text_field( (string) $item->product_name );
+				$title = trim( sanitize_text_field( html_entity_decode( (string) $item->product_name, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
 				$availability = 'product_unavailable';
 				if ( $product ) {
-					$title = sanitize_text_field( get_the_title( $product ) );
-					$image = $media->attachment( get_post_thumbnail_id( $product->ID ), 'medium' );
+					$title = trim( sanitize_text_field( html_entity_decode( get_the_title( $product ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+					$image = $media->featured_image( $product->ID );
 					$thumbnail = is_array( $image ) && ! empty( $image['url'] ) ? $image['url'] : null;
 					$product_url = '/product/' . rawurlencode( $product->post_name );
 					$availability = $usable_files ? 'delivery_disabled' : 'no_entitled_files';

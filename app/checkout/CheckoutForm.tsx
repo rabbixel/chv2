@@ -33,6 +33,10 @@ export function CheckoutForm({
   const [country, setCountry] = useState("IN");
   const [region, setRegion] = useState("");
   const [discountCode, setDiscountCode] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const nameError = nameTouched && fullName.trim().length < 2 ? "Enter your full name." : undefined;
+  const emailError = emailTouched && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) ? "Enter a valid email address." : undefined;
 
   const updateTotals = () => {
     setQuoteError("");
@@ -46,6 +50,7 @@ export function CheckoutForm({
   return (
     <div className={styles.layout}>
       <div className={styles.form}>
+        {!preparedNumber && <p className={styles.progress} aria-label="Checkout progress"><strong>1. Billing details</strong><span>2. Pending order</span></p>}
         {preparedNumber ? (
           <section className={styles.pendingNotice} role="status">
             <h2 className={styles.sectionHeading}>Order prepared</h2>
@@ -53,12 +58,12 @@ export function CheckoutForm({
             <p>Payment will only be available after a verified payment step is implemented.</p>
           </section>
         ) : (
-          <form action={preparePendingOrder} className={styles.form}>
+          <form action={preparePendingOrder} className={styles.form} onInvalidCapture={() => { setNameTouched(true); setEmailTouched(true); }}>
             <section aria-labelledby="customer-information" className={styles.section}>
               <h2 id="customer-information" className={styles.sectionHeading}>Billing details</h2>
               <div className={styles.fields}>
-                <Input label="Full name" name="fullName" autoComplete="name" required minLength={2} maxLength={120} value={fullName} onChange={(event) => setFullName(event.target.value)} />
-                <Input label="Email" name="email" type="email" autoComplete="email" required maxLength={254} value={email} readOnly={signedIn} onChange={(event) => setEmail(event.target.value)} hint={signedIn ? "Using the email on your signed-in account." : undefined} />
+                <Input label="Billing name" name="fullName" autoComplete="name" autoCapitalize="words" required minLength={2} maxLength={120} value={fullName} error={nameError} onBlur={() => setNameTouched(true)} onChange={(event) => setFullName(event.target.value)} />
+                <Input label="Email" name="email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" required maxLength={254} value={email} readOnly={signedIn} error={emailError} onBlur={() => setEmailTouched(true)} onChange={(event) => setEmail(event.target.value)} hint={signedIn ? "Using the email on your signed-in account." : undefined} />
                 {quote?.taxesEnabled && <div className={styles.fieldRow}>
                   <Input label="Country code" name="country" autoComplete="country" required maxLength={2} value={country} onChange={(event) => setCountry(event.target.value.toUpperCase())} hint="Use the two-letter country code, for example IN." />
                   <Input label="State or region" name="region" autoComplete="address-level1" required maxLength={100} value={region} onChange={(event) => setRegion(event.target.value)} />
@@ -83,7 +88,7 @@ export function CheckoutForm({
             {quote?.total.amount === 0 ? (
               <p role="alert" className={styles.error}>This order totals zero. It cannot be prepared as a paid pending order; free-order completion needs a separate verified flow.</p>
             ) : (
-              <SubmitButton size="lg" fullWidth pendingLabel="Preparing order…" disabled={!quote || Boolean(quoteError)}>Create pending order</SubmitButton>
+              <SubmitButton className={styles.mobileAction} size="lg" fullWidth pendingLabel="Preparing order…" disabled={!quote || Boolean(quoteError)}>Create pending order</SubmitButton>
             )}
             <p className={styles.methodHint}>Creating this pending order does not take payment or grant download access.</p>
           </form>
@@ -91,7 +96,12 @@ export function CheckoutForm({
       </div>
 
       <aside className={styles.side} aria-label="Order summary">
-        <section className={styles.summary}>
+        <details className={styles.summaryDisclosure}>
+          <summary className={styles.summaryToggle}>
+            <span>Order summary</span>
+            <strong>{formatMoney(quote?.total ?? cart.total)}</strong>
+          </summary>
+          <section className={styles.summary}>
           <h2 className={styles.sectionHeading}>Order summary</h2>
           <ul className={styles.lines}>
             {cart.items.map((item) => <li key={item.key} className={styles.line}>
@@ -108,7 +118,8 @@ export function CheckoutForm({
             <div className={`${styles.totalRow} ${styles.grandTotal}`}><dt>Total</dt><dd>{formatMoney(quote.total)}</dd></div>
           </dl> : <p role="status">Checkout totals are being calculated by EDD.</p>}
           <p className={styles.methodHint}>Digital products are delivered only after payment is verified and the order is completed.</p>
-        </section>
+          </section>
+        </details>
       </aside>
     </div>
   );

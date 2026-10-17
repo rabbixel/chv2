@@ -1,5 +1,7 @@
 .form {
   display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
   gap: var(--ch-space-2);
   align-items: center;
   margin-top: var(--ch-space-1);
@@ -7,9 +9,13 @@
 
 .label {
   display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .select {
+  max-width: 100%;
+  min-height: 2.75rem;
   padding: var(--ch-space-1) var(--ch-space-2);
   font-size: var(--ch-text-sm);
   color: var(--ch-color-text);
@@ -23,6 +29,7 @@
 }
 
 .update {
+  min-height: 2.75rem;
   padding: var(--ch-space-1) var(--ch-space-2);
   font-size: var(--ch-text-sm);
   font-weight: var(--ch-weight-medium);
@@ -36,4 +43,11 @@
 .update:hover {
   color: var(--ch-color-text);
   text-decoration: underline;
+}
+
+@media (max-width: 767px) {
+  .form { width: 100%; gap: var(--ch-space-1); }
+  .label { flex: 1; }
+  .select { width: 100%; min-width: 0; font-size: var(--ch-text-sm); }
+  .update { padding-inline: var(--ch-space-2); }
 }

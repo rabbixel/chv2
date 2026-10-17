@@ -39,7 +39,7 @@ final class CH_Orders_Controller {
 				'callback'            => array( $this, 'get_order' ),
 				'permission_callback' => array( $this->auth_controller, 'session_permission' ),
 				'args'                => array(
-					'order_id' => array( 'required' => true, 'validate_callback' => array( $this, 'validate_positive_integer' ) ),
+					'order_id' => array( 'required' => true, 'validate_callback' => array( $this, 'validate_order_id' ) ),
 				),
 			)
 		);
@@ -47,6 +47,10 @@ final class CH_Orders_Controller {
 
 	public function validate_positive_integer( $value ) {
 		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]{0,4}$/D', (string) $value );
+	}
+
+	public function validate_order_id( $value ) {
+		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]{0,8}$/D', (string) $value );
 	}
 
 	public function validate_page_size( $value ) {
@@ -239,13 +243,13 @@ final class CH_Orders_Controller {
 				$thumbnail = null;
 				$product_url = null;
 				if ( $product ) {
-					$image = $media->attachment( get_post_thumbnail_id( $product->ID ), 'medium' );
+					$image = $media->featured_image( $product->ID );
 					$thumbnail = is_array( $image ) && ! empty( $image['url'] ) ? $image['url'] : null;
 					$product_url = '/product/' . rawurlencode( $product->post_name );
 				}
 				$order_items[] = array(
 					'product_id'   => (int) $item->product_id,
-					'name'         => sanitize_text_field( (string) $item->product_name ),
+				'name'         => trim( sanitize_text_field( html_entity_decode( (string) $item->product_name, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) ),
 					'quantity'     => max( 1, (int) $item->quantity ),
 					'unit_price'   => $this->money( $item->amount, $currency ),
 					'line_total'   => $this->money( $item->total, $currency ),

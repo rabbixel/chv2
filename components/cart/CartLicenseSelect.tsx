@@ -1,10 +1,23 @@
 "use client";
 
 import { useRef } from "react";
+import { useFormStatus } from "react-dom";
 import { updateCart } from "@/app/cart/actions";
 import type { LicenseCode } from "@/lib/types";
 import type { CartItem } from "@/lib/types";
 import styles from "./CartLicenseSelect.module.css";
+
+function UpdateControl() {
+  const { pending } = useFormStatus();
+  return <>
+    <button type="submit" className={styles.update} disabled={pending}>
+      {pending ? "Updating…" : "Update"}
+    </button>
+    <span className="ch-visually-hidden" role="status" aria-live="polite">
+      {pending ? "Updating cart price." : ""}
+    </span>
+  </>;
+}
 
 const LICENSE_LABELS: Record<LicenseCode, string> = {
   personal: "Personal",
@@ -64,9 +77,7 @@ export function CartLicenseSelect({
         </select>
       </label>
       </>}
-      <button type="submit" className={styles.update}>
-        Update
-      </button>
+      <UpdateControl />
     </form>
   );
 }

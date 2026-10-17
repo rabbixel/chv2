@@ -31,6 +31,7 @@
 .mainInner {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: var(--ch-space-2);
 }
 
@@ -110,6 +111,12 @@
   .wordmark {
     display: flex;
   }
+}
+
+@media (max-width: 359px) {
+  .actions > :first-child { display: none; }
+  .brandLogo { width: 6rem; }
+  .mainInner { gap: var(--ch-space-1); }
 }
 
 @media (min-width: 768px) {

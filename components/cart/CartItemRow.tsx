@@ -2,8 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui";
+import { ProductImage } from "@/components/product/ProductImage";
 import { routes } from "@/lib/routes";
-import type { CartItem, LicenseCode } from "@/lib/types";
+import type { CartItem, LicenseCode, ProductImage as ProductImageType } from "@/lib/types";
 import { formatMoney } from "@/lib/utils";
 import styles from "./CartItemRow.module.css";
 
@@ -21,6 +22,8 @@ export interface CartItemRowProps {
   licenseControl?: ReactNode;
   /** Line actions (remove form, wishlist). Replaces the remove button. */
   actions?: ReactNode;
+  /** Product-service image resolution; null deliberately selects the fallback. */
+  productImage?: ProductImageType | null;
 }
 
 export function CartItemRow({
@@ -28,38 +31,49 @@ export function CartItemRow({
   onRemove,
   licenseControl,
   actions,
+  productImage,
 }: CartItemRowProps) {
+  const thumbnail = productImage !== undefined
+    ? productImage?.url
+      ? <ProductImage image={productImage} title={item.title} sizes="56px" decorative />
+      : item.title.charAt(0)
+    : item.thumbnailUrl
+      ? <Image src={item.thumbnailUrl} alt="" fill sizes="48px" unoptimized />
+      : item.title.charAt(0);
+
   return (
     <li className={styles.row}>
       <span className={styles.thumb} aria-hidden="true">
-        {item.thumbnailUrl ? <Image src={item.thumbnailUrl} alt="" fill sizes="48px" unoptimized /> : item.title.charAt(0)}
+        {thumbnail}
       </span>
       <div className={styles.details}>
           {item.available === false ? <span className={styles.title}>{item.title}</span> : <Link href={routes.product(item.productSlug)} className={styles.title}>
           {item.title}
           </Link>}
-        <p className={styles.meta}>
+        <div className={styles.meta}>
           {licenseControl ?? (
             <Badge variant="neutral" size="sm">
               {item.optionName || `${LICENSE_LABELS[item.license]} licence`}
             </Badge>
           )}
           <span className={styles.unit}>{formatMoney(item.unitPrice)}</span>
-        </p>
+        </div>
       </div>
       {item.available === false && item.availabilityMessage && <p className={styles.unavailable}>{item.availabilityMessage}</p>}
-      <p className={styles.total}>{formatMoney(item.lineTotal)}</p>
-      {actions ??
-        (onRemove && (
-          <button
-            type="button"
-            className={styles.remove}
-            onClick={() => onRemove(item.key)}
-            aria-label={`Remove ${item.title} from cart`}
-          >
-            Remove
-          </button>
-        ))}
+      <div className={styles.footer}>
+        <p className={styles.total}>{formatMoney(item.lineTotal)}</p>
+        {actions ??
+          (onRemove && (
+            <button
+              type="button"
+              className={styles.remove}
+              onClick={() => onRemove(item.key)}
+              aria-label={`Remove ${item.title} from cart`}
+            >
+              Remove
+            </button>
+          ))}
+      </div>
     </li>
   );
 }

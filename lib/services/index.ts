@@ -11,6 +11,7 @@ export {
 export type { AuthIdentity, AuthService, GuestClaimInput } from "./authService";
 export { getCartService } from "./cartService";
 export type { CartService } from "./cartService";
+export { isLiveApiEnabled } from "./apiMode";
 export { getCheckoutService } from "./checkoutService";
 export type { CheckoutService } from "./checkoutService";
 export { getCategoryService } from "./categoryService";

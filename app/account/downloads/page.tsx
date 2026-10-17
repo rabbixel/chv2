@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DownloadButton } from "@/components/account";
+import { AccountProductArtwork, DownloadButton } from "@/components/account";
 import { ApiError } from "@/lib/api/client";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { resolveProductImagesByUrl } from "@/lib/services/productService";
 import {
   getCustomerDownloadService,
   getDownloadService,
   getOrderService,
   isWordPressAuthEnabled,
 } from "@/lib/services";
-import type { Paginated, CustomerDownloadPurchase } from "@/lib/types";
+import type { CustomerDownloadPurchase, Paginated, ProductImage } from "@/lib/types";
 import { formatDate, formatFileSize } from "@/lib/utils";
 import styles from "../section.module.css";
 
@@ -48,7 +48,10 @@ export default async function AccountDownloadsPage({ searchParams }: AccountDown
         </div>
       );
     }
-    return <WordPressDownloads downloads={downloads} />;
+    const productImages = await resolveProductImagesByUrl(
+      downloads.items.flatMap((purchase) => purchase.items.map((item) => item.productUrl)),
+    );
+    return <WordPressDownloads downloads={downloads} productImages={productImages} />;
   }
 
   const downloads = await getDownloadService().listDownloads();
@@ -120,7 +123,13 @@ export default async function AccountDownloadsPage({ searchParams }: AccountDown
   );
 }
 
-function WordPressDownloads({ downloads }: { downloads: Paginated<CustomerDownloadPurchase> }) {
+function WordPressDownloads({
+  downloads,
+  productImages,
+}: {
+  downloads: Paginated<CustomerDownloadPurchase>;
+  productImages: Map<string, ProductImage>;
+}) {
   const entries = downloads.items.flatMap((purchase) =>
     purchase.items.map((item) => ({ purchase, item })),
   );
@@ -141,9 +150,11 @@ function WordPressDownloads({ downloads }: { downloads: Paginated<CustomerDownlo
             {entries.map(({ purchase, item }) => (
               <Card key={item.orderItemId}>
                 <div className={styles.row}>
-                  {item.thumbnailUrl && (
-                    <Image src={item.thumbnailUrl} alt="" width={72} height={72} unoptimized />
-                  )}
+                  <AccountProductArtwork
+                    title={item.title}
+                    image={item.productUrl ? productImages.get(item.productUrl) : undefined}
+                    fallbackUrl={item.thumbnailUrl}
+                  />
                   <div className={styles.rowMain}>
                     <p className={styles.rowTitle}>
                       {item.productUrl ? <Link href={item.productUrl}>{item.title}</Link> : item.title}

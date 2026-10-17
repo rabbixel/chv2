@@ -14,6 +14,16 @@ export function decodeWordPressText(value: string): string {
     ({ "&quot;": '"', "&amp;": "&", "&apos;": "'", "&lt;": "<", "&gt;": ">", "&nbsp;": " " })[entity] ?? entity);
 }
 
+/** Decode stored WP text, then keep it plain text for safe React rendering. */
+export function decodeWordPressPlainText(value: string): string {
+  return decodeWordPressText(value)
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function attributes(value: string): Record<string, string> {
   const normalized = decodeWordPressText(value).replace(/[“”″]/g, '"');
   return Object.fromEntries([...normalized.matchAll(/([\w_]+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));

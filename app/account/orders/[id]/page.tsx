@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { DownloadButton } from "@/components/account";
+import { AccountProductArtwork, DownloadButton } from "@/components/account";
 import { Badge, Card } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -14,6 +13,7 @@ import {
 } from "@/lib/services";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { ApiError } from "@/lib/api/client";
+import { resolveProductImagesByUrl } from "@/lib/services/productService";
 import styles from "../../section.module.css";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +60,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       );
     }
     if (!order) notFound();
+    const productImages = await resolveProductImagesByUrl(
+      order.items.map((item) => item.productUrl),
+    );
 
     return (
       <div>
@@ -81,7 +84,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           {order.items.map((item, index) => (
             <Card key={`${item.productId}:${item.priceId ?? "base"}:${index}`}>
               <div className={styles.row}>
-                {item.thumbnailUrl && <Image src={item.thumbnailUrl} alt="" width={64} height={64} unoptimized />}
+                <AccountProductArtwork
+                  title={item.name}
+                  image={item.productUrl ? productImages.get(item.productUrl) : undefined}
+                  fallbackUrl={item.thumbnailUrl}
+                />
                 <div className={styles.rowMain}>
                   <p className={styles.rowTitle}>
                     {item.productUrl ? <Link href={item.productUrl}>{item.name}</Link> : item.name}

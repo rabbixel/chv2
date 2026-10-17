@@ -3,6 +3,7 @@ import "server-only";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { getWordPressOptionalSessionBridgeHeaders } from "./authService";
+import { isLiveApiEnabled } from "./apiMode";
 import type { Cart, CheckoutBilling, CheckoutQuote, PendingCheckoutOrder } from "@/lib/types";
 
 export interface CheckoutService {
@@ -44,7 +45,17 @@ class WordPressCheckoutService implements CheckoutService {
 
   prepare(input: { cart: Cart; billing: CheckoutBilling; discountCode?: string; idempotencyKey: string }): Promise<PendingCheckoutOrder> {
     return this.request(apiEndpoints.checkoutPrepare, {
-      items: cartItems(input.cart), billing: input.billing, discount_code: input.discountCode ?? "",
+      items: cartItems(input.cart),
+      billing: {
+        full_name: input.billing.fullName,
+        email: input.billing.email,
+        country: input.billing.country,
+        region: input.billing.region,
+        address: input.billing.address ?? "",
+        city: input.billing.city ?? "",
+        postal_code: input.billing.postalCode ?? "",
+      },
+      discount_code: input.discountCode ?? "",
     }, { "Idempotency-Key": input.idempotencyKey });
   }
 }
@@ -52,7 +63,7 @@ class WordPressCheckoutService implements CheckoutService {
 let cached: CheckoutService | null = null;
 
 export function getCheckoutService(): CheckoutService {
-  if (process.env.USE_MOCK_API !== "false") {
+  if (!isLiveApiEnabled()) {
     throw new Error("Checkout requires the configured WordPress/EDD backend.");
   }
   cached ??= new WordPressCheckoutService();

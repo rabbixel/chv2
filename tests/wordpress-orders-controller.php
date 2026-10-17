@@ -28,7 +28,7 @@ namespace {
 		public static function collection( $data, $pagination, $status = 200 ) { return new WP_REST_Response( array( 'success' => true, 'data' => $data, 'pagination' => $pagination ), $status ); }
 		public static function error( $code, $message, $status ) { return new WP_REST_Response( array( 'success' => false, 'error' => array( 'code' => $code, 'message' => $message ) ), $status ); }
 	}
-	class CH_Media { public function attachment( $id, $size = 'full' ) { return $id ? array( 'url' => 'https://media.example.test/' . $id . '.jpg' ) : null; } }
+	class CH_Media { public function featured_image( $id ) { $GLOBALS['featured_image_ids'][] = $id; return 123 === (int) $id ? array( 'url' => 'https://media.example.test/456.jpg' ) : null; } }
 	class TestRequest { private $params; public function __construct( $params = array() ) { $this->params = $params; } public function get_param( $key ) { return $this->params[ $key ] ?? null; } }
 	function register_rest_route( $namespace, $route, $args ) { $GLOBALS['routes'][ $route ] = $args; }
 	function is_wp_error( $value ) { return $value instanceof WP_Error; }
@@ -66,7 +66,7 @@ namespace {
 	$GLOBALS['total_orders'] = 2;
 	$GLOBALS['orders_page'] = array( new \EDD\Orders\Order( 501, 10 ), new \EDD\Orders\Order( 502, 10, 'pending' ) );
 	$GLOBALS['order_by_id'] = array( 501 => $GLOBALS['orders_page'][0], 502 => $GLOBALS['orders_page'][1], 999 => new \EDD\Orders\Order( 999, 99 ) );
-	$GLOBALS['items'] = array( new \EDD\Orders\Order_Item( 1, 501, 123, 'Existing product' ), new \EDD\Orders\Order_Item( 2, 502, 777, 'Deleted product snapshot' ) );
+	$GLOBALS['items'] = array( new \EDD\Orders\Order_Item( 1, 501, 123, 'Existing product' ), new \EDD\Orders\Order_Item( 2, 502, 777, '&lt;img src=x onerror=alert(1)&gt; Betty&#8217;s Cakes' ) );
 	$GLOBALS['products'] = array( (object) array( 'ID' => 123, 'post_name' => 'existing-product' ) );
 	$GLOBALS['refunds'] = array();
 	$refund = new \EDD\Orders\Order( 700, 10, 'complete' );
@@ -74,6 +74,7 @@ namespace {
 	$GLOBALS['refunds'] = array( $refund );
 	$GLOBALS['adjustments'] = array( (object) array( 'object_id' => 501, 'type' => 'fee', 'subtotal' => 2, 'tax' => 0, 'total' => 2, 'description' => 'private text must not be returned' ) );
 	$GLOBALS['order_queries'] = array();
+	$GLOBALS['featured_image_ids'] = array();
 	$GLOBALS['item_query_count'] = 0;
 	$controller = new \CH_Orders_Controller( new \CH_Auth_Controller() );
 	$controller->register_routes();
@@ -83,6 +84,8 @@ namespace {
 	$GLOBALS['session_valid'] = true;
 	check( true === $GLOBALS['routes']['/customer/orders']['permission_callback']( new TestRequest() ), 'a validated session passes the permission callback' );
 	check( $controller->validate_positive_integer( '1' ) && ! $controller->validate_positive_integer( '1.2' ), 'validates positive integer parameters' );
+	check( $GLOBALS['routes']['/customer/orders/(?P<order_id>[0-9]+)']['args']['order_id']['validate_callback']( '203249' ), 'accepts six-digit EDD order IDs' );
+	check( ! $controller->validate_order_id( '0' ) && ! $controller->validate_order_id( '1234567890' ), 'rejects zero and overlong order IDs' );
 	check( ! $controller->validate_positive_integer( '100000' ) && $controller->validate_page_size( '50' ) && ! $controller->validate_page_size( '51' ), 'rejects invalid pagination and caps page size at fifty' );
 
 	$list = $controller->list_orders( new TestRequest( array( 'page' => 1, 'per_page' => 20 ) ) );
@@ -92,6 +95,8 @@ namespace {
 	check( 0 === $GLOBALS['orders_page'][0]->user_id && 10 === $GLOBALS['orders_page'][0]->customer_id, 'includes guest-era orders with an assigned customer ID' );
 	check( 1 === $GLOBALS['item_query_count'], 'loads page items in one batched query' );
 	check( null === $list->data['data'][1]['items'][0]['thumbnail_url'], 'deleted products retain item snapshot and omit thumbnail' );
+	check( 'https://media.example.test/456.jpg' === $list->data['data'][0]['items'][0]['thumbnail_url'] && array( 123 ) === $GLOBALS['featured_image_ids'], 'uses the product featured image full-size resolver' );
+	check( 'Betty’s Cakes' === $list->data['data'][1]['items'][0]['name'] && false === strpos( $list->data['data'][1]['items'][0]['name'], '<img' ), 'decodes stored entities while stripping decoded HTML from plain-text titles' );
 	check( 'Test payment' === $list->data['data'][0]['payment_method'], 'returns the safe gateway label only' );
 	check( 1 === count( $list->data['data'][0]['refunds'] ) && 1 === count( $list->data['data'][0]['adjustments'] ), 'returns native refund and adjustment summaries' );
 	check( ! isset( $list->data['data'][0]['adjustments'][0]['description'] ), 'omits adjustment descriptions that could contain internal text' );
@@ -102,6 +107,10 @@ namespace {
 	check( 404 === $other->status, 'does not allow access to another customer order' );
 	$owned = $controller->get_order( new TestRequest( array( 'order_id' => 501 ) ) );
 	check( 200 === $owned->status && 501 === $owned->data['data']['id'], 'returns an owned order detail' );
+	$pending = $controller->get_order( new TestRequest( array( 'order_id' => 502 ) ) );
+	$pending_data = $pending->data['data'];
+	check( 200 === $pending->status && 'pending' === $pending_data['status'] && 502 === $pending_data['id'], 'returns pending order details without changing their status' );
+	check( 'CH-502' === $pending_data['number'] && ! empty( $pending_data['date'] ) && 1100 === $pending_data['total']['amount'] && 'INR' === $pending_data['total']['currency'] && 'Betty’s Cakes' === $pending_data['items'][0]['name'], 'returns the order number, date, total and decoded purchase snapshot for the detail view' );
 
 	$GLOBALS['customer'] = false;
 	$empty = $controller->list_orders( new TestRequest() );

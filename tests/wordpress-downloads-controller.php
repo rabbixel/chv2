@@ -39,7 +39,7 @@ namespace {
 		public static function collection( $data, $pagination, $status = 200 ) { return new WP_REST_Response( array( 'success' => true, 'data' => $data, 'pagination' => $pagination ), $status ); }
 		public static function error( $code, $message, $status ) { return new WP_REST_Response( array( 'success' => false, 'error' => array( 'code' => $code, 'message' => $message ) ), $status ); }
 	}
-	class CH_Media { public function attachment( $id, $size = 'full' ) { return $id ? array( 'url' => 'https://media.example.test/' . $id . '.jpg' ) : null; } }
+	class CH_Media { public function featured_image( $id ) { $GLOBALS['featured_image_ids'][] = $id; return 123 === (int) $id ? array( 'url' => 'https://media.example.test/456.jpg' ) : null; } }
 	class TestRequest { private $params; public function __construct( $params = array() ) { $this->params = $params; } public function get_param( $key ) { return $this->params[ $key ] ?? null; } }
 	function register_rest_route( $namespace, $route, $args ) { $GLOBALS['routes'][ $route ] = $args; }
 	function is_wp_error( $value ) { return $value instanceof WP_Error; }
@@ -72,7 +72,7 @@ namespace {
 	function edd_get_deliverable_order_item_statuses() { return array( 'complete', 'partially_refunded' ); }
 	function get_posts( $args ) { return $args['post_type'] === 'download' ? $GLOBALS['products'] : array(); }
 	function get_post_thumbnail_id( $post_id ) { return (int) $post_id === 123 ? 456 : 0; }
-	function get_the_title( $post ) { return 'Current product ' . $post->ID; }
+	function get_the_title( $post ) { return 'Betty&#8217;s Cakes'; }
 
 	require_once __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-downloads-controller.php';
 
@@ -89,7 +89,8 @@ namespace {
 	$partial = new \EDD\Orders\Order( 502, 10, 'partially_refunded' );
 	$failed = new \EDD\Orders\Order( 503, 10, 'failed' );
 	$abandoned = new \EDD\Orders\Order( 504, 10, 'abandoned' );
-	$GLOBALS['all_orders'] = array( $good, $partial, $failed, $abandoned );
+	$pending = new \EDD\Orders\Order( 505, 10, 'pending' );
+	$GLOBALS['all_orders'] = array( $good, $partial, $failed, $abandoned, $pending );
 	$GLOBALS['filtered_orders'] = array();
 	$GLOBALS['all_items'] = array(
 		new \EDD\Orders\Order_Item( 11, 501, 123, 2, 3 ),
@@ -97,13 +98,16 @@ namespace {
 		new \EDD\Orders\Order_Item( 13, 502, 777, 1, 1 ),
 		new \EDD\Orders\Order_Item( 14, 503, 123, 2, 1 ),
 		new \EDD\Orders\Order_Item( 15, 501, 123, 1, 1, 'refunded' ),
+		new \EDD\Orders\Order_Item( 16, 505, 123, 2, 1 ),
 	);
+	$GLOBALS['all_items'][2]->product_name = '&lt;script&gt;alert(1)&lt;/script&gt;Betty&#8217;s';
 	$GLOBALS['products'] = array( (object) array( 'ID' => 123, 'post_name' => 'product-one' ) );
 	$GLOBALS['entitled_files'] = array(
 		'123:2' => array( array( 'file' => 'private-s3-object-key', 'name' => 'private-file-name.zip' ) ),
 		'123:null' => array(),
 	);
 	$GLOBALS['entitlement_calls'] = array();
+	$GLOBALS['featured_image_ids'] = array();
 	$controller = new \CH_Downloads_Controller( new \CH_Auth_Controller() );
 	$controller->register_routes();
 	$route = $GLOBALS['routes']['/customer/downloads'];
@@ -118,8 +122,11 @@ namespace {
 	check( 200 === $result->status && 2 === count( $result->data['data'] ), 'returns purchases from complete and partially refunded orders' );
 	check( 'user_id' === $GLOBALS['customer_lookup_field'] && 10 === $GLOBALS['order_filter_args']['customer_id'], 'resolves orders through the linked customer identity' );
 	check( array( 'complete', 'partially_refunded' ) === $GLOBALS['orders_query_args']['status__in'], 'excludes failed and abandoned orders' );
+	check( ! in_array( 505, array_map( static function ( $order ) { return $order->id; }, $GLOBALS['filtered_orders'] ), true ), 'pending orders are excluded from download entitlements' );
 	check( 'status__in' === array_key_first( array_intersect_key( $GLOBALS['items_query_args'], array( 'status__in' => true ) ) ), 'queries only deliverable order item statuses' );
 	check( 2 === count( $GLOBALS['entitlement_calls'] ), 'evaluates each line item using its purchased price ID' );
+	check( 'https://media.example.test/456.jpg' === $result->data['data'][0]['items'][0]['thumbnail_url'] && array( 123, 123 ) === $GLOBALS['featured_image_ids'], 'uses the featured-image full-size resolver rather than a generated variation' );
+	check( 'Betty’s Cakes' === $result->data['data'][0]['items'][0]['title'] && false === strpos( $result->data['data'][1]['items'][1]['title'], '<script' ), 'decodes entity titles and strips decoded markup from safe plain text' );
 	check( 2 === $result->data['data'][0]['items'][0]['price_id'] && 3 === $result->data['data'][0]['items'][0]['quantity'], 'preserves variable price ID and purchased quantity' );
 	check( 'delivery_disabled' === $result->data['data'][0]['items'][0]['availability'] && false === $result->data['data'][0]['items'][0]['download_enabled'], 'reports configured file availability without enabling download' );
 	check( 'no_entitled_files' === $result->data['data'][1]['items'][0]['availability'], 'reports no entitlement for an unassigned price option' );

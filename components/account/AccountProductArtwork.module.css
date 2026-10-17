@@ -1,0 +1,22 @@
+.frame {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 4.5rem;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ch-brand-800);
+  background: var(--ch-brand-50);
+  border: 1px solid var(--ch-brand-200);
+  border-radius: var(--ch-radius-sm);
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-xl);
+  font-weight: var(--ch-weight-semibold);
+}
+
+.image {
+  object-fit: cover;
+}

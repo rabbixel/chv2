@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { CART_COOKIE, CART_COUNT_COOKIE } from "@/lib/constants";
 import { getWordPressOptionalSessionBridgeHeaders } from "./authService";
+import { isLiveApiEnabled } from "./apiMode";
 import type {
   Cart,
   CartItem,
@@ -289,9 +290,21 @@ class ApiCartService implements CartService {
     return { id: "cart-session", currency, items: mapped, itemCount: Number(envelope.data.item_count ?? mapped.reduce((n, i) => n + i.quantity, 0)), subtotal: { amount: subtotal, currency }, total: { amount: subtotal, currency }, updatedAt: new Date().toISOString() };
   }
 
-  private async save(items: Array<{ product_id: number; price_id: number | null; quantity: number }>): Promise<Cart> {
+  private async save(
+    items: Array<{ product_id: number; price_id: number | null; quantity: number }>,
+    requireAvailable?: { productId: number; priceId: number | null },
+  ): Promise<Cart> {
     if (items.length > 20) throw new Error("Your cart can contain up to 20 products.");
     const cart = await this.validate(items);
+    if (requireAvailable) {
+      const selected = cart.items.find((item) =>
+        Number(item.productId) === requireAvailable.productId &&
+        item.priceId === requireAvailable.priceId,
+      );
+      if (!selected?.available) {
+        throw new Error(selected?.availabilityMessage || "This product option is unavailable.");
+      }
+    }
     const persisted = cart.items.map((item) => ({ product_id: Number(item.productId), price_id: item.priceId ?? null, quantity: item.quantity }));
     const jar = await cookies();
     const options = { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax" as const, httpOnly: true, secure: process.env.NODE_ENV === "production" };
@@ -311,7 +324,7 @@ class ApiCartService implements CartService {
     if (!existing && items.length >= 20) throw new Error("Your cart can contain up to 20 products.");
     if (existing) existing.quantity = Math.min(existing.quantity + 1, 10);
     else items.push({ product_id: id, price_id: priceId, quantity: 1 });
-    return this.save(items);
+    return this.save(items, { productId: id, priceId });
   }
 
   async updateItem(key: string, license: LicenseCode, priceId?: number): Promise<Cart> {
@@ -319,7 +332,10 @@ class ApiCartService implements CartService {
     if (!row) throw new Error("Cart item not found.");
     const id = Number(row.productId);
     if (row.priceOptions?.length) return this.updatePrice(key, priceId ?? row.priceId ?? null);
-    return this.save((await this.rawItems()).map((entry) => entry.product_id === id ? { ...entry, price_id: null } : entry));
+    return this.save(
+      (await this.rawItems()).map((entry) => entry.product_id === id ? { ...entry, price_id: null } : entry),
+      { productId: id, priceId: null },
+    );
   }
 
   private async updatePrice(key: string, priceId: number | null): Promise<Cart> {
@@ -331,7 +347,7 @@ class ApiCartService implements CartService {
     const item = items.find((entry) => entry.product_id === id && entry.price_id === current.priceId);
     if (!item) throw new Error("Cart item not found.");
     item.price_id = priceId;
-    return this.save(items);
+    return this.save(items, { productId: id, priceId });
   }
 
   async removeItem(key: string): Promise<Cart> {
@@ -362,7 +378,7 @@ let cached: CartService | null = null;
 /** Pages, actions and route handlers consume the cart only here. */
 export function getCartService(): CartService {
   cached ??=
-    process.env.USE_MOCK_API === "false"
+    isLiveApiEnabled()
       ? new ApiCartService()
       : new MockCartService();
   return cached;

@@ -5,7 +5,12 @@ import ts from "typescript";
 
 const source = await readFile(new URL("../lib/creative-hatti/collections.ts", import.meta.url), "utf8");
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
-const { parseCollectionCards, collectionGridQuery } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
+const { decodeWordPressPlainText, parseCollectionCards, collectionGridQuery } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
+
+test("decodes WordPress entities into safe plain-text product titles", () => {
+  assert.equal(decodeWordPressPlainText("Betty&#8217;s Cakes &amp; More"), "Betty’s Cakes & More");
+  assert.equal(decodeWordPressPlainText("&lt;script&gt;alert(1)&lt;/script&gt;Title"), "Title");
+});
 
 test("reads WordPress card order, attachment IDs and editorial counts", () => {
   const content = `[vc_single_image image=&#8221;104187&#8243; link=&#8221;https://example.com/vector-creatives/monsoon-creatives/&#8221;][vc_column_text]<a href="https://example.com/">Monsoon &amp; rain</a><span class="bendown">75+ Items</span>[/vc_column_text]
