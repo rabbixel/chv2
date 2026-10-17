@@ -2,6 +2,11 @@ const LOCAL_WORDPRESS_HOSTNAMES = new Set([
   "creativehatti.test",
   "www.creativehatti.test",
 ]);
+const WORDPRESS_MEDIA_HOSTNAMES = new Set([
+  "creativehatti.com",
+  "www.creativehatti.com",
+  "api.creativehatti.com",
+]);
 const DEFAULT_PRODUCTION_WORDPRESS_URL = "https://www.creativehatti.com";
 
 export function isLocalWordPressMediaUrl(value: string): boolean {
@@ -36,20 +41,31 @@ export function productionWordPressHostname(): string {
 export function normalizeWordPressMediaUrl(value: string): string {
   try {
     const url = new URL(value);
-    if (!isLocalWordPressMediaUrl(value)) return value;
-    // Keep staging and local API media URLs intact in development. Only
-    // production builds translate local WordPress hosts to the configured
-    // production media origin. Local databases can reference generated
-    // WordPress size variants that were never created in the uploads folder;
-    // use the attachment original when that conventional suffix is present.
-    if (process.env.NODE_ENV !== "production") {
-      url.pathname = url.pathname.replace(/-\d+x\d+(\.[^./]+)$/i, "$1");
-      return url.toString();
+    const local = isLocalWordPressMediaUrl(value);
+    const knownWordPressMediaHost =
+      local ||
+      WORDPRESS_MEDIA_HOSTNAMES.has(url.hostname) ||
+      url.hostname === productionWordPressHostname();
+    if (
+      !knownWordPressMediaHost ||
+      !url.pathname.includes("/wp-content/uploads/")
+    ) {
+      return value;
     }
-    const production = productionWordPressUrl();
-    url.protocol = production.protocol;
-    url.hostname = production.hostname;
-    url.port = production.port;
+
+    // WordPress APIs and indexed search can return a registered image size
+    // (`-300x300`, `-150x150`, etc.). Resolve that suffix to the attachment
+    // file so deleted generated variations are never requested.
+    url.pathname = url.pathname.replace(/-\d+x\d+(\.[^./]+)$/i, "$1");
+
+    // Local API records point at Laragon. On production builds map only that
+    // known local host to the configured production WordPress origin.
+    if (local && process.env.NODE_ENV === "production") {
+      const production = productionWordPressUrl();
+      url.protocol = production.protocol;
+      url.hostname = production.hostname;
+      url.port = production.port;
+    }
     return url.toString();
   } catch {
     return value;

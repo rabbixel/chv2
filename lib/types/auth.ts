@@ -39,4 +39,7 @@ export type AuthErrorCode =
   | "claim-login-required"
   | "claim-account-conflict"
   | "weak-password"
+  | "invalid-name"
+  | "invalid-email"
+  | "password-mismatch"
   | "validation";

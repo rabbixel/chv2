@@ -14,6 +14,7 @@ import type {
 import { routes } from "@/lib/routes";
 import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
 import { frontendCategorySlug } from "@/lib/creative-hatti/adapters";
+import { normalizeWordPressMediaUrl } from "@/lib/creative-hatti/media";
 import type { DiscoveryTile } from "@/lib/homepage";
 import { defaultHomepageContent } from "@/lib/homepageContent";
 import { getSeasonalSearches, type SearchChip } from "@/lib/seasonal-searches";
@@ -62,12 +63,14 @@ async function updateDiscoveryDestinations(sections: HomepageSections): Promise<
 
 function imageFromApi(image?: ChApiImage | null): ProductImage | undefined {
   if (!image?.url) return undefined;
+  const originalUrl = image.original_url ?? image.url;
   return {
     id: String(image.id),
-    url: image.url,
+    url: normalizeWordPressMediaUrl(originalUrl),
     alt: image.alt ?? "",
     width: image.width,
     height: image.height,
+    originalUrl: normalizeWordPressMediaUrl(originalUrl),
   };
 }
 

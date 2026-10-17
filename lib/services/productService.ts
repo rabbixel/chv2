@@ -53,6 +53,7 @@ export interface ProductListParams extends PaginationParams {
 
 export interface ProductService {
   listProducts(params?: ProductListParams): Promise<Paginated<Product>>;
+  getProductById(id: string): Promise<Product | null>;
   getProductBySlug(slug: Slug): Promise<Product | null>;
   listRelatedProducts(slug: Slug, limit?: number): Promise<Product[]>;
   listFeaturedProducts(limit?: number): Promise<Product[]>;
@@ -121,6 +122,10 @@ class MockProductService implements ProductService {
 
   async getProductBySlug(slug: Slug): Promise<Product | null> {
     return products.find((product) => product.slug === slug) ?? null;
+  }
+
+  async getProductById(id: string): Promise<Product | null> {
+    return products.find((product) => product.id === id) ?? null;
   }
 
   async listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
@@ -218,6 +223,29 @@ class ApiProductService implements ProductService {
         {
           revalidate: REVALIDATE_SECONDS.product,
           tags: [cacheTags.product(slug)],
+        },
+      );
+      const product = productFromApi(result.data);
+      const candidates = new Set(galleryComparisonCandidates(product.images).flat());
+      const enrichedImages = await mapWithConcurrency(product.images, 4, (image, index) =>
+        candidates.has(index) ? enrichImageMetadata(image) : Promise.resolve(image),
+      );
+      const selected = await selectGalleryImages(enrichedImages, loadImageForComparison);
+      return { ...product, images: selected.images };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async getProductById(id: string): Promise<Product | null> {
+    if (!/^[1-9][0-9]{0,9}$/.test(id)) return null;
+    try {
+      const result = await apiFetch<ChApiEnvelope<ChApiProductDetail>>(
+        apiEndpoints.products.byId(id),
+        {
+          revalidate: REVALIDATE_SECONDS.product,
+          tags: [cacheTags.product(id)],
         },
       );
       const product = productFromApi(result.data);

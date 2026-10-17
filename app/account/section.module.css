@@ -9,30 +9,66 @@
 
 .cards {
   display: grid;
-  grid-template-columns: 1fr;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ch-space-4);
   margin-top: var(--ch-space-5);
 }
 
+.cards > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 @media (min-width: 640px) {
   .cards {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profileCard {
+    grid-column: span 2;
   }
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 900px) {
   .cards {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .profileCard {
+    grid-column: span 3;
+  }
+}
+
+@media (min-width: 1360px) {
+  .cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .profileCard {
+    grid-column: span 2;
+  }
+}
+
+.summaryCard,
+.profileCard {
+  min-width: 0;
+  padding: var(--ch-space-4);
 }
 
 .statValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--ch-text-2xl);
   font-weight: var(--ch-weight-semibold);
   margin: 0;
 }
 
 .statLabel {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--ch-color-text-muted);
   font-size: var(--ch-text-sm);
   margin: var(--ch-space-1) 0 0;
@@ -40,19 +76,31 @@
 
 .statLink {
   display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   margin-top: var(--ch-space-3);
   font-size: var(--ch-text-sm);
 }
 
 .list {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   flex-direction: column;
   gap: var(--ch-space-3);
   margin-top: var(--ch-space-5);
 }
 
+.list > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .row {
   display: flex;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   align-items: center;
   justify-content: space-between;
@@ -80,6 +128,8 @@
 }
 
 .rowSide {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: var(--ch-space-3);
@@ -95,7 +145,8 @@
 .defs {
   margin: var(--ch-space-5) 0 0;
   display: grid;
-  grid-template-columns: auto 1fr;
+  min-width: 0;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
   gap: var(--ch-space-2) var(--ch-space-5);
 }
 
@@ -104,6 +155,8 @@
 }
 
 .defs dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
   margin: 0;
   font-weight: var(--ch-weight-medium);
 }
@@ -130,15 +183,40 @@
 
 .split {
   display: grid;
-  grid-template-columns: 1fr;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ch-space-5);
   margin-top: var(--ch-space-5);
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1200px) {
   .split {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.split > section {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboardRow > * {
+  min-width: 0;
+}
+
+.dashboardRow .dashboardStatus {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.deliveryStatus {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .splitTitle {
@@ -148,20 +226,28 @@
 
 .tiles {
   display: grid;
-  grid-template-columns: 1fr;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ch-space-4);
   margin-top: var(--ch-space-5);
 }
 
-@media (min-width: 640px) {
+.tiles > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
   .tiles {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1100px) {
   .tiles {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -177,6 +263,8 @@
   margin-bottom: var(--ch-space-3);
 }
 
+.loading { margin-top: var(--ch-space-5); }
+
 @media (max-width: 639px) {
   .row {
     flex-direction: column;
@@ -186,5 +274,19 @@
   .rowSide {
     justify-content: flex-end;
     flex-wrap: wrap;
+    white-space: normal;
+  }
+}
+
+@media (min-width: 640px) {
+  .dashboardRow {
+    align-items: flex-start;
+  }
+
+  .dashboardRow .rowSide {
+    flex: 0 1 9rem;
+    max-width: 9rem;
+    white-space: normal;
+    text-align: right;
   }
 }

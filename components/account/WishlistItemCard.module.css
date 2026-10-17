@@ -1,17 +1,31 @@
 .card {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   flex-direction: column;
   overflow: hidden;
   padding: 0;
 }
 
 .art {
+  position: relative;
   display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   justify-content: center;
   aspect-ratio: 16 / 9;
-  background: hsl(var(--ch-art-hue) 45% 92%);
+  overflow: hidden;
+  background: var(--ch-neutral-100);
   color: hsl(var(--ch-art-hue) 45% 32%);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .monogram {
@@ -22,12 +36,17 @@
 
 .body {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   flex-direction: column;
   gap: var(--ch-space-2);
   padding: var(--ch-space-4);
 }
 
 .title {
+  min-width: 0;
+  overflow-wrap: anywhere;
   margin: 0;
   font-weight: var(--ch-weight-medium);
 }
@@ -39,7 +58,18 @@
 
 .actions {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   flex-wrap: wrap;
   gap: var(--ch-space-2);
   margin-top: var(--ch-space-2);
+}
+
+.actions > form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.actions button {
+  max-width: 100%;
 }

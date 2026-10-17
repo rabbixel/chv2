@@ -7,6 +7,7 @@ export interface CustomerLicense {
   productUrl: string | null;
   productAvailable: boolean;
   status: string;
+  purchaseType: "order" | "legacy_payment" | "unavailable";
   purchaseId: ID | null;
   purchaseNumber: string | null;
   activationCount: number;

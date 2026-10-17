@@ -44,3 +44,19 @@ export interface CustomerOrder {
   refunds: CustomerOrderRefund[];
   adjustments: CustomerOrderAdjustment[];
 }
+
+export interface CustomerReceipt extends CustomerOrder {
+  documentType: "receipt" | "order_summary";
+  billing: {
+    name: string;
+    email: string;
+    address: string;
+    address2: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+  };
+  transactionReference: string;
+  couponCodes: string[];
+}

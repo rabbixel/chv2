@@ -57,6 +57,7 @@ export const AUTH_STATE_COOKIE = "ch_auth_state";
 export const WISHLIST_COOKIE = "ch_wishlist";
 /** Non-httpOnly wishlist count mirror for the static header badge. */
 export const WISHLIST_COUNT_COOKIE = "ch_wishlist_count";
+export const WISHLIST_COUNT_EVENT = "ch:wishlist-count-change";
 
 /**
  * Window event fired after same-page cart mutations (product-page

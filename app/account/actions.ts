@@ -43,6 +43,24 @@ function authError(
   );
 }
 
+function logAuthActionFailure(action: string, error: unknown): void {
+  const candidate = typeof error === "object" && error !== null
+    ? error as { name?: unknown; code?: unknown; status?: unknown }
+    : null;
+  const code = typeof candidate?.code === "string" && /^[a-z0-9_-]{1,64}$/i.test(candidate.code)
+    ? candidate.code
+    : undefined;
+  const status = typeof candidate?.status === "number" && Number.isInteger(candidate.status)
+    ? candidate.status
+    : undefined;
+  console.error(`[auth-action] request failed ${JSON.stringify({
+    action,
+    errorName: typeof candidate?.name === "string" ? candidate.name.slice(0, 80) : typeof error,
+    ...(code ? { code } : {}),
+    ...(status ? { status } : {}),
+  })}`);
+}
+
 export async function loginAction(formData: FormData): Promise<void> {
   await assertSameOriginRequest();
   const next = safeNext(field(formData, "next"));
@@ -55,6 +73,7 @@ export async function loginAction(formData: FormData): Promise<void> {
       remember: formData.get("remember") === "on",
     });
   } catch (error) {
+    logAuthActionFailure("login", error);
     authError(
       routes.login(),
       error,
@@ -68,22 +87,28 @@ export async function loginAction(formData: FormData): Promise<void> {
 }
 
 export async function registerAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   const next = safeNext(field(formData, "next"));
   const password = String(formData.get("password") ?? "");
   if (password !== String(formData.get("confirmPassword") ?? "")) {
     redirect(
-      `${routes.register()}?error=${encodeURIComponent("Those passwords do not match.")}&email=${encodeURIComponent(field(formData, "email"))}&name=${encodeURIComponent(field(formData, "name"))}&next=${encodeURIComponent(next)}`,
+      `${routes.register()}?error=${encodeURIComponent("Those passwords do not match.")}&code=password-mismatch&email=${encodeURIComponent(field(formData, "email"))}&name=${encodeURIComponent(field(formData, "name"))}&next=${encodeURIComponent(next)}`,
     );
   }
+  const preserve = `&email=${encodeURIComponent(field(formData, "email"))}&name=${encodeURIComponent(field(formData, "name"))}&next=${encodeURIComponent(next)}`;
+  let verificationRequired = false;
   try {
-    await getAuthService().register({
+    const result = await getAuthService().register({
       name: field(formData, "name"),
       email: field(formData, "email"),
       password,
     });
+    verificationRequired = result.verificationRequired;
   } catch (error) {
-    authError(routes.register(), error, "Could not create your account. Please try again.");
+    logAuthActionFailure("register", error);
+    authError(routes.register(), error, "Could not create your account. Please try again.", preserve);
   }
+  if (verificationRequired) redirect(`${routes.register()}?sent=1`);
   revalidatePath(routes.home());
   revalidatePath(routes.account());
   redirect(next);
@@ -98,6 +123,7 @@ export async function logoutAction(): Promise<void> {
 }
 
 export async function forgotPasswordAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   try {
     await getAuthService().forgotPassword(field(formData, "email"));
   } catch (error) {
@@ -111,23 +137,24 @@ export async function forgotPasswordAction(formData: FormData): Promise<void> {
 }
 
 export async function resetPasswordAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   const token = field(formData, "token");
   const password = String(formData.get("password") ?? "");
   if (password !== String(formData.get("confirmPassword") ?? "")) {
     redirect(
-      `${routes.resetPassword(token)}?error=${encodeURIComponent("Those passwords do not match.")}`,
+      `${routes.resetPassword()}?error=${encodeURIComponent("Those passwords do not match. Reopen your reset email to try again.")}`,
     );
   }
   try {
     await getAuthService().resetPassword({ token, password });
   } catch (error) {
-    if (error instanceof AuthError && error.code === "expired-token") {
+    if (error instanceof AuthError && (error.code === "expired-token" || error.code === "invalid-token")) {
       redirect(
-        `${routes.resetPassword(token)}?error=${encodeURIComponent(error.message)}&code=expired-token`,
+        `${routes.resetPassword()}?error=${encodeURIComponent(error.message)}&code=expired-token`,
       );
     }
     authError(
-      routes.resetPassword(token),
+      routes.resetPassword(),
       error,
       "Could not reset your password. Request a fresh link.",
     );
@@ -136,6 +163,7 @@ export async function resetPasswordAction(formData: FormData): Promise<void> {
 }
 
 export async function resendActivationAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   const email = field(formData, "email");
   try {
     await getAuthService().resendActivation(email);
@@ -144,9 +172,23 @@ export async function resendActivationAction(formData: FormData): Promise<void> 
       `${routes.login()}?error=${encodeURIComponent("Could not resend that email. Please try again.")}`,
     );
   }
-  redirect(
-    `${routes.login()}?notice=${encodeURIComponent(`Activation email re-sent to ${email}. Please check your inbox.`)}`,
-  );
+  redirect(`${routes.verifyEmail()}?resent=1`);
+}
+
+export async function verifyEmailAction(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
+  let currentUserMatches = false;
+  try {
+    const result = await getAuthService().verifyEmail(field(formData, "token"));
+    currentUserMatches = result.currentUserMatches;
+  } catch (error) {
+    const message = error instanceof AuthError
+      ? error.message
+      : "This verification link is invalid or has expired. Request a fresh link.";
+    redirect(`${routes.verifyEmail()}?error=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(routes.account());
+  redirect(currentUserMatches ? routes.account() : `${routes.verifyEmail()}?verified=1&login=required`);
 }
 
 export async function requestGuestClaimAction(formData: FormData): Promise<void> {
@@ -209,11 +251,45 @@ export async function addWishlistItemToCart(
 }
 
 export async function removeWishlistItem(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   const productId = field(formData, "productId");
-  await getWishlistService().removeItem(productId);
+  try {
+    await getWishlistService().removeItem(productId);
+  } catch {
+    redirect(`${routes.accountWishlist()}?error=${encodeURIComponent("Could not remove that saved item. Please try again.")}`);
+  }
   revalidatePath(routes.home());
   revalidatePath(routes.accountWishlist());
   redirect(routes.accountWishlist());
+}
+
+export async function setWishlistItemAction(
+  productId: ID,
+  saved: boolean,
+): Promise<{ saved: boolean; count: number } | { saved: boolean; count: number; error: string }> {
+  await assertSameOriginRequest();
+  if (typeof productId !== "string" || productId.length < 1 || productId.length > 200) {
+    return { saved: false, count: 0, error: "Could not update your wishlist." };
+  }
+
+  try {
+    const service = getWishlistService();
+    const current = await service.getWishlist();
+    const isSaved = current.items.some((item) => item.productId === productId);
+    const updated = saved === isSaved
+      ? current
+      : saved
+        ? await service.addItem(productId)
+        : await service.removeItem(productId);
+    revalidatePath(routes.accountWishlist());
+    revalidatePath(routes.home());
+    return {
+      saved: updated.items.some((item) => item.productId === productId),
+      count: updated.items.length,
+    };
+  } catch {
+    return { saved: false, count: 0, error: "Could not update your wishlist. Please try again." };
+  }
 }
 
 /* ------------------------- Download actions ------------------------- */
@@ -256,14 +332,20 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
       lastName: field(formData, "lastName"),
     });
   } catch (error) {
+    const errorRoute = field(formData, "returnTo") === "profile"
+      ? routes.accountProfile()
+      : routes.accountSettings();
     authError(
-      routes.accountSettings(),
+      errorRoute,
       error,
       "Could not save your profile. Please try again.",
     );
   }
   revalidatePath(routes.account());
-  redirect(`${routes.accountSettings()}?saved=profile`);
+  revalidatePath(routes.accountProfile());
+  redirect(field(formData, "returnTo") === "profile"
+    ? `${routes.accountProfile()}?saved=1`
+    : `${routes.accountSettings()}?saved=profile`);
 }
 
 export async function updatePreferencesAction(

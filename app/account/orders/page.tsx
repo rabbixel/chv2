@@ -12,6 +12,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import type { Paginated } from "@/lib/types";
 import type { CustomerOrder } from "@/lib/types/customerOrder";
+import { receiptActionLabel } from "@/lib/receiptPresentation";
 import { formatDate, formatMoney } from "@/lib/utils";
 import styles from "../section.module.css";
 
@@ -129,6 +130,7 @@ function CustomerOrders({ orders }: { orders: Paginated<CustomerOrder> }) {
                   <div className={styles.rowSide}>
                     <Badge variant={order.status === "complete" ? "success" : "neutral"}>{order.status.replaceAll("_", " ")}</Badge>
                     <Link href={routes.accountOrder(order.id)}>View order</Link>
+                    <Link href={routes.accountOrderReceipt(order.id)}>{receiptActionLabel(order.status)}</Link>
                   </div>
                 </div>
               </Card>

@@ -43,6 +43,19 @@ final class CH_Orders_Controller {
 				),
 			)
 		);
+
+		register_rest_route(
+			CH_API::NAMESPACE,
+			'/customer/orders/(?P<order_id>[0-9]+)/receipt',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_receipt' ),
+				'permission_callback' => array( $this->auth_controller, 'session_permission' ),
+				'args'                => array(
+					'order_id' => array( 'required' => true, 'validate_callback' => array( $this, 'validate_order_id' ) ),
+				),
+			)
+		);
 	}
 
 	public function validate_positive_integer( $value ) {
@@ -120,6 +133,75 @@ final class CH_Orders_Controller {
 		}
 
 		return CH_API::success( $this->transform_orders( array( $order ) )[0] );
+	}
+
+	/**
+	 * Return a customer-scoped receipt document from authoritative EDD records.
+	 * Pending orders are represented as order summaries, never as proof of payment.
+	 */
+	public function get_receipt( $request ) {
+		$order_response = $this->get_order( $request );
+		if ( ! $order_response instanceof WP_REST_Response || empty( $order_response->data['success'] ) ) {
+			return $order_response;
+		}
+
+		$order_id = absint( $request->get_param( 'order_id' ) );
+		$order    = edd_get_order( $order_id );
+		if ( ! $order instanceof EDD\Orders\Order ) {
+			return CH_API::error( 'order_not_found', 'Order not found.', 404 );
+		}
+
+		$receipt = $order_response->data['data'];
+		$address = method_exists( $order, 'get_address' ) ? $order->get_address() : false;
+		$first   = $address && isset( $address->first_name ) ? sanitize_text_field( (string) $address->first_name ) : '';
+		$last    = $address && isset( $address->last_name ) ? sanitize_text_field( (string) $address->last_name ) : '';
+		$name    = $address && isset( $address->name ) ? sanitize_text_field( (string) $address->name ) : '';
+		if ( '' === $name ) {
+			$name = trim( $first . ' ' . $last );
+		}
+
+		$receipt['document_type'] = in_array( $receipt['status'], array( 'complete', 'partially_refunded', 'refunded' ), true ) ? 'receipt' : 'order_summary';
+		$receipt['billing']       = array(
+			'name'        => $name,
+			'email'       => sanitize_email( isset( $order->email ) ? (string) $order->email : '' ),
+			'address'     => $address && isset( $address->address ) ? sanitize_text_field( (string) $address->address ) : '',
+			'address2'    => $address && isset( $address->address2 ) ? sanitize_text_field( (string) $address->address2 ) : '',
+			'city'        => $address && isset( $address->city ) ? sanitize_text_field( (string) $address->city ) : '',
+			'region'      => $address && isset( $address->region ) ? sanitize_text_field( (string) $address->region ) : '',
+			'postal_code' => $address && isset( $address->postal_code ) ? sanitize_text_field( (string) $address->postal_code ) : '',
+			'country'     => $address && isset( $address->country ) ? sanitize_text_field( (string) $address->country ) : '',
+		);
+		$receipt['transaction_reference'] = method_exists( $order, 'get_transaction_id' ) ? sanitize_text_field( (string) $order->get_transaction_id() ) : '';
+		$receipt['coupon_codes']          = $this->get_coupon_codes( $order_id );
+
+		return CH_API::success( $receipt );
+	}
+
+	private function get_coupon_codes( $order_id ) {
+		if ( ! function_exists( 'edd_get_order_adjustments' ) ) {
+			return array();
+		}
+
+		$adjustments = edd_get_order_adjustments(
+			array(
+				'object_id'   => (int) $order_id,
+				'object_type' => 'order',
+				'type'        => 'discount',
+				'number'      => 100,
+				'no_found_rows' => true,
+			)
+		);
+		$codes = array();
+		foreach ( (array) $adjustments as $adjustment ) {
+			if ( isset( $adjustment->type, $adjustment->type_id, $adjustment->description ) && 'discount' === $adjustment->type && (int) $adjustment->type_id > 0 ) {
+				$code = sanitize_text_field( (string) $adjustment->description );
+				if ( '' !== $code ) {
+					$codes[] = $code;
+				}
+			}
+		}
+
+		return array_values( array_unique( $codes ) );
 	}
 
 	private function current_customer() {

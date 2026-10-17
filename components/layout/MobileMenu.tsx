@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { SearchBar } from "@/components/search";
 import { Icon } from "@/components/ui";
-import { WISHLIST_COUNT_COOKIE } from "@/lib/constants";
+import { WISHLIST_COUNT_COOKIE, WISHLIST_COUNT_EVENT } from "@/lib/constants";
 import { productNavigation } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 import type { Category } from "@/lib/types";
@@ -28,6 +28,11 @@ function readWishlistCount(): number {
   return value === undefined ? 0 : Number(value);
 }
 
+function subscribeWishlistCount(onCountChange: () => void): () => void {
+  window.addEventListener(WISHLIST_COUNT_EVENT, onCountChange);
+  return () => window.removeEventListener(WISHLIST_COUNT_EVENT, onCountChange);
+}
+
 function destination(item: (typeof productNavigation)[number] | (typeof productNavigation)[number]["children"][number]) {
   return "href" in item ? item.href : routes.category(item.slug);
 }
@@ -44,16 +49,19 @@ export function MobileMenu({
   cartCount,
   className,
 }: MobileMenuProps) {
-  // Mirror-cookie count, re-read after every navigation render so the
-  // server header never touches the session (keeps pages static).
   const pathname = usePathname();
-  const wishlistCount = pathname === null ? 0 : readWishlistCount();
+  // The cookie is a display mirror; the wishlist service remains authoritative.
+  const wishlistCount = useSyncExternalStore(subscribeWishlistCount, readWishlistCount, () => 0);
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    window.dispatchEvent(new Event(WISHLIST_COUNT_EVENT));
+  }, [pathname]);
 
   // Lock scroll + focus the panel on open; restore focus on close.
   useEffect(() => {

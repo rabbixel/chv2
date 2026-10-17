@@ -17,6 +17,7 @@ export function Input({
   hint,
   error,
   className,
+  "aria-describedby": externalDescribedBy,
   ...inputProps
 }: InputProps) {
   const id = useId();
@@ -35,7 +36,7 @@ export function Input({
         id={id}
         className={cn(styles.input, error && styles.hasError)}
         aria-invalid={error ? true : undefined}
-        aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
+        aria-describedby={[externalDescribedBy, hintId, errorId].filter(Boolean).join(" ") || undefined}
         {...inputProps}
       />
       {hint && !error && (

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { setWishlistItemAction } from "@/app/account/actions";
 import { Icon } from "@/components/ui";
+import { WISHLIST_COUNT_EVENT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import styles from "./WishlistButton.module.css";
 
@@ -13,11 +15,8 @@ export interface WishlistButtonProps {
 }
 
 /**
- * Wishlist toggle overlay for product cards.
- *
- * UI-only in this run (instant optimistic toggle). Persistence moves to the
- * wishlist API (server action + `wishlistService`) once sessions exist —
- * the `productId` prop is already the integration point.
+ * Wishlist toggle overlay for product cards. Persistence and membership
+ * checks run through the server-side wishlist service.
  */
 export function WishlistButton({
   productId,
@@ -26,17 +25,43 @@ export function WishlistButton({
   className,
 }: WishlistButtonProps) {
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function toggleWishlist() {
+    if (pending) return;
+    setError(null);
+    const nextSaved = !wishlisted;
+    startTransition(async () => {
+      try {
+        const result = await setWishlistItemAction(productId, nextSaved);
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        setWishlisted(result.saved);
+        window.dispatchEvent(new Event(WISHLIST_COUNT_EVENT));
+      } catch {
+        setError("Could not update your wishlist. Please try again.");
+      }
+    });
+  }
 
   return (
-    <button
-      type="button"
-      aria-pressed={wishlisted}
-      aria-label={`${wishlisted ? "Remove" : "Save"} ${productTitle} ${wishlisted ? "from" : "to"} wishlist`}
-      data-product-id={productId}
-      className={cn(styles.button, wishlisted && styles.active, className)}
-      onClick={() => setWishlisted((value) => !value)}
-    >
-      <Icon name="heart" size={18} />
-    </button>
+    <>
+      <button
+        type="button"
+        aria-pressed={wishlisted}
+        aria-busy={pending}
+        aria-label={`${wishlisted ? "Remove" : "Save"} ${productTitle} ${wishlisted ? "from" : "to"} wishlist`}
+        data-product-id={productId}
+        className={cn(styles.button, wishlisted && styles.active, className)}
+        onClick={toggleWishlist}
+        disabled={pending}
+      >
+        <Icon name="heart" size={18} />
+      </button>
+      {error && <span role="alert" className={styles.error}>{error}</span>}
+    </>
   );
 }

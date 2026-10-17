@@ -1,0 +1,11 @@
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.monogram {
+  font-family: var(--ch-font-display);
+  font-size: var(--ch-text-2xl);
+  font-weight: var(--ch-weight-semibold);
+}

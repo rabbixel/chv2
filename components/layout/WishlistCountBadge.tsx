@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { Icon, IconButton } from "@/components/ui";
-import { WISHLIST_COUNT_COOKIE } from "@/lib/constants";
+import { WISHLIST_COUNT_COOKIE, WISHLIST_COUNT_EVENT } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 
 function readCountCookie(): number {
@@ -14,10 +14,9 @@ function readCountCookie(): number {
   return value === undefined ? 0 : Number(value);
 }
 
-function subscribe(): () => void {
-  // Wishlist mutations always navigate (server actions), so the per-route
-  // remount below is the sync point — no event subscription needed.
-  return () => {};
+function subscribe(onCountChange: () => void): () => void {
+  window.addEventListener(WISHLIST_COUNT_EVENT, onCountChange);
+  return () => window.removeEventListener(WISHLIST_COUNT_EVENT, onCountChange);
 }
 
 function LiveBadge() {

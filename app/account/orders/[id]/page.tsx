@@ -14,6 +14,7 @@ import {
 import { formatDate, formatMoney } from "@/lib/utils";
 import { ApiError } from "@/lib/api/client";
 import { resolveProductImagesByUrl } from "@/lib/services/productService";
+import { receiptActionLabel } from "@/lib/receiptPresentation";
 import styles from "../../section.module.css";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +70,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         <Link href={routes.accountOrders()} className={styles.back}>← All orders</Link>
         <h1 className={styles.title}>Order {order.number}</h1>
         <p className={styles.lede}>Placed {formatDate(order.date)} · {formatMoney(order.total)}</p>
+        <p><Link href={routes.accountOrderReceipt(order.id)}>{receiptActionLabel(order.status)}</Link></p>
         <Card>
           <dl className={styles.defs}>
             <dt>Status</dt><dd><Badge variant={order.status === "complete" ? "success" : "neutral"}>{order.status.replaceAll("_", " ")}</Badge></dd>

@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { removeWishlistItem } from "@/app/account/actions";
+import { WishlistCountSync } from "@/components/account/WishlistCountSync";
 import { WishlistItemCard } from "@/components/account";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, Card, EmptyState } from "@/components/ui";
+import { SubmitButton } from "@/components/checkout";
 import { SITE } from "@/lib/constants";
+import { wishlistProductLookup, wishlistViewRows } from "@/lib/creative-hatti/wishlist";
 import { routes } from "@/lib/routes";
 import { getProductService, getWishlistService } from "@/lib/services";
 import styles from "../section.module.css";
@@ -25,18 +29,22 @@ export default async function AccountWishlistPage({
 
   const wishlist = await getWishlistService().getWishlist();
   const productService = getProductService();
-  const products = (
-    await Promise.all(
-      wishlist.items.map((item) =>
-        productService.getProductBySlug(
-          item.productId.replace(/^prod-/, ""),
-        ),
-      ),
-    )
-  ).filter((product) => product !== null);
+  const resolvedProducts = await Promise.all(wishlist.items.map(async ({ productId }) => {
+    const lookup = wishlistProductLookup(productId);
+    if (!lookup) return null;
+    try {
+      return lookup.kind === "id"
+        ? await productService.getProductById(lookup.value)
+        : await productService.getProductBySlug(lookup.value);
+    } catch {
+      return null;
+    }
+  }));
+  const rows = wishlistViewRows(wishlist.items, resolvedProducts);
 
   return (
     <div>
+      <WishlistCountSync count={wishlist.items.length} />
       <h1 className={styles.title}>Wishlist</h1>
       <p className={styles.lede}>
         {wishlist.items.length}{" "}
@@ -53,7 +61,7 @@ export default async function AccountWishlistPage({
           {error}
         </p>
       )}
-      {products.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState
           title="Nothing saved yet"
           description="Tap the heart on any product to keep it here."
@@ -61,8 +69,17 @@ export default async function AccountWishlistPage({
         />
       ) : (
         <div className={styles.tiles}>
-          {products.map((product) => (
-            <WishlistItemCard key={product.id} product={product} />
+          {rows.map(({ item, product, key }) => product ? (
+            <WishlistItemCard key={key} product={product} />
+          ) : (
+            <Card key={key}>
+              <p className={styles.rowTitle}>Saved product unavailable</p>
+              <p className={styles.rowMeta}>This saved item is no longer in the catalogue or its details could not be loaded. It remains saved until you remove it.</p>
+              <form action={removeWishlistItem}>
+                <input type="hidden" name="productId" value={item.productId} />
+                <SubmitButton variant="ghost" pendingLabel="Removing…">Remove saved item</SubmitButton>
+              </form>
+            </Card>
           ))}
         </div>
       )}

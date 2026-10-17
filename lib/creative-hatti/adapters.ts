@@ -9,6 +9,7 @@ import type {
   Slug,
 } from "@/lib/types";
 import { normalizeWordPressMediaUrl } from "./media";
+import { decodeHtmlEntities } from "./html";
 import type {
   ChApiCategory,
   ChApiEnvelope,
@@ -140,17 +141,6 @@ function stripHtml(value: string | null | undefined): string | undefined {
   return stripped || undefined;
 }
 
-function decodeEntities(value: string): string {
-  return value
-    .replace(/&#(\d+);/g, (_, code: string) =>
-      String.fromCharCode(Number.parseInt(code, 10)),
-    )
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&nbsp;/g, " ");
-}
-
 export function seoFromApi(value: {
   seo?: { title?: string | null; description?: string | null; canonical_url?: string | null };
   meta_title?: string | null;
@@ -161,8 +151,8 @@ export function seoFromApi(value: {
   const description = value.seo?.description ?? value.meta_description;
   const canonicalUrl = value.seo?.canonical_url ?? value.canonical_url;
   const seo = {
-    ...(title?.trim() ? { title: decodeEntities(title.trim()) } : {}),
-    ...(description?.trim() ? { description: decodeEntities(description.trim()) } : {}),
+    ...(title?.trim() ? { title: decodeHtmlEntities(title.trim()) } : {}),
+    ...(description?.trim() ? { description: decodeHtmlEntities(description.trim()) } : {}),
     ...(canonicalUrl?.trim() ? { canonicalUrl: canonicalUrl.trim() } : {}),
   };
   return Object.keys(seo).length ? seo : undefined;
@@ -220,7 +210,7 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
   return {
     id: String(apiProduct.id),
     slug: apiProduct.slug,
-    title: decodeEntities(apiProduct.title),
+    title: decodeHtmlEntities(apiProduct.title),
     shortDescription: stripHtml(detail.short_description),
     description: stripHtml(detail.description),
     seo: seoFromApi(apiProduct),
@@ -230,7 +220,7 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
     },
     priceOptions: detail.variable_prices?.map((option, index) => ({
       id: Number(option.id ?? index),
-      name: decodeEntities(option.name ?? `Option ${index + 1}`),
+      name: decodeHtmlEntities(option.name ?? `Option ${index + 1}`),
       price: {
         amount: moneyAmount(Number(option.amount ?? apiProduct.price.amount)),
         currency: option.currency ?? apiProduct.price.currency,
@@ -274,7 +264,7 @@ export function categoryFromApi(category: ChApiCategory): Category {
   return {
     id: String(category.id),
     slug: frontendCategorySlug(category.slug),
-    name: decodeEntities(category.name),
+    name: decodeHtmlEntities(category.name),
     description: stripHtml(category.description),
     seo: seoFromApi(category),
     imageUrl:

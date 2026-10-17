@@ -68,7 +68,7 @@ final class CH_Claim_Controller {
 		$email_param = $request->get_param( 'email' );
 		$email       = strtolower( trim( sanitize_email( is_string( $email_param ) ? $email_param : '' ) ) );
 		$ip          = $this->client_ip();
-		$email_key   = self::limit_key( 'request-email', $ip . '|' . $email );
+		$email_key   = self::limit_key( 'request-email', $email );
 		$ip_key      = self::limit_key( 'request-ip', $ip );
 
 		$ip_allowed    = self::take_rate_limit( $ip_key, self::MAX_REQUESTS_IP, self::LIMIT_WINDOW );
@@ -286,7 +286,7 @@ final class CH_Claim_Controller {
 		$first_name     = sanitize_text_field( is_string( $first_param ) ? $first_param : '' );
 		$last_name      = sanitize_text_field( is_string( $last_param ) ? $last_param : '' );
 
-		if ( strlen( $password ) < 12 || strlen( $password ) > 4096 ) {
+		if ( ! CH_Auth_Controller::is_strong_password( $password ) ) {
 			return new WP_Error( 'claim_invalid_password', 'Invalid account details.' );
 		}
 		if ( '' === $first_name && '' === $last_name ) {

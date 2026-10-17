@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { WISHLIST_COOKIE, WISHLIST_COUNT_COOKIE } from "@/lib/constants";
+import { normalizeWishlist, setWishlistItem, shouldSeedDemoWishlist } from "@/lib/creative-hatti/wishlist";
 import type { ID, Wishlist } from "@/lib/types";
 
 export interface WishlistService {
@@ -34,6 +35,15 @@ function seedWishlist(): Wishlist {
   };
 }
 
+function emptyWishlist(): Wishlist {
+  return {
+    id: "wishlist-empty",
+    customerId: "customer-session",
+    items: [],
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
 async function readSession(): Promise<{ id: string | null; wishlist: Wishlist }> {
   const jar = await cookies();
   const id = jar.get(WISHLIST_COOKIE)?.value ?? null;
@@ -41,7 +51,12 @@ async function readSession(): Promise<{ id: string | null; wishlist: Wishlist }>
     const stored = wishlistStore.get(id);
     if (stored) return { id, wishlist: stored };
   }
-  return { id: null, wishlist: seedWishlist() };
+  // Demo seed IDs belong to the mock catalogue. Never present them as an
+  // authenticated WordPress customer's saved products.
+  const wishlist = shouldSeedDemoWishlist(process.env.CH_AUTH_MODE)
+    ? seedWishlist()
+    : emptyWishlist();
+  return { id: null, wishlist };
 }
 
 async function writeSession(wishlist: Wishlist, id: string | null): Promise<Wishlist> {
@@ -70,6 +85,16 @@ async function writeSession(wishlist: Wishlist, id: string | null): Promise<Wish
   return next;
 }
 
+async function writeCountMirror(wishlist: Wishlist): Promise<void> {
+  const jar = await cookies();
+  jar.set(WISHLIST_COUNT_COOKIE, String(wishlist.items.length), {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+}
+
 /** Mock wishlist: cookie-session store seeded with real products. */
 class MockWishlistService implements WishlistService {
   async getWishlist(): Promise<Wishlist> {
@@ -78,17 +103,12 @@ class MockWishlistService implements WishlistService {
 
   async addItem(productId: ID): Promise<Wishlist> {
     const { id, wishlist } = await readSession();
-    if (wishlist.items.some((item) => item.productId === productId)) {
+    const items = setWishlistItem(wishlist.items, productId, true, new Date().toISOString());
+    if (items.length === wishlist.items.length) {
       return wishlist;
     }
     return writeSession(
-      {
-        ...wishlist,
-        items: [
-          ...wishlist.items,
-          { productId, addedAt: new Date().toISOString() },
-        ],
-      },
+      { ...wishlist, items },
       id,
     );
   }
@@ -98,7 +118,7 @@ class MockWishlistService implements WishlistService {
     return writeSession(
       {
         ...wishlist,
-        items: wishlist.items.filter((item) => item.productId !== productId),
+        items: setWishlistItem(wishlist.items, productId, false, ""),
       },
       id,
     );
@@ -106,22 +126,26 @@ class MockWishlistService implements WishlistService {
 }
 
 class ApiWishlistService implements WishlistService {
-  getWishlist(): Promise<Wishlist> {
-    return apiFetch<Wishlist>(apiEndpoints.wishlist);
+  async getWishlist(): Promise<Wishlist> {
+    return normalizeWishlist(await apiFetch<Wishlist>(apiEndpoints.wishlist));
   }
 
-  addItem(productId: ID): Promise<Wishlist> {
-    return apiFetch<Wishlist>(apiEndpoints.wishlist, {
+  async addItem(productId: ID): Promise<Wishlist> {
+    const wishlist = normalizeWishlist(await apiFetch<Wishlist>(apiEndpoints.wishlist, {
       method: "POST",
       body: { productId },
-    });
+    }));
+    await writeCountMirror(wishlist);
+    return wishlist;
   }
 
-  removeItem(productId: ID): Promise<Wishlist> {
-    return apiFetch<Wishlist>(apiEndpoints.wishlist, {
+  async removeItem(productId: ID): Promise<Wishlist> {
+    const wishlist = normalizeWishlist(await apiFetch<Wishlist>(apiEndpoints.wishlist, {
       method: "DELETE",
       body: { productId },
-    });
+    }));
+    await writeCountMirror(wishlist);
+    return wishlist;
   }
 }
 

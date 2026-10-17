@@ -1,11 +1,12 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import {
   addWishlistItemToCart,
   removeWishlistItem,
 } from "@/app/account/actions";
 import { SubmitButton } from "@/components/checkout";
+import { WishlistProductArtwork } from "@/components/account/WishlistProductArtwork";
 import { Card } from "@/components/ui";
+import { wishlistImageSource } from "@/lib/creative-hatti/wishlist";
 import { routes } from "@/lib/routes";
 import type { Product } from "@/lib/types";
 import { formatMoney } from "@/lib/utils";
@@ -21,20 +22,22 @@ export interface WishlistItemCardProps {
  * first offered tier) goes in, and the cart owns license changes.
  */
 export function WishlistItemCard({ product }: WishlistItemCardProps) {
-  const art = product.images[0]?.placeholder;
+  const cover = product.images.find((image) => wishlistImageSource(image));
+  const art = cover?.placeholder ?? product.images[0]?.placeholder;
   const license = product.licenses.includes("personal")
     ? "personal"
     : product.licenses[0];
 
   return (
     <Card className={styles.card}>
-      <span
+      <WishlistProductArtwork
+        image={cover}
+        title={product.title}
+        placeholderLabel={art?.label ?? "CH"}
+        placeholderHue={art?.hue ?? 150}
         className={styles.art}
-        style={{ "--ch-art-hue": art?.hue ?? 150 } as CSSProperties}
-        aria-hidden="true"
-      >
-        <span className={styles.monogram}>{art?.label ?? "CH"}</span>
-      </span>
+        imageClassName={styles.image}
+      />
       <div className={styles.body}>
         <p className={styles.title}>
           <Link href={routes.product(product.slug)}>{product.title}</Link>

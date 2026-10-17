@@ -68,10 +68,20 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       notice={notice}
       footer={
         wordpressAuth ? (
-          <span>
-            Need access to a classic-store purchase?{" "}
-            <Link href={routes.claimAccount()}>Claim your account</Link>
-          </span>
+          <>
+            <span>
+              New to Creative Hatti?{" "}
+              <Link href={routes.register(next)}>Create an account</Link>
+            </span>
+            <span>
+              Need access to a classic-store purchase?{" "}
+              <Link href={routes.claimAccount()}>Claim your account</Link>
+            </span>
+            <span>
+              Waiting for a verification email?{" "}
+              <Link href={routes.verifyEmail()}>Request another link</Link>
+            </span>
+          </>
         ) : (
           <>
             <span>
@@ -117,11 +127,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             />
             Keep me logged in
           </label>
-          {!wordpressAuth && (
-            <Link href={routes.forgotPassword()} className={styles.forgot}>
-              Forgot password?
-            </Link>
-          )}
+          <Link href={routes.forgotPassword()} className={styles.forgot}>
+            Forgot password?
+          </Link>
         </div>
         <SubmitButton fullWidth pendingLabel="Logging in…">
           Log in

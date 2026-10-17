@@ -15,6 +15,7 @@ interface WordPressLicense {
   product_url: string | null;
   product_available: boolean;
   status: string;
+  purchase_type: "order" | "legacy_payment" | "unavailable";
   purchase_id: number | null;
   purchase_number: string | null;
   activation_count: number;
@@ -52,6 +53,7 @@ class WordPressCustomerLicenseService implements CustomerLicenseService {
         id: String(license.id), productId: String(license.product_id),
         productTitle: decodeWordPressPlainText(license.product_title), productUrl: license.product_url,
         productAvailable: license.product_available, status: license.status,
+        purchaseType: license.purchase_type,
         purchaseId: license.purchase_id ? String(license.purchase_id) : null,
         purchaseNumber: license.purchase_number,
         activationCount: license.activation_count,

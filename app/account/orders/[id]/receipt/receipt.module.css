@@ -1,0 +1,105 @@
+.page {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ch-space-3);
+  margin-bottom: var(--ch-space-4);
+}
+
+.actions button {
+  min-height: 44px;
+  padding: var(--ch-space-2) var(--ch-space-4);
+  color: var(--ch-color-text);
+  background: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-md);
+  cursor: pointer;
+}
+
+.back { font-size: var(--ch-text-sm); }
+.title { font-size: var(--ch-text-2xl); }
+.muted { color: var(--ch-color-text-muted); }
+
+.sheet {
+  width: 100%;
+  min-width: 0;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: clamp(var(--ch-space-4), 4vw, var(--ch-space-8));
+  background: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-md);
+  box-shadow: var(--ch-shadow-sm);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ch-space-5);
+  padding-bottom: var(--ch-space-5);
+  border-bottom: 1px solid var(--ch-color-border);
+}
+
+.brand, .document { min-width: 0; }
+.brand { display: flex; flex-direction: column; gap: var(--ch-space-2); }
+.brand img { display: block; width: min(200px, 100%); height: auto; }
+.brand span, .muted, .document p { color: var(--ch-color-text-muted); font-size: var(--ch-text-sm); overflow-wrap: anywhere; }
+.document { text-align: right; }
+.document h1 { margin: 0 0 var(--ch-space-2); font-size: var(--ch-text-xl); }
+.document p { margin: var(--ch-space-1) 0 0; }
+
+.pendingNotice {
+  margin-top: var(--ch-space-4);
+  padding: var(--ch-space-3);
+  color: var(--ch-color-text);
+  background: var(--ch-color-surface-muted);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-sm);
+}
+
+.billing, .items, .payment, .refunds { margin-top: var(--ch-space-5); }
+.billing h2, .items h2, .payment h2, .refunds h2 { margin: 0 0 var(--ch-space-2); font-size: var(--ch-text-md); }
+.billing p, .payment p { margin: var(--ch-space-1) 0; overflow-wrap: anywhere; }
+.tableWrap { width: 100%; min-width: 0; overflow-x: auto; }
+.tableWrap table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tableWrap th, .tableWrap td { padding: var(--ch-space-3) var(--ch-space-2); border-bottom: 1px solid var(--ch-color-border); text-align: left; overflow-wrap: anywhere; }
+.tableWrap th:not(:first-child), .tableWrap td:not(:first-child) { text-align: right; }
+.tableWrap th:first-child, .tableWrap td:first-child { width: 46%; }
+.totals { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ch-space-2) var(--ch-space-4); margin: 0; }
+.totals dt { color: var(--ch-color-text-muted); }
+.totals dd { min-width: 0; margin: 0; text-align: right; overflow-wrap: anywhere; }
+.totalLabel, .totalValue { padding-top: var(--ch-space-2); border-top: 1px solid var(--ch-color-border); font-weight: var(--ch-weight-semibold); color: var(--ch-color-text) !important; }
+.reference { overflow-wrap: anywhere; font-family: var(--ch-font-mono); font-size: var(--ch-text-sm); }
+.refund { display: flex; justify-content: space-between; gap: var(--ch-space-3); padding: var(--ch-space-2) 0; border-bottom: 1px solid var(--ch-color-border); overflow-wrap: anywhere; }
+.footer { margin-top: var(--ch-space-6); padding-top: var(--ch-space-3); color: var(--ch-color-text-muted); border-top: 1px solid var(--ch-color-border); font-size: var(--ch-text-sm); }
+
+@media (max-width: 480px) {
+  .header { flex-direction: column; }
+  .document { text-align: left; }
+  .tableWrap th, .tableWrap td { padding: var(--ch-space-2) var(--ch-space-1); font-size: var(--ch-text-sm); }
+  .tableWrap th:first-child, .tableWrap td:first-child { width: 40%; }
+  .refund { flex-direction: column; }
+}
+
+@media print {
+  :global(body > div > header),
+  :global(body > div > footer),
+  :global(nav[aria-label="Breadcrumb"]),
+  :global(.ch-skip-link) {
+    display: none !important;
+  }
+  .actions { display: none !important; }
+  .page { max-width: none; }
+  .sheet { max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .tableWrap { overflow: visible; }
+  .tableWrap table { page-break-inside: auto; }
+  .tableWrap tr { page-break-inside: avoid; page-break-after: auto; }
+  .items, .billing, .payment, .refunds, .sheet > div { break-inside: avoid; }
+  @page { size: A4; margin: 16mm; }
+}

@@ -2,7 +2,7 @@ import "server-only";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import type { CustomerOrder } from "@/lib/types/customerOrder";
+import type { CustomerOrder, CustomerReceipt } from "@/lib/types/customerOrder";
 import type { Paginated, PaginationParams } from "@/lib/types/pagination";
 import { normalizePaginationParams } from "@/lib/utils";
 import { decodeWordPressPlainText } from "@/lib/creative-hatti/collections";
@@ -28,6 +28,15 @@ interface WordPressOrder {
   refunds: WordPressRefund[];
   adjustments: WordPressAdjustment[];
 }
+interface WordPressReceipt extends WordPressOrder {
+  document_type: "receipt" | "order_summary";
+  billing: {
+    name: string; email: string; address: string; address2: string;
+    city: string; region: string; postal_code: string; country: string;
+  };
+  transaction_reference: string;
+  coupon_codes: string[];
+}
 interface WordPressEnvelope<T> {
   success: boolean; data: T;
   pagination?: { page: number; page_size: number; total_items: number;
@@ -37,6 +46,7 @@ interface WordPressEnvelope<T> {
 export interface CustomerOrderService {
   list(params?: PaginationParams): Promise<Paginated<CustomerOrder>>;
   get(id: string): Promise<CustomerOrder | null>;
+  getReceipt(id: string): Promise<CustomerReceipt | null>;
 }
 
 function mapMoney(value: WordPressMoney) {
@@ -68,6 +78,25 @@ function mapOrder(order: WordPressOrder): CustomerOrder {
       tax: mapMoney(adjustment.tax),
       total: mapMoney(adjustment.total),
     })),
+  };
+}
+
+function mapReceipt(receipt: WordPressReceipt): CustomerReceipt {
+  return {
+    ...mapOrder(receipt),
+    documentType: receipt.document_type,
+    billing: {
+      name: decodeWordPressPlainText(receipt.billing.name),
+      email: receipt.billing.email,
+      address: decodeWordPressPlainText(receipt.billing.address),
+      address2: decodeWordPressPlainText(receipt.billing.address2),
+      city: decodeWordPressPlainText(receipt.billing.city),
+      region: decodeWordPressPlainText(receipt.billing.region),
+      postalCode: decodeWordPressPlainText(receipt.billing.postal_code),
+      country: decodeWordPressPlainText(receipt.billing.country),
+    },
+    transactionReference: receipt.transaction_reference,
+    couponCodes: receipt.coupon_codes.map(decodeWordPressPlainText),
   };
 }
 
@@ -107,6 +136,23 @@ class WordPressCustomerOrderService implements CustomerOrderService {
         },
       );
       return mapOrder(result.data);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async getReceipt(id: string): Promise<CustomerReceipt | null> {
+    if (!/^[1-9][0-9]{0,8}$/.test(id)) return null;
+    try {
+      const result = await apiFetch<WordPressEnvelope<WordPressReceipt>>(
+        apiEndpoints.customer.orderReceipt(id),
+        {
+          headers: await getWordPressSessionBridgeHeaders(),
+          cache: "no-store", redirect: "error", timeoutMs: 10_000,
+        },
+      );
+      return mapReceipt(result.data);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;

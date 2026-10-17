@@ -6,8 +6,11 @@ namespace EDD\Orders {
 		public $id; public $type = 'sale'; public $customer_id = 10; public $user_id = 0;
 		public $status = 'complete'; public $parent = 0; public $date_created = '2026-01-01 00:00:00';
 		public $currency = 'INR'; public $subtotal = 10; public $discount = 0; public $tax = 1; public $total = 11; public $gateway = 'test';
+		public $email = 'buyer@example.invalid'; public $billing_address = false; public $transaction_reference = 'txn-test-501';
 		public function __construct( $id, $customer_id = 10, $status = 'complete' ) { $this->id = $id; $this->customer_id = $customer_id; $this->status = $status; }
 		public function get_number() { return 'CH-' . $this->id; }
+		public function get_address() { return $this->billing_address; }
+		public function get_transaction_id() { return $this->transaction_reference; }
 	}
 	class Order_Item {
 		public $id; public $order_id; public $product_id; public $product_name; public $quantity = 1;
@@ -34,6 +37,7 @@ namespace {
 	function is_wp_error( $value ) { return $value instanceof WP_Error; }
 	function get_current_user_id() { return $GLOBALS['current_user_id']; }
 	function sanitize_text_field( $value ) { return strip_tags( (string) $value ); }
+	function sanitize_email( $value ) { return filter_var( (string) $value, FILTER_VALIDATE_EMAIL ) ? (string) $value : ''; }
 	function sanitize_key( $value ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $value ) ); }
 	function absint( $value ) { return abs( (int) $value ); }
 	function mysql_to_rfc3339( $value ) { return gmdate( 'c', strtotime( $value ) ); }
@@ -47,7 +51,10 @@ namespace {
 	}
 	function edd_get_order( $id ) { return $GLOBALS['order_by_id'][ (int) $id ] ?? false; }
 	function edd_get_order_items( $args ) { ++$GLOBALS['item_query_count']; return $GLOBALS['items']; }
-	function edd_get_order_adjustments( $args ) { $GLOBALS['adjustment_query_args'] = $args; return $GLOBALS['adjustments']; }
+	function edd_get_order_adjustments( $args ) {
+		$GLOBALS['adjustment_query_args'] = $args;
+		return isset( $args['type'] ) ? array_values( array_filter( $GLOBALS['adjustments'], static function ( $adjustment ) use ( $args ) { return $adjustment->type === $args['type']; } ) ) : $GLOBALS['adjustments'];
+	}
 	function edd_get_payment_gateways() { return array( 'test' => array( 'admin_label' => 'Test payment' ) ); }
 	function get_posts( $args ) { $GLOBALS['product_query_args'] = $args; return $GLOBALS['products']; }
 	function get_post_thumbnail_id( $post_id ) { return (int) $post_id === 123 ? 456 : 0; }
@@ -65,6 +72,9 @@ namespace {
 	$GLOBALS['customer'] = (object) array( 'id' => 10, 'user_id' => 55 );
 	$GLOBALS['total_orders'] = 2;
 	$GLOBALS['orders_page'] = array( new \EDD\Orders\Order( 501, 10 ), new \EDD\Orders\Order( 502, 10, 'pending' ) );
+	$GLOBALS['orders_page'][0]->billing_address = (object) array( 'name' => 'Test Customer', 'first_name' => 'Test', 'last_name' => 'Customer', 'address' => '12 Test Street', 'address2' => '', 'city' => 'Pune', 'region' => 'MH', 'postal_code' => '411001', 'country' => 'IN' );
+	$GLOBALS['orders_page'][1]->billing_address = false;
+	$GLOBALS['orders_page'][1]->transaction_reference = '';
 	$GLOBALS['order_by_id'] = array( 501 => $GLOBALS['orders_page'][0], 502 => $GLOBALS['orders_page'][1], 999 => new \EDD\Orders\Order( 999, 99 ) );
 	$GLOBALS['items'] = array( new \EDD\Orders\Order_Item( 1, 501, 123, 'Existing product' ), new \EDD\Orders\Order_Item( 2, 502, 777, '&lt;img src=x onerror=alert(1)&gt; Betty&#8217;s Cakes' ) );
 	$GLOBALS['products'] = array( (object) array( 'ID' => 123, 'post_name' => 'existing-product' ) );
@@ -72,15 +82,19 @@ namespace {
 	$refund = new \EDD\Orders\Order( 700, 10, 'complete' );
 	$refund->type = 'refund'; $refund->parent = 501; $refund->total = -5; $refund->date_created = '2026-01-02 00:00:00';
 	$GLOBALS['refunds'] = array( $refund );
-	$GLOBALS['adjustments'] = array( (object) array( 'object_id' => 501, 'type' => 'fee', 'subtotal' => 2, 'tax' => 0, 'total' => 2, 'description' => 'private text must not be returned' ) );
+	$GLOBALS['adjustments'] = array(
+		(object) array( 'object_id' => 501, 'type' => 'fee', 'subtotal' => 2, 'tax' => 0, 'total' => 2, 'description' => 'private text must not be returned' ),
+		(object) array( 'object_id' => 501, 'type' => 'discount', 'type_id' => 22, 'subtotal' => -1, 'tax' => 0, 'total' => -1, 'description' => 'SAVE10' ),
+	);
 	$GLOBALS['order_queries'] = array();
 	$GLOBALS['featured_image_ids'] = array();
 	$GLOBALS['item_query_count'] = 0;
 	$controller = new \CH_Orders_Controller( new \CH_Auth_Controller() );
 	$controller->register_routes();
-	check( isset( $GLOBALS['routes']['/customer/orders'] ) && isset( $GLOBALS['routes']['/customer/orders/(?P<order_id>[0-9]+)'] ), 'registers the list and detail routes' );
+	check( isset( $GLOBALS['routes']['/customer/orders'] ) && isset( $GLOBALS['routes']['/customer/orders/(?P<order_id>[0-9]+)'] ) && isset( $GLOBALS['routes']['/customer/orders/(?P<order_id>[0-9]+)/receipt'] ), 'registers the list, detail and receipt routes' );
 	$GLOBALS['session_valid'] = false;
 	check( is_wp_error( $GLOBALS['routes']['/customer/orders']['permission_callback']( new TestRequest() ) ), 'unauthenticated requests fail the session permission callback' );
+	check( is_wp_error( $GLOBALS['routes']['/customer/orders/(?P<order_id>[0-9]+)/receipt']['permission_callback']( new TestRequest() ) ), 'receipt endpoint requires the same authenticated session' );
 	$GLOBALS['session_valid'] = true;
 	check( true === $GLOBALS['routes']['/customer/orders']['permission_callback']( new TestRequest() ), 'a validated session passes the permission callback' );
 	check( $controller->validate_positive_integer( '1' ) && ! $controller->validate_positive_integer( '1.2' ), 'validates positive integer parameters' );
@@ -98,7 +112,7 @@ namespace {
 	check( 'https://media.example.test/456.jpg' === $list->data['data'][0]['items'][0]['thumbnail_url'] && array( 123 ) === $GLOBALS['featured_image_ids'], 'uses the product featured image full-size resolver' );
 	check( 'Betty’s Cakes' === $list->data['data'][1]['items'][0]['name'] && false === strpos( $list->data['data'][1]['items'][0]['name'], '<img' ), 'decodes stored entities while stripping decoded HTML from plain-text titles' );
 	check( 'Test payment' === $list->data['data'][0]['payment_method'], 'returns the safe gateway label only' );
-	check( 1 === count( $list->data['data'][0]['refunds'] ) && 1 === count( $list->data['data'][0]['adjustments'] ), 'returns native refund and adjustment summaries' );
+	check( 1 === count( $list->data['data'][0]['refunds'] ) && 2 === count( $list->data['data'][0]['adjustments'] ), 'returns native refund and adjustment summaries' );
 	check( ! isset( $list->data['data'][0]['adjustments'][0]['description'] ), 'omits adjustment descriptions that could contain internal text' );
 	check( ! isset( $list->data['data'][0]['email'] ) && ! isset( $list->data['data'][0]['payment_key'] ), 'does not expose customer identity or payment secrets' );
 	check( 'DESC' === $GLOBALS['order_queries'][0]['order'] && array_key_exists( 'date_created', $GLOBALS['order_queries'][0]['orderby'] ), 'orders are newest first with deterministic date and ID sort keys' );
@@ -111,6 +125,17 @@ namespace {
 	$pending_data = $pending->data['data'];
 	check( 200 === $pending->status && 'pending' === $pending_data['status'] && 502 === $pending_data['id'], 'returns pending order details without changing their status' );
 	check( 'CH-502' === $pending_data['number'] && ! empty( $pending_data['date'] ) && 1100 === $pending_data['total']['amount'] && 'INR' === $pending_data['total']['currency'] && 'Betty’s Cakes' === $pending_data['items'][0]['name'], 'returns the order number, date, total and decoded purchase snapshot for the detail view' );
+	$receipt = $controller->get_receipt( new TestRequest( array( 'order_id' => 501 ) ) );
+	$receipt_data = $receipt->data['data'];
+	check( 200 === $receipt->status && 'receipt' === $receipt_data['document_type'], 'returns a paid historical order as a receipt' );
+	check( 'Test Customer' === $receipt_data['billing']['name'] && 'buyer@example.invalid' === $receipt_data['billing']['email'] && '12 Test Street' === $receipt_data['billing']['address'], 'uses the EDD order billing snapshot' );
+	check( 'txn-test-501' === $receipt_data['transaction_reference'] && array( 'SAVE10' ) === $receipt_data['coupon_codes'], 'returns only the safe transaction reference and discount coupon code' );
+	check( 1000 === $receipt_data['subtotal']['amount'] && 1100 === $receipt_data['total']['amount'], 'receipt totals match authoritative EDD order values without recalculation' );
+	check( ! isset( $receipt_data['payment_key'] ) && ! isset( $receipt_data['billing']['payment_credentials'] ), 'receipt omits payment keys and credentials' );
+	$pending_receipt = $controller->get_receipt( new TestRequest( array( 'order_id' => 502 ) ) );
+	check( 200 === $pending_receipt->status && 'order_summary' === $pending_receipt->data['data']['document_type'] && '' === $pending_receipt->data['data']['billing']['name'] && '' === $pending_receipt->data['data']['transaction_reference'], 'handles incomplete legacy billing safely and marks pending orders as summaries' );
+	$other_receipt = $controller->get_receipt( new TestRequest( array( 'order_id' => 999 ) ) );
+	check( 404 === $other_receipt->status, 'receipt endpoint hides another customer order' );
 
 	$GLOBALS['customer'] = false;
 	$empty = $controller->list_orders( new TestRequest() );

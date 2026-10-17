@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui";
 import { SITE } from "@/lib/constants";
@@ -27,10 +26,10 @@ interface AccountProfilePageProps {
 export const dynamic = "force-dynamic";
 
 export default async function AccountProfilePage({ searchParams }: AccountProfilePageProps) {
+  const query = (await searchParams) ?? {};
+  const saved = query.saved === "1";
+  const error = Array.isArray(query.error) ? query.error[0] : query.error;
   if (isWordPressAuthEnabled()) {
-    const query = (await searchParams) ?? {};
-    const saved = query.saved === "1";
-    const error = Array.isArray(query.error) ? query.error[0] : query.error;
     let profile;
     try {
       profile = await getCustomerProfileService().get();
@@ -78,7 +77,17 @@ export default async function AccountProfilePage({ searchParams }: AccountProfil
     <div>
       <h1 className={styles.title}>Profile</h1>
       <p className={styles.lede}>How your account identifies you.</p>
+      {saved && <p role="status" className={styles.notice}>Profile saved.</p>}
+      {error && <p role="alert" className={styles.alert}>{error}</p>}
       <Card>
+        <form action={updateProfileAction} className={formStyles.form}>
+          <input type="hidden" name="returnTo" value="profile" />
+          <div className={formStyles.fields}>
+            <Input label="First name" name="firstName" type="text" autoComplete="given-name" required maxLength={200} defaultValue={user?.firstName ?? ""} />
+            <Input label="Last name" name="lastName" type="text" autoComplete="family-name" maxLength={200} defaultValue={user?.lastName ?? ""} />
+          </div>
+          <div><SubmitButton pendingLabel="Saving…">Save profile</SubmitButton></div>
+        </form>
         <dl className={styles.defs}>
           <dt>Name</dt>
           <dd>{displayName || "—"}</dd>
@@ -89,10 +98,7 @@ export default async function AccountProfilePage({ searchParams }: AccountProfil
         </dl>
       </Card>
       <p className={styles.note}>
-        <>
-            Profile editing arrives with the backend. To change your password,{" "}
-            <Link href={routes.forgotPassword()}>request a reset link</Link>.
-        </>
+        Changing your email requires a separate verification flow.
       </p>
     </div>
   );

@@ -1,0 +1,11 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-4);
+  margin-top: var(--ch-space-5);
+}
+
+.note {
+  color: var(--ch-color-text-muted);
+  line-height: 1.5;
+}

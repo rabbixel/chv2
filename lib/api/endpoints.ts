@@ -12,6 +12,7 @@ export const apiEndpoints = {
   },
   products: {
     list: "/products",
+    byId: (id: string) => `/products/${encodeURIComponent(id)}`,
     detail: (slug: string) => `/products/slug/${encodeURIComponent(slug)}`,
     related: (slug: string) =>
       `/products/slug/${encodeURIComponent(slug)}/related`,
@@ -54,6 +55,7 @@ export const apiEndpoints = {
     me: "/customer/me",
     orders: "/customer/orders",
     order: (id: string) => `/customer/orders/${encodeURIComponent(id)}`,
+    orderReceipt: (id: string) => `/customer/orders/${encodeURIComponent(id)}/receipt`,
     downloads: "/customer/downloads",
       licenses: "/customer/licenses",
       profile: "/customer/profile",
@@ -63,10 +65,11 @@ export const apiEndpoints = {
   },
   auth: {
     login: "/auth/login",
-    register: "/v1/auth/register",
+    register: "/auth/register",
+    verifyEmail: "/auth/verify-email",
     logout: "/auth/logout",
-    forgotPassword: "/v1/auth/forgot-password",
-    resetPassword: "/v1/auth/reset-password",
-    resendActivation: "/v1/auth/resend-activation",
+    forgotPassword: "/auth/forgot-password",
+    resetPassword: "/auth/reset-password",
+    resendActivation: "/auth/resend-activation",
   },
 } as const;

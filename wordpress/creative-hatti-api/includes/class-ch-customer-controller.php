@@ -185,6 +185,7 @@ final class CH_Customer_Controller {
 			$count   = $this->activation_count( $license );
 			$status  = sanitize_key( $license->status );
 			$expiry  = absint( $license->expiration );
+			$purchase = $this->purchase_reference( (int) $license->payment_id, (int) $license->customer_id, (int) $license->download_id );
 			if ( 'disabled' !== $status ) {
 				if ( $expiry && $expiry < current_time( 'timestamp', true ) ) {
 					$status = 'expired';
@@ -200,8 +201,9 @@ final class CH_Customer_Controller {
 				'product_url'      => $published ? '/product/' . rawurlencode( $product->post_name ) : null,
 				'product_available'=> (bool) $published,
 				'status'           => $status,
-				'purchase_id'      => (int) $license->payment_id,
-				'purchase_number'  => $this->purchase_number( (int) $license->payment_id ),
+				'purchase_type'   => $purchase['type'],
+				'purchase_id'     => $purchase['id'],
+				'purchase_number' => $purchase['number'],
 				'activation_count' => $count,
 				'activation_limit' => $limit > 0 ? $limit : null,
 				'expires_at'       => $expiry ? gmdate( 'c', $expiry ) : null,
@@ -213,12 +215,30 @@ final class CH_Customer_Controller {
 		return $rows;
 	}
 
-	private function purchase_number( $payment_id ) {
-		if ( ! $payment_id || ! function_exists( 'edd_get_order' ) ) {
-			return null;
+	private function purchase_reference( $payment_id, $customer_id, $product_id ) {
+		$unavailable = array( 'type' => 'unavailable', 'id' => null, 'number' => null );
+		if ( $payment_id < 1 ) {
+			return $unavailable;
 		}
-		$order = edd_get_order( $payment_id );
-		return $order && method_exists( $order, 'get_number' ) ? (string) $order->get_number() : (string) $payment_id;
+
+		if ( function_exists( 'edd_get_order' ) ) {
+			$order = edd_get_order( $payment_id );
+			if ( $order instanceof \EDD\Orders\Order && (int) $order->customer_id === $customer_id && method_exists( $order, 'get_number' ) && method_exists( $order, 'get_items' ) ) {
+				foreach ( (array) $order->get_items() as $item ) {
+					if ( is_object( $item ) && (int) $item->product_id === $product_id ) {
+						return array( 'type' => 'order', 'id' => (int) $order->id, 'number' => (string) $order->get_number() );
+					}
+				}
+			}
+		}
+
+		// EDD 2 stored payments as posts. Only label it as legacy after ruling
+		// out an owned EDD 3 order containing this licensed product.
+		if ( function_exists( 'get_post_type' ) && 'edd_payment' === get_post_type( $payment_id ) ) {
+			return array( 'type' => 'legacy_payment', 'id' => $payment_id, 'number' => (string) $payment_id );
+		}
+
+		return $unavailable;
 	}
 
 	/** Read entitlement limits directly through EDD SL APIs without constructing a license object (which backfills rows). */

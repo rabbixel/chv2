@@ -28,6 +28,7 @@ export const routes = {
   account: () => "/account",
   accountOrders: () => "/account/orders",
   accountOrder: (id: string) => `/account/orders/${encodeURIComponent(id)}`,
+  accountOrderReceipt: (id: string) => `/account/orders/${encodeURIComponent(id)}/receipt`,
   accountDownloads: () => "/account/downloads",
   accountProfile: () => "/account/profile",
   accountWishlist: () => "/account/wishlist",
@@ -38,12 +39,10 @@ export const routes = {
   register: (next?: string) =>
     next ? `/register?next=${encodeURIComponent(next)}` : "/register",
   forgotPassword: () => "/forgot-password",
+  verifyEmail: () => "/verify-email",
   claimAccount: () => "/claim-account",
   claimVerify: () => "/claim-account/verify",
-  resetPassword: (token?: string) =>
-    token
-      ? `/reset-password?token=${encodeURIComponent(token)}`
-      : "/reset-password",
+  resetPassword: () => "/reset-password",
   contact: () => "/contact",
   help: () => "/help",
   faqs: () => "/faqs",

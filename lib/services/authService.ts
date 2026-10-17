@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { AuthServiceUnavailableError, isTransientAuthFailure } from "@/lib/auth/availability.mjs";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import {
@@ -19,7 +20,8 @@ import type {
 
 export interface AuthService {
   login(input: LoginInput): Promise<AuthUser>;
-  register(input: RegisterInput): Promise<AuthUser>;
+  register(input: RegisterInput): Promise<{ verificationRequired: boolean }>;
+  verifyEmail(token: string): Promise<{ user: AuthUser; currentUserMatches: boolean }>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<AuthUser | null>;
   /** Internal identity context; the EDD customer id must stay server-side. */
@@ -74,6 +76,12 @@ interface WordPressIdentityResponse {
 interface WordPressClaimResponse {
   linked: boolean;
   session: WordPressLoginResponse["session"] | null;
+  user: WordPressProfile;
+}
+
+interface WordPressVerificationResponse {
+  session: WordPressLoginResponse["session"] | null;
+  current_user_matches: boolean;
   user: WordPressProfile;
 }
 
@@ -133,7 +141,7 @@ const LEGACY_EMAILS = new Set(["legacy@creativehatti.com"]);
 const MOCK_RESET_TOKEN = "mock-reset-token";
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 12;
 
 function sessionCookieOptions(remember: boolean) {
   return {
@@ -176,13 +184,13 @@ function wordPressAuthEnabled(): boolean {
 function bridgeHeaders(authorization?: string): Record<string, string> {
   const secret = process.env.CH_AUTH_BRIDGE_SECRET;
   if (!secret || secret.length < 32) {
-    throw new AuthError("validation", "Account sign-in is not configured.");
+    throw new AuthServiceUnavailableError();
   }
   if (
     process.env.NODE_ENV === "production" &&
     !process.env.CH_API_URL?.startsWith("https://")
   ) {
-    throw new AuthError("validation", "Account sign-in requires a secure connection.");
+    throw new AuthServiceUnavailableError();
   }
 
   return {
@@ -288,6 +296,11 @@ function splitName(name: string): { firstName: string; lastName: string } {
   };
 }
 
+function isStrongPassword(password: string): boolean {
+  return password.length >= MIN_PASSWORD_LENGTH && password.length <= 128 &&
+    [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(password)).length >= 3;
+}
+
 class MockAuthService implements AuthService {
   async login(input: LoginInput): Promise<AuthUser> {
     const email = input.email.trim().toLowerCase();
@@ -332,7 +345,7 @@ class MockAuthService implements AuthService {
     return user;
   }
 
-  async register(input: RegisterInput): Promise<AuthUser> {
+  async register(input: RegisterInput): Promise<{ verificationRequired: boolean }> {
     const name = input.name.trim();
     const email = input.email.trim().toLowerCase();
     if (name.length < 2) {
@@ -344,10 +357,10 @@ class MockAuthService implements AuthService {
         "That email address does not look right.",
       );
     }
-    if (input.password.length < MIN_PASSWORD_LENGTH) {
+    if (!isStrongPassword(input.password)) {
       throw new AuthError(
         "weak-password",
-        `Passwords need at least ${MIN_PASSWORD_LENGTH} characters.`,
+        "Use at least 12 characters with a mix of letter cases, numbers and symbols.",
       );
     }
     if (
@@ -356,10 +369,7 @@ class MockAuthService implements AuthService {
       LEGACY_EMAILS.has(email) ||
       userStore.has(email)
     ) {
-      throw new AuthError(
-        "email-taken",
-        "An account with this email already exists. Try logging in instead.",
-      );
+      return { verificationRequired: true };
     }
     const { firstName, lastName } = splitName(name);
     const user: AuthUser = {
@@ -372,7 +382,12 @@ class MockAuthService implements AuthService {
     userStore.set(email, user);
     MockAuthService.rememberPassword(email, input.password);
     await createSession(user.id, false);
-    return user;
+    return { verificationRequired: false };
+  }
+
+  async verifyEmail(token: string): Promise<{ user: AuthUser; currentUserMatches: boolean }> {
+    void token;
+    throw new AuthError("invalid-token", "This verification link is invalid or has expired.");
   }
 
   async logout(): Promise<void> {
@@ -449,10 +464,10 @@ class MockAuthService implements AuthService {
         "This reset link is not valid. Request a fresh one.",
       );
     }
-    if (input.password.length < MIN_PASSWORD_LENGTH) {
+    if (!isStrongPassword(input.password)) {
       throw new AuthError(
         "weak-password",
-        `Passwords need at least ${MIN_PASSWORD_LENGTH} characters.`,
+        "Use at least 12 characters with a mix of letter cases, numbers and symbols.",
       );
     }
   }
@@ -513,9 +528,19 @@ class ApiAuthService implements AuthService {
     return user;
   }
 
-  async register(input: RegisterInput): Promise<AuthUser> {
-    void input;
-    throw new AuthError("validation", "Account creation is not available yet.");
+  async register(input: RegisterInput): Promise<{ verificationRequired: boolean }> {
+    await apiFetch<AuthApiEnvelope<{ message: string }>>(apiEndpoints.auth.register, {
+      method: "POST", body: { ...input, frontend_origin: claimFrontendOrigin() }, headers: bridgeHeaders(), cache: "no-store", redirect: "error", timeoutMs: 10_000,
+    });
+    return { verificationRequired: true };
+  }
+
+  async verifyEmail(token: string): Promise<{ user: AuthUser; currentUserMatches: boolean }> {
+    const result = await apiFetch<AuthApiEnvelope<WordPressVerificationResponse>>(apiEndpoints.auth.verifyEmail, {
+      method: "POST", body: { token }, headers: bridgeHeaders(await readWordPressSession() ?? undefined), cache: "no-store", redirect: "error", timeoutMs: 10_000,
+    });
+    if (result.data.session) await storeWordPressSession(result.data.session, false);
+    return { user: fromWordPressProfile(result.data.user), currentUserMatches: result.data.current_user_matches };
   }
 
   async logout(): Promise<void> {
@@ -567,6 +592,32 @@ class ApiAuthService implements AuthService {
       };
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) return null;
+      if (error instanceof AuthServiceUnavailableError) {
+        console.error(`[auth-identity] request failed ${JSON.stringify({
+          endpoint: apiEndpoints.customer.me,
+          errorName: error.name,
+          code: error.code,
+        })}`);
+        throw error;
+      }
+      if (isTransientAuthFailure(error)) {
+        const candidate = typeof error === "object" && error !== null
+          ? error as { name?: unknown; code?: unknown; status?: unknown }
+          : null;
+        const code = typeof candidate?.code === "string" && /^[a-z0-9_-]{1,64}$/i.test(candidate.code)
+          ? candidate.code
+          : undefined;
+        const status = typeof candidate?.status === "number" && Number.isInteger(candidate.status)
+          ? candidate.status
+          : undefined;
+        console.error(`[auth-identity] request failed ${JSON.stringify({
+          endpoint: apiEndpoints.customer.me,
+          errorName: typeof candidate?.name === "string" ? candidate.name.slice(0, 80) : typeof error,
+          ...(code ? { code } : {}),
+          ...(status ? { status } : {}),
+        })}`);
+        throw new AuthServiceUnavailableError();
+      }
       throw error;
     }
   }
@@ -576,18 +627,22 @@ class ApiAuthService implements AuthService {
   }
 
   async forgotPassword(email: string): Promise<void> {
-    void email;
-    throw new AuthError("validation", "Password recovery is not available yet.");
+    await apiFetch<AuthApiEnvelope<{ message: string }>>(apiEndpoints.auth.forgotPassword, {
+      method: "POST", body: { email, frontend_origin: claimFrontendOrigin() }, headers: bridgeHeaders(), cache: "no-store", redirect: "error", timeoutMs: 10_000,
+    });
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<void> {
-    void input;
-    throw new AuthError("validation", "Password recovery is not available yet.");
+    const result = await apiFetch<AuthApiEnvelope<{ password_reset: boolean }>>(apiEndpoints.auth.resetPassword, {
+      method: "POST", body: input, headers: bridgeHeaders(), cache: "no-store", redirect: "error", timeoutMs: 10_000,
+    });
+    if (!result.data.password_reset) throw new AuthError("invalid-token", "This password reset link is invalid or has expired.");
   }
 
   async resendActivation(email: string): Promise<void> {
-    void email;
-    throw new AuthError("validation", "Account recovery is not available yet.");
+    await apiFetch<AuthApiEnvelope<{ message: string }>>(apiEndpoints.auth.resendActivation, {
+      method: "POST", body: { email, frontend_origin: claimFrontendOrigin() }, headers: bridgeHeaders(), cache: "no-store", redirect: "error", timeoutMs: 10_000,
+    });
   }
 
   async requestGuestClaim(email: string): Promise<void> {
@@ -688,6 +743,21 @@ export function isWordPressAuthEnabled(): boolean {
 export function toAuthError(error: unknown, fallback: string): AuthError {
   if (error instanceof AuthError) return error;
   if (error instanceof ApiError && typeof error.status === "number") {
+    if (error.code === "weak_password") {
+      return new AuthError("weak-password", error.message);
+    }
+    if (error.code === "invalid_name") {
+      return new AuthError("invalid-name", error.message);
+    }
+    if (error.code === "invalid_email") {
+      return new AuthError("invalid-email", error.message);
+    }
+    if (error.code === "expired_token") {
+      return new AuthError("expired-token", error.message);
+    }
+    if (error.code === "invalid_verification") {
+      return new AuthError("invalid-token", error.message);
+    }
     if (error.status === 401 || error.status === 403) {
       return new AuthError("invalid-credentials", fallback);
     }

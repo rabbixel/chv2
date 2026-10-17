@@ -1,4 +1,5 @@
 import NextImage from "next/image";
+import type { ComponentProps } from "react";
 import { isLocalWordPressMediaUrl } from "@/lib/creative-hatti/media";
 import type { ProductImage as ProductImageType } from "@/lib/types";
 
@@ -12,6 +13,8 @@ export interface ProductImageProps {
   /** Above-the-fold hero only — every other image lazy-loads. */
   priority?: boolean;
   decorative?: boolean;
+  /** Optional image-load fallback for cards that can render a placeholder. */
+  onError?: ComponentProps<typeof NextImage>["onError"];
 }
 
 /**
@@ -26,6 +29,7 @@ export function ProductImage({
   className,
   priority = false,
   decorative = false,
+  onError,
 }: ProductImageProps) {
   if (!image.url) return null;
   return (
@@ -37,6 +41,7 @@ export function ProductImage({
       sizes={sizes}
       priority={priority}
       className={className}
+      onError={onError}
       unoptimized={
         process.env.NODE_ENV !== "production" &&
         isLocalWordPressMediaUrl(image.url)

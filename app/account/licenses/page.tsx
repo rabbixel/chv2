@@ -5,6 +5,7 @@ import { Badge, Button, Card, EmptyState } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { licenseOrderLinkId } from "@/lib/customerLicensePresentation";
 import { getCustomerLicenseService, getLicenseService, isWordPressAuthEnabled } from "@/lib/services";
 import type { Paginated, CustomerLicense } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -120,7 +121,11 @@ function WordPressLicenses({ licenses }: { licenses: Paginated<CustomerLicense> 
                     </p>
                     {license.maskedKey && <p className={styles.mono}>{license.maskedKey}</p>}
                     <p className={styles.rowMeta}>
-                      {license.purchaseId && license.purchaseNumber ? <>Order <Link href={routes.accountOrder(license.purchaseId)}>{license.purchaseNumber}</Link></> : "Purchase reference unavailable"}
+                      {licenseOrderLinkId(license.purchaseType, license.purchaseId) && license.purchaseNumber
+                        ? <>Order <Link href={routes.accountOrder(licenseOrderLinkId(license.purchaseType, license.purchaseId)!)}>{license.purchaseNumber}</Link></>
+                        : license.purchaseType === "legacy_payment" && license.purchaseId
+                          ? `Legacy payment #${license.purchaseId}`
+                          : "Purchase reference unavailable"}
                       {license.activationLimit !== null ? ` · ${license.activationCount} of ${license.activationLimit} activations` : ` · ${license.activationCount} activations`}
                       {license.lifetime ? " · Lifetime" : license.expiresAt ? ` · Expires ${formatDate(license.expiresAt)}` : ""}
                     </p>
