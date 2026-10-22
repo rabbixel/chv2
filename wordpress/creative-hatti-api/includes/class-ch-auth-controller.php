@@ -428,11 +428,19 @@ final class CH_Auth_Controller {
 	}
 
 	private static function safe_profile( $user ) {
+		$phone = '';
+		if ( $user->ID && function_exists( 'edd_get_customer_by' ) && function_exists( 'edd_get_customer_meta' ) ) {
+			$customer = edd_get_customer_by( 'user_id', $user->ID );
+			if ( $customer && (int) $customer->user_id === (int) $user->ID ) {
+				$phone = sanitize_text_field( (string) edd_get_customer_meta( $customer->id, 'phone', true ) );
+			}
+		}
 		return array(
 			'id'         => (int) $user->ID,
 			'email'      => (string) $user->user_email,
 			'first_name' => (string) get_user_meta( $user->ID, 'first_name', true ),
 			'last_name'  => (string) get_user_meta( $user->ID, 'last_name', true ),
+			'phone'      => $phone,
 			'created_at' => (string) $user->user_registered,
 		);
 	}

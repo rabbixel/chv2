@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { EmptyState, Pagination } from "@/components/ui";
 import type { Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { CartStateProvider } from "@/components/cart/CartStateProvider";
 import { ProductCard } from "./ProductCard";
 import styles from "./ProductGrid.module.css";
 
@@ -59,13 +60,15 @@ export function ProductGrid({
           action={empty.action}
         />
       ) : (
-        <ul className={cn(styles.grid, masonry && styles.masonry)}>
-          {products.map((product) => (
-            <li key={product.id} className={styles.cell}>
-              <ProductCard product={product} titleAs={cardTitleAs} artworkPreview={artworkPreview} />
-            </li>
-          ))}
-        </ul>
+        <CartStateProvider>
+          <ul className={cn(styles.grid, masonry && styles.masonry)}>
+            {products.map((product) => (
+              <li key={product.id} className={styles.cell}>
+                <ProductCard product={product} titleAs={cardTitleAs} artworkPreview={artworkPreview} />
+              </li>
+            ))}
+          </ul>
+        </CartStateProvider>
       )}
       {pagination && pagination.totalPages > 1 && (
         <div className={styles.pagination}>

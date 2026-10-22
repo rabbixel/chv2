@@ -26,6 +26,12 @@ export interface CartItem {
   lineTotal: Money;
 }
 
+/** Persisted cart identity used by thumbnail controls; prices stay server-side. */
+export interface CartLineIdentity {
+  productId: ID;
+  priceId: number | null;
+}
+
 export interface Cart {
   id: ID;
   currency: CurrencyCode;

@@ -27,6 +27,7 @@ require_once CH_API_DIR . 'includes/class-ch-downloads-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-customer-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-cart-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-checkout-controller.php';
+require_once CH_API_DIR . 'includes/class-ch-payment-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-api.php';
 
 add_action(

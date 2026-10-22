@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { Button, Input } from "@/components/ui";
-import { SubmitButton } from "@/components/checkout";
 import type { Cart, CheckoutQuote } from "@/lib/types";
 import { routes } from "@/lib/routes";
 import { formatMoney } from "@/lib/utils";
+import { isValidPhoneNumber, PHONE_ERROR } from "@/lib/validation/phone";
+import { RazorpayCheckout, type RazorpayCheckoutHandle } from "./RazorpayCheckout";
 import { preparePendingOrder, quoteCheckout } from "./actions";
 import styles from "./page.module.css";
 
@@ -16,54 +17,137 @@ interface CheckoutFormProps {
   initialQuoteError?: string;
   initialName: string;
   initialEmail: string;
+  initialPhone: string;
   signedIn: boolean;
   idempotencyKey: string;
   preparedNumber?: string;
+  completedNumber?: string;
+}
+
+function sameQuote(left: CheckoutQuote | null, right: CheckoutQuote): boolean {
+  return Boolean(left && left.currency === right.currency &&
+    left.subtotal.amount === right.subtotal.amount &&
+    left.discount.amount === right.discount.amount &&
+    left.tax.amount === right.tax.amount &&
+    left.total.amount === right.total.amount &&
+    (left.discountCode ?? "") === (right.discountCode ?? ""));
 }
 
 export function CheckoutForm({
-  cart, initialQuote, initialQuoteError, initialName, initialEmail,
-  signedIn, idempotencyKey, preparedNumber,
+  cart, initialQuote, initialQuoteError, initialName, initialEmail, initialPhone,
+  signedIn, idempotencyKey, preparedNumber, completedNumber,
 }: CheckoutFormProps) {
   const [quote, setQuote] = useState(initialQuote);
   const [quoteError, setQuoteError] = useState(initialQuoteError ?? "");
+  const [quoteNotice, setQuoteNotice] = useState("");
   const [busy, startTransition] = useTransition();
+  const [submitting, setSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
   const [fullName, setFullName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
+  const [phone, setPhone] = useState(initialPhone || "+91 ");
   const [country, setCountry] = useState("IN");
   const [region, setRegion] = useState("");
   const [discountCode, setDiscountCode] = useState("");
+  const [activePreparedNumber, setActivePreparedNumber] = useState(preparedNumber ?? "");
+  const [activeCompletedNumber, setActiveCompletedNumber] = useState(completedNumber ?? "");
   const [nameTouched, setNameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const paymentRef = useRef<RazorpayCheckoutHandle>(null);
+
+  const currentPreparedNumber = activePreparedNumber || preparedNumber;
+  const currentCompletedNumber = activeCompletedNumber || completedNumber;
   const nameError = nameTouched && fullName.trim().length < 2 ? "Enter your full name." : undefined;
   const emailError = emailTouched && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) ? "Enter a valid email address." : undefined;
+  const phoneError = phoneTouched && !isValidPhoneNumber(phone) ? PHONE_ERROR : undefined;
 
   const updateTotals = () => {
     setQuoteError("");
+    setQuoteNotice("");
+    setPhoneTouched(true);
+    if (!isValidPhoneNumber(phone)) { setQuoteError(PHONE_ERROR); return; }
     startTransition(async () => {
-      const result = await quoteCheckout({ country, region, discountCode });
+      const result = await quoteCheckout({ country, region, phone, discountCode });
       if (result.quote) setQuote(result.quote);
       else setQuoteError(result.error ?? "Could not calculate totals.");
     });
   };
 
+  const submitCheckout = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting || busy || currentPreparedNumber || currentCompletedNumber) return;
+    setCheckoutError("");
+    setQuoteError("");
+    setQuoteNotice("");
+    setPhoneTouched(true);
+    if (!isValidPhoneNumber(phone)) { setQuoteError(PHONE_ERROR); return; }
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setSubmitting(true);
+    try {
+      // Recheck EDD pricing immediately before preparation so changed coupon or
+      // billing details cannot silently use an older displayed total.
+      const latest = await quoteCheckout({ country, region, phone, discountCode });
+      if (!latest.quote) {
+        setQuoteError(latest.error ?? "Could not calculate checkout totals.");
+        return;
+      }
+      if (!sameQuote(quote, latest.quote)) {
+        setQuote(latest.quote);
+        setQuoteNotice("Totals have been updated by EDD. Review the amount and click the checkout button again to continue.");
+        return;
+      }
+
+      const prepared = await preparePendingOrder(formData);
+      if (!prepared.order) {
+        setCheckoutError(prepared.error ?? "Could not prepare checkout. Please try again.");
+        return;
+      }
+      if (prepared.order.status === "complete") {
+        setActiveCompletedNumber(prepared.order.number);
+        window.history.replaceState(null, "", `${routes.checkout()}?completed=${encodeURIComponent(prepared.order.number)}`);
+        return;
+      }
+      if (prepared.order.total.currency !== latest.quote.total.currency || prepared.order.total.amount !== latest.quote.total.amount) {
+        setCheckoutError("EDD returned a different order total. Refresh checkout to review the current price before paying.");
+        return;
+      }
+
+      setActivePreparedNumber(prepared.order.number);
+      window.history.replaceState(null, "", `${routes.checkout()}?prepared=${encodeURIComponent(prepared.order.number)}`);
+      await paymentRef.current?.startCheckout(prepared.order.number);
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Checkout could not be prepared. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.layout}>
       <div className={styles.form}>
-        {!preparedNumber && <p className={styles.progress} aria-label="Checkout progress"><strong>1. Billing details</strong><span>2. Pending order</span></p>}
-        {preparedNumber ? (
+        {!currentPreparedNumber && !currentCompletedNumber && <p className={styles.progress} aria-label="Checkout progress"><strong>1. Billing details</strong><span>2. Secure payment</span></p>}
+        {currentCompletedNumber ? (
           <section className={styles.pendingNotice} role="status">
-            <h2 className={styles.sectionHeading}>Order prepared</h2>
-            <p>Order reference <strong>{preparedNumber}</strong> is pending. No payment has been taken and no downloads are available yet.</p>
-            <p>Payment will only be available after a verified payment step is implemented.</p>
+            <h2 className={styles.sectionHeading}>Free order complete</h2>
+            <p>Order reference <strong>{currentCompletedNumber}</strong> is complete. EDD has recorded the zero-value order and enabled its authorized download entitlements.</p>
+            <p>No payment was taken.</p>
+          </section>
+        ) : currentPreparedNumber ? (
+          <section className={styles.pendingNotice} role="status">
+            <h2 className={styles.sectionHeading}>Order ready for payment</h2>
+            <p>Order reference <strong>{currentPreparedNumber}</strong> is pending. Continue securely with Razorpay to pay; downloads remain unavailable until payment verification and fulfillment.</p>
           </section>
         ) : (
-          <form action={preparePendingOrder} className={styles.form} onInvalidCapture={() => { setNameTouched(true); setEmailTouched(true); }}>
+          <form onSubmit={submitCheckout} className={styles.form} onInvalidCapture={() => { setNameTouched(true); setEmailTouched(true); setPhoneTouched(true); }}>
             <section aria-labelledby="customer-information" className={styles.section}>
               <h2 id="customer-information" className={styles.sectionHeading}>Billing details</h2>
               <div className={styles.fields}>
                 <Input label="Billing name" name="fullName" autoComplete="name" autoCapitalize="words" required minLength={2} maxLength={120} value={fullName} error={nameError} onBlur={() => setNameTouched(true)} onChange={(event) => setFullName(event.target.value)} />
                 <Input label="Email" name="email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" required maxLength={254} value={email} readOnly={signedIn} error={emailError} onBlur={() => setEmailTouched(true)} onChange={(event) => setEmail(event.target.value)} hint={signedIn ? "Using the email on your signed-in account." : undefined} />
+                <Input label="Mobile phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" autoCapitalize="none" required maxLength={32} value={phone} error={phoneError} onBlur={() => setPhoneTouched(true)} onChange={(event) => setPhone(event.target.value)} hint="Include your country calling code, for example +91 98765 43210. No SMS verification is required." />
                 {quote?.taxesEnabled && <div className={styles.fieldRow}>
                   <Input label="Country code" name="country" autoComplete="country" required maxLength={2} value={country} onChange={(event) => setCountry(event.target.value.toUpperCase())} hint="Use the two-letter country code, for example IN." />
                   <Input label="State or region" name="region" autoComplete="address-level1" required maxLength={100} value={region} onChange={(event) => setRegion(event.target.value)} />
@@ -76,32 +160,30 @@ export function CheckoutForm({
                 <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
               </div>
               <div className={styles.quoteActions}>
-                <Button type="button" variant="secondary" onClick={updateTotals} loading={busy} disabled={busy}>Update totals</Button>
+                <Button type="button" variant="secondary" onClick={updateTotals} loading={busy} disabled={busy || submitting}>Update totals</Button>
               </div>
               {quoteError && <p role="alert" className={styles.error}>{quoteError}</p>}
+              {quoteNotice && <p role="status" className={styles.notice}>{quoteNotice}</p>}
+              {checkoutError && <p role="alert" className={styles.error}>{checkoutError}</p>}
             </section>
 
             <label className={styles.terms}>
               <input type="checkbox" name="terms" value="accepted" required className={styles.checkbox} />
               <span>I agree to the <Link href={routes.terms()}>Terms</Link> and <Link href={routes.privacy()}>Privacy Policy</Link>.</span>
             </label>
-            {quote?.total.amount === 0 ? (
-              <p role="alert" className={styles.error}>This order totals zero. It cannot be prepared as a paid pending order; free-order completion needs a separate verified flow.</p>
-            ) : (
-              <SubmitButton className={styles.mobileAction} size="lg" fullWidth pendingLabel="Preparing order…" disabled={!quote || Boolean(quoteError)}>Create pending order</SubmitButton>
-            )}
-            <p className={styles.methodHint}>Creating this pending order does not take payment or grant download access.</p>
+            <Button className={styles.mobileAction} type="submit" size="lg" fullWidth loading={submitting} disabled={!quote || Boolean(quoteError) || busy || submitting}>
+              {quote?.total.amount === 0 ? "Complete Free Order" : quote ? `Pay ${formatMoney(quote.total)} Securely` : "Checkout totals unavailable"}
+            </Button>
+            <p className={styles.methodHint}>{quote?.total.amount === 0
+              ? "EDD completes zero-value orders without Razorpay and grants only its normal download entitlements."
+              : "Your payment is processed securely by Razorpay. Downloads are enabled only after payment verification and fulfillment."}</p>
           </form>
         )}
+        {!currentCompletedNumber && <RazorpayCheckout ref={paymentRef} orderReference={currentPreparedNumber} name={fullName || initialName} email={email || initialEmail} phone={phone || initialPhone} />}
       </div>
 
       <aside className={styles.side} aria-label="Order summary">
-        <details className={styles.summaryDisclosure}>
-          <summary className={styles.summaryToggle}>
-            <span>Order summary</span>
-            <strong>{formatMoney(quote?.total ?? cart.total)}</strong>
-          </summary>
-          <section className={styles.summary}>
+        <section className={styles.summary}>
           <h2 className={styles.sectionHeading}>Order summary</h2>
           <ul className={styles.lines}>
             {cart.items.map((item) => <li key={item.key} className={styles.line}>
@@ -111,15 +193,14 @@ export function CheckoutForm({
               <span className={styles.linePrice}>{formatMoney(item.lineTotal)}</span>
             </li>)}
           </ul>
-          {quote ? <dl className={styles.totals}>
+          {quote ? <dl className={styles.totals} aria-live="polite">
             <div className={styles.totalRow}><dt>Subtotal</dt><dd>{formatMoney(quote.subtotal)}</dd></div>
             {quote.discount.amount > 0 && <div className={styles.totalRow}><dt>Discount{quote.discountCode ? ` (${quote.discountCode})` : ""}</dt><dd>−{formatMoney(quote.discount)}</dd></div>}
             <div className={styles.totalRow}><dt>Tax</dt><dd>{formatMoney(quote.tax)}</dd></div>
             <div className={`${styles.totalRow} ${styles.grandTotal}`}><dt>Total</dt><dd>{formatMoney(quote.total)}</dd></div>
-          </dl> : <p role="status">Checkout totals are being calculated by EDD.</p>}
-          <p className={styles.methodHint}>Digital products are delivered only after payment is verified and the order is completed.</p>
-          </section>
-        </details>
+          </dl> : <p role="status">{quoteError || "Checkout totals are being calculated by EDD."}</p>}
+          <p className={styles.methodHint}>Prices, discounts and totals are confirmed by EDD.</p>
+        </section>
       </aside>
     </div>
   );

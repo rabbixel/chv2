@@ -12,6 +12,7 @@ import type {
   PaginationParams,
 } from "@/lib/types";
 import { normalizePaginationParams, paginateItems } from "@/lib/utils";
+import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
 
 export interface CreateOrderInput {
   customer: OrderCustomer;
@@ -258,28 +259,35 @@ class MockOrderService implements OrderService {
   }
 }
 
+function decodeOrderTitles(order: Order): Order {
+  return { ...order, items: order.items.map((item) => ({ ...item, title: decodeHtmlEntities(item.title) })) };
+}
+
 class ApiOrderService implements OrderService {
-  listOrders(params: PaginationParams = {}): Promise<Paginated<Order>> {
+  async listOrders(params: PaginationParams = {}): Promise<Paginated<Order>> {
     const { page, pageSize } = normalizePaginationParams(params);
-    return apiFetch<Paginated<Order>>(apiEndpoints.orders.list, {
+    const result = await apiFetch<Paginated<Order>>(apiEndpoints.orders.list, {
       searchParams: { page, pageSize },
     });
+    return { ...result, items: result.items.map(decodeOrderTitles) };
   }
 
   async getOrderById(id: ID): Promise<Order | null> {
     try {
-      return await apiFetch<Order>(apiEndpoints.orders.detail(id));
+      const order = await apiFetch<Order>(apiEndpoints.orders.detail(id));
+      return decodeOrderTitles(order);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }
   }
 
-  createOrder(input: CreateOrderInput): Promise<Order> {
-    return apiFetch<Order>(apiEndpoints.checkout, {
+  async createOrder(input: CreateOrderInput): Promise<Order> {
+    const order = await apiFetch<Order>(apiEndpoints.checkout, {
       method: "POST",
       body: input,
     });
+    return decodeOrderTitles(order);
   }
 
   markOrderPaid(id: ID, reference: string): Promise<Order | null> {

@@ -5,7 +5,7 @@ import { apiEndpoints } from "@/lib/api/endpoints";
 import type { CustomerLicense } from "@/lib/types/customerLicense";
 import type { Paginated, PaginationParams } from "@/lib/types/pagination";
 import { normalizePaginationParams } from "@/lib/utils";
-import { decodeWordPressPlainText } from "@/lib/creative-hatti/collections";
+import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
 import { getWordPressSessionBridgeHeaders } from "./authService";
 
 interface WordPressLicense {
@@ -51,7 +51,7 @@ class WordPressCustomerLicenseService implements CustomerLicenseService {
     return {
       items: response.data.map((license) => ({
         id: String(license.id), productId: String(license.product_id),
-        productTitle: decodeWordPressPlainText(license.product_title), productUrl: license.product_url,
+        productTitle: decodeHtmlEntities(license.product_title), productUrl: license.product_url,
         productAvailable: license.product_available, status: license.status,
         purchaseType: license.purchase_type,
         purchaseId: license.purchase_id ? String(license.purchase_id) : null,

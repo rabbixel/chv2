@@ -64,3 +64,4 @@ export const WISHLIST_COUNT_EVENT = "ch:wishlist-count-change";
  * add-to-cart) with `{ count: number }` detail for the header badge.
  */
 export const CART_UPDATED_EVENT = "ch:cart-updated";
+export const CART_UPDATED_CHANNEL = "ch:cart-updated";

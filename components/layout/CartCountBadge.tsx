@@ -20,7 +20,16 @@ function readCountCookie(): number | null {
 
 function subscribeCount(onChange: () => void): () => void {
   window.addEventListener(CART_UPDATED_EVENT, onChange);
-  return () => window.removeEventListener(CART_UPDATED_EVENT, onChange);
+  const channel = typeof BroadcastChannel === "undefined"
+    ? null
+    : new BroadcastChannel("ch:cart-updated");
+  channel?.addEventListener("message", onChange);
+  window.addEventListener("focus", onChange);
+  return () => {
+    window.removeEventListener(CART_UPDATED_EVENT, onChange);
+    window.removeEventListener("focus", onChange);
+    channel?.close();
+  };
 }
 
 function LiveBadge({ initialCount }: CartCountBadgeProps) {

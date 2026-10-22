@@ -2,8 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.5rem;
+  height: 2.5rem;
   color: var(--ch-color-text-muted);
   background-color: rgb(255 255 255 / 0.94);
   border: 1px solid var(--ch-color-border);
@@ -36,9 +36,13 @@
   opacity: 0.7;
 }
 
+@media (max-width: 767px) {
+  .button { width: 2.75rem; height: 2.75rem; }
+}
+
 .error {
   position: absolute;
-  top: calc(var(--ch-space-2) + 2.5rem);
+  top: calc(var(--ch-space-2) + 2.75rem);
   right: var(--ch-space-2);
   z-index: 2;
   max-width: min(16rem, calc(100% - var(--ch-space-4)));

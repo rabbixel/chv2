@@ -37,13 +37,11 @@ final class CH_Checkout_Controller {
 
 	public function prepare( $request ) {
 		try {
-			$calculation = $this->calculate( $request, true );
+			// A completed zero-total coupon can become consumed before an identical
+			// retry. Defer validity enforcement until after the idempotency lookup.
+			$calculation = $this->calculate( $request, true, true );
 		} catch ( Exception $error ) {
 			return $this->private_response( CH_API::error( 'checkout_invalid', $error->getMessage(), 422 ) );
-		}
-
-		if ( $calculation['total'] <= 0 ) {
-			return $this->private_response( CH_API::error( 'zero_total_requires_review', 'Zero-total orders require a separate verified completion flow.', 422 ) );
 		}
 
 		$key = (string) $request->get_header( 'idempotency-key' );
@@ -57,20 +55,35 @@ final class CH_Checkout_Controller {
 		$digest = hash_hmac( 'sha256', $scope . '|' . strtolower( $key ), wp_salt( 'auth' ) );
 		$transient = 'ch_checkout_' . substr( $digest, 0, 40 );
 		$lock_name = 'ch_checkout_' . substr( $digest, 0, 48 );
+		$payload_digest = $this->checkout_payload_digest( $calculation );
 		$locked = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock_name ) );
 		if ( '1' !== (string) $locked ) {
 			return $this->private_response( CH_API::error( 'checkout_busy', 'Checkout is busy. Please retry shortly.', 503 ) );
 		}
 
 		try {
-			$existing_id = absint( get_transient( $transient ) );
+			$stored = get_transient( $transient );
+			$existing_id = absint( is_array( $stored ) ? ( $stored['order_id'] ?? 0 ) : $stored );
 			if ( $existing_id ) {
 				$existing = function_exists( 'edd_get_order' ) ? edd_get_order( $existing_id ) : false;
 				if ( $existing ) {
+					if ( ! is_array( $stored ) ) { return $this->private_response( CH_API::error( 'idempotency_payload_unverifiable', 'This checkout key predates payload verification. Refresh checkout and try again.', 409 ) ); }
+					if ( is_array( $stored ) && ! hash_equals( (string) ( $stored['payload_digest'] ?? '' ), $payload_digest ) ) {
+						return $this->private_response( CH_API::error( 'idempotency_payload_mismatch', 'This checkout key was already used with different checkout details.', 409 ) );
+					}
+					if ( 0.0 === (float) $calculation['total'] && 0.0 === (float) $existing->total && in_array( $existing->status, array( 'pending', 'complete' ), true ) ) {
+						$order = 'pending' === $existing->status ? $this->complete_zero_total_order( $existing_id ) : $existing;
+						if ( ! $order ) { return $this->private_response( CH_API::error( 'zero_total_completion_failed', 'The free order could not be completed. Retry checkout with the same key.', 503 ) ); }
+						return $this->private_response( CH_API::success( $this->order_payload( $order, false ) ) );
+					}
 					if ( 'pending' !== $existing->status ) { return $this->private_response( CH_API::error( 'order_already_advanced', 'This order has already moved beyond pending.', 409 ) ); }
 					return $this->private_response( CH_API::success( $this->order_payload( $existing, false ) ) );
 				}
 				delete_transient( $transient );
+			}
+
+			if ( '' !== $calculation['discount_code'] && ! $this->is_discount_valid_for_cart( $calculation['discount_code'], $calculation['discount_user'], $calculation['cart_items'] ) ) {
+				return $this->private_response( CH_API::error( 'checkout_invalid', 'The discount code is unavailable or not eligible.', 422 ) );
 			}
 
 			if ( false === $wpdb->query( 'START TRANSACTION' ) ) { throw new RuntimeException( 'Could not start checkout transaction.' ); }
@@ -80,7 +93,7 @@ final class CH_Checkout_Controller {
 			$order_id = edd_add_order( array(
 				'type' => 'sale', 'status' => 'pending', 'user_id' => $user_id,
 				'customer_id' => $customer_id, 'email' => $calculation['billing']['email'],
-				'gateway' => '', 'mode' => function_exists( 'edd_is_test_mode' ) && edd_is_test_mode() ? 'test' : 'live',
+				'gateway' => 0.0 === (float) $calculation['total'] ? 'manual' : '', 'mode' => function_exists( 'edd_is_test_mode' ) && edd_is_test_mode() ? 'test' : 'live',
 				'currency' => edd_get_currency(), 'payment_key' => edd_generate_order_payment_key( $calculation['billing']['email'] ),
 				'order_number' => function_exists( 'edd_set_order_number' ) ? edd_set_order_number() : '',
 				'tax_rate_id' => $calculation['tax_rate_id'], 'subtotal' => $calculation['subtotal'],
@@ -109,6 +122,16 @@ final class CH_Checkout_Controller {
 				) );
 				if ( ! $adjustment_id ) { throw new RuntimeException( 'Could not record the checkout discount.' ); }
 			}
+			if ( ! function_exists( 'edd_update_order_meta' ) || ! edd_update_order_meta( $order_id, '_edd_phone', $calculation['billing']['phone'] ) ) {
+				throw new RuntimeException( 'Could not save the validated phone number.' );
+			}
+			if ( function_exists( 'edd_update_customer_meta' ) ) {
+				edd_update_customer_meta( $customer_id, 'phone', $calculation['billing']['phone'] );
+			}
+			if ( 0.0 === (float) $calculation['total'] ) {
+				if ( ! function_exists( 'edd_update_order_meta' ) ) { throw new RuntimeException( 'EDD cannot record free-order metadata.' ); }
+				edd_update_order_meta( $order_id, 'ch_checkout_type', 'zero_total' );
+			}
 
 			$billing = $calculation['billing'];
 			$address_id = edd_add_order_address( array(
@@ -121,9 +144,19 @@ final class CH_Checkout_Controller {
 
 			$customer = edd_get_customer( $customer_id );
 			if ( ! $customer || ! $customer->attach_payment( $order_id, false ) ) { throw new RuntimeException( 'Could not link the pending order.' ); }
-			if ( ! set_transient( $transient, (int) $order_id, 2 * DAY_IN_SECONDS ) ) { throw new RuntimeException( 'Could not save checkout idempotency state.' ); }
+			if ( (float) $calculation['total'] > 0 ) {
+				$payment_token = bin2hex( random_bytes( 32 ) );
+				if ( ! function_exists( 'edd_update_order_meta' ) || ! edd_update_order_meta( $order_id, 'ch_payment_authorization_hash', hash( 'sha256', $payment_token ) ) || ! set_transient( 'ch_pay_auth_' . (int) $order_id, $payment_token, 2 * DAY_IN_SECONDS ) ) {
+					throw new RuntimeException( 'Could not authorize payment setup.' );
+				}
+			}
+			if ( ! set_transient( $transient, array( 'order_id' => (int) $order_id, 'payload_digest' => $payload_digest ), 2 * DAY_IN_SECONDS ) ) { throw new RuntimeException( 'Could not save checkout idempotency state.' ); }
 			if ( false === $wpdb->query( 'COMMIT' ) ) { throw new RuntimeException( 'Could not commit pending order.' ); }
 			$order = edd_get_order( $order_id );
+			if ( 0.0 === (float) $calculation['total'] ) {
+				$order = $this->complete_zero_total_order( $order_id );
+				if ( ! $order ) { return $this->private_response( CH_API::error( 'zero_total_completion_failed', 'The free order could not be completed. Retry checkout with the same key.', 503 ) ); }
+			}
 			return $this->private_response( CH_API::success( $this->order_payload( $order, true ), 201 ) );
 		} catch ( Throwable $error ) {
 			$wpdb->query( 'ROLLBACK' );
@@ -133,7 +166,7 @@ final class CH_Checkout_Controller {
 		}
 	}
 
-	private function calculate( $request, $require_identity ) {
+	private function calculate( $request, $require_identity, $defer_discount_validation = false ) {
 		if ( ! function_exists( 'edd_add_order' ) || ! function_exists( 'edd_add_order_item' ) || ! function_exists( 'edd_add_order_address' ) ) {
 			throw new RuntimeException( 'EDD checkout is unavailable.', 503 );
 		}
@@ -160,7 +193,7 @@ final class CH_Checkout_Controller {
 		}
 
 		$billing = array(
-			'full_name' => '', 'email' => '', 'country' => $country, 'region' => $region,
+			'full_name' => '', 'email' => '', 'phone' => '', 'country' => $country, 'region' => $region,
 			'address' => '', 'city' => '', 'postal_code' => '',
 		);
 		if ( $require_identity ) {
@@ -176,26 +209,28 @@ final class CH_Checkout_Controller {
 			if ( strlen( $name ) < 2 || strlen( $name ) > 120 || ! is_email( $email ) || strlen( $email ) > 254 ) { throw new RuntimeException( 'Enter a valid billing name and email.' ); }
 			$billing['full_name'] = $name;
 			$billing['email'] = $email;
+			$billing['phone'] = $this->validated_phone( $billing_input['phone'] ?? '', true );
 			foreach ( array( 'address' => 'address', 'city' => 'city', 'postal_code' => 'postal_code' ) as $key => $source ) {
 				$value = sanitize_text_field( (string) ( $billing_input[ $source ] ?? '' ) );
 				if ( strlen( $value ) > 190 ) { throw new RuntimeException( 'Billing details are too long.' ); }
 				$billing[ $key ] = $value;
 			}
+		} elseif ( '' !== trim( (string) ( $billing_input['phone'] ?? '' ) ) ) {
+			$billing['phone'] = $this->validated_phone( $billing_input['phone'], false );
 		}
 
 		$discount_code = strtoupper( sanitize_text_field( (string) $request->get_param( 'discount_code' ) ) );
 		if ( strlen( $discount_code ) > 64 ) { throw new RuntimeException( 'The discount code is invalid.' ); }
-		$discount = false;
-		if ( '' !== $discount_code ) {
-			$discount = function_exists( 'edd_get_discount_by_code' ) ? edd_get_discount_by_code( $discount_code ) : false;
-			$discount_user = get_current_user_id() ? get_current_user_id() : ( $billing['email'] ?: '' );
-			if ( ! $discount || ! function_exists( 'edd_is_discount_valid' ) || ! edd_is_discount_valid( $discount_code, $discount_user, false ) ) { throw new RuntimeException( 'The discount code is unavailable or not eligible.' ); }
-		}
-
 		$cart_items = array();
 		foreach ( $validated as $item ) {
 			$options = null === $item['price_id'] ? array() : array( 'price_id' => (int) $item['price_id'] );
 			$cart_items[] = array( 'id' => (int) $item['product_id'], 'options' => $options, 'quantity' => (int) $item['quantity'] );
+		}
+		$discount = false;
+		if ( '' !== $discount_code ) {
+			$discount = function_exists( 'edd_get_discount_by_code' ) ? edd_get_discount_by_code( $discount_code ) : false;
+			$discount_user = get_current_user_id() ? get_current_user_id() : ( $billing['email'] ?: '' );
+			if ( ! $discount || ! function_exists( 'edd_is_discount_valid' ) || ( ! $defer_discount_validation && ! $this->is_discount_valid_for_cart( $discount_code, $discount_user, $cart_items ) ) ) { throw new RuntimeException( 'The discount code is unavailable or not eligible.' ); }
 		}
 
 		$rate = $taxes_enabled && function_exists( 'edd_get_tax_rate' ) ? (float) edd_get_tax_rate( $country, $region, true ) : 0.0;
@@ -228,7 +263,35 @@ final class CH_Checkout_Controller {
 			'tax' => $tax_total, 'total' => $total, 'tax_rate_id' => $tax_rate_id,
 			'taxes_enabled' => (bool) $taxes_enabled, 'discount_code' => $discount_total > 0 ? $discount_code : '',
 			'discount_object' => $discount_total > 0 ? $discount : false, 'billing' => $billing,
+			'cart_items' => $cart_items, 'discount_user' => $discount_user ?? '',
 		);
+	}
+
+	/** Return a validated E.164 phone number, applying national rules for common regions. */
+	private function validated_phone( $value, $required ) {
+		$raw = sanitize_text_field( (string) $value );
+		$phone = preg_replace( '/[\s().-]/', '', $raw );
+		if ( '' === $phone && ! $required ) { return ''; }
+		if ( ! preg_match( '/^\+[1-9][0-9]{7,14}$/', $phone ) ) {
+			throw new RuntimeException( 'Enter a valid phone number with country code, such as +91 98765 43210.' );
+		}
+		$digits = substr( $phone, 1 );
+		$national = static function ( $calling_code ) use ( $digits ) { return substr( $digits, strlen( $calling_code ) ); };
+		$valid = true;
+		if ( 0 === strpos( $digits, '91' ) ) { $valid = (bool) preg_match( '/^[6-9][0-9]{9}$/', $national( '91' ) ); }
+		elseif ( 0 === strpos( $digits, '1' ) ) { $valid = (bool) preg_match( '/^[2-9][0-9]{2}[2-9][0-9]{6}$/', $national( '1' ) ); }
+		elseif ( 0 === strpos( $digits, '44' ) ) { $valid = (bool) preg_match( '/^[0-9]{9,10}$/', $national( '44' ) ); }
+		elseif ( 0 === strpos( $digits, '61' ) ) { $valid = (bool) preg_match( '/^[0-9]{9}$/', $national( '61' ) ); }
+		elseif ( 0 === strpos( $digits, '65' ) ) { $valid = (bool) preg_match( '/^[6-9][0-9]{7}$/', $national( '65' ) ); }
+		elseif ( 0 === strpos( $digits, '971' ) ) { $valid = (bool) preg_match( '/^[0-9]{9}$/', $national( '971' ) ); }
+		elseif ( 0 === strpos( $digits, '64' ) ) { $valid = (bool) preg_match( '/^[0-9]{8,10}$/', $national( '64' ) ); }
+		elseif ( 0 === strpos( $digits, '33' ) ) { $valid = (bool) preg_match( '/^[0-9]{9}$/', $national( '33' ) ); }
+		elseif ( 0 === strpos( $digits, '49' ) ) { $valid = (bool) preg_match( '/^[0-9]{7,13}$/', $national( '49' ) ); }
+		elseif ( 0 === strpos( $digits, '81' ) ) { $valid = (bool) preg_match( '/^[0-9]{9,10}$/', $national( '81' ) ); }
+		elseif ( 0 === strpos( $digits, '55' ) ) { $valid = (bool) preg_match( '/^[0-9]{10,11}$/', $national( '55' ) ); }
+		else { $valid = strlen( $digits ) >= 8 && strlen( $digits ) <= 15; }
+		if ( ! $valid ) { throw new RuntimeException( 'Enter a valid phone number for its country code.' ); }
+		return $phone;
 	}
 
 	private function quote_payload( $calculation ) {
@@ -242,6 +305,36 @@ final class CH_Checkout_Controller {
 			'discount_code' => $calculation['discount_code'],
 			'taxes_enabled' => $calculation['taxes_enabled'],
 		);
+	}
+
+	private function checkout_payload_digest( $calculation ) {
+		$payload = array(
+			'items' => $calculation['items'],
+			'discount_code' => $calculation['discount_code'],
+			'billing' => $calculation['billing'],
+			'currency' => edd_get_currency(),
+		);
+		return hash( 'sha256', wp_json_encode( $payload ) );
+	}
+
+	private function is_discount_valid_for_cart( $code, $user, $items ) {
+		if ( ! function_exists( 'EDD' ) || ! is_object( EDD()->cart ) || ! isset( EDD()->cart->contents ) ) {
+			return edd_is_discount_valid( $code, $user, false );
+		}
+
+		$cart = EDD()->cart;
+		$original_contents = $cart->contents;
+		$original_details = $cart->details;
+		$cart->contents = $items;
+		$cart->details = array();
+		if ( method_exists( $cart, 'invalidate_cache' ) ) { $cart->invalidate_cache(); }
+		try {
+			return edd_is_discount_valid( $code, $user, false );
+		} finally {
+			$cart->contents = $original_contents;
+			$cart->details = $original_details;
+			if ( method_exists( $cart, 'invalidate_cache' ) ) { $cart->invalidate_cache(); }
+		}
 	}
 
 	private function resolve_customer( $billing, $user_id ) {
@@ -258,13 +351,31 @@ final class CH_Checkout_Controller {
 	}
 
 	private function order_payload( $order, $created ) {
+		$payment_allowed = 'pending' === $order->status && (float) $order->total > 0;
+		$payment_token_hash = $payment_allowed && function_exists( 'edd_get_order_meta' ) ? edd_get_order_meta( $order->id, 'ch_payment_authorization_hash', true ) : '';
+		$payment_token = $payment_allowed && function_exists( 'get_transient' ) ? get_transient( 'ch_pay_auth_' . (int) $order->id ) : '';
+		if ( ! $payment_token_hash ) { $payment_token = ''; }
 		return array(
 			'id' => (int) $order->id,
 			'number' => (string) $order->get_number(),
-			'status' => 'pending',
+			'status' => (string) $order->status,
 			'total' => $this->money( $order->total, $order->currency ),
 			'created' => (bool) $created,
+			// This response is consumed only by the Next.js server BFF, never by UI.
+			'payment_authorization_token' => $payment_token,
 		);
+	}
+
+	/** Complete a zero-value order through EDD's native free-purchase status flow. */
+	private function complete_zero_total_order( $order_id ) {
+		if ( ! function_exists( 'edd_get_order' ) || ! function_exists( 'edd_update_payment_status' ) ) { return false; }
+		$order = edd_get_order( $order_id );
+		if ( ! $order || 'sale' !== $order->type || 0.0 !== (float) $order->total ) { return false; }
+		if ( 'complete' === $order->status ) { return $order; }
+		if ( 'pending' !== $order->status || 'manual' !== $order->gateway ) { return false; }
+		if ( ! edd_update_payment_status( $order_id, 'complete' ) ) { return false; }
+		$order = edd_get_order( $order_id );
+		return $order && 'complete' === $order->status && 0.0 === (float) $order->total ? $order : false;
 	}
 
 	private function money( $amount, $currency ) {

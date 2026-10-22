@@ -5,6 +5,7 @@ import {
   CartLicenseSelect,
   CartSummary,
 } from "@/components/cart";
+import { CartRemoveButton } from "@/components/cart/CartRemoveButton";
 import { SubmitButton } from "@/components/checkout";
 import { WishlistButton } from "@/components/product";
 import { Button, EmptyState } from "@/components/ui";
@@ -13,7 +14,7 @@ import { routes } from "@/lib/routes";
 import { getCartService, getProductService } from "@/lib/services";
 import type { Product } from "@/lib/types";
 import { formatMoney } from "@/lib/utils";
-import { clearCart, removeFromCart } from "./actions";
+import { clearCart } from "./actions";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -101,16 +102,11 @@ export default async function CartPage({ searchParams }: CartPageProps) {
                 )}
                 actions={
                   <div className={styles.lineActions}>
-                    <form action={removeFromCart}>
-                      <input type="hidden" name="key" value={item.key} />
-                      <button
-                        type="submit"
-                        className={styles.remove}
-                        aria-label={`Remove ${item.title} from cart`}
-                      >
-                        Remove
-                      </button>
-                    </form>
+                    <CartRemoveButton
+                      itemKey={item.key}
+                      className={styles.remove}
+                      label={`Remove ${item.title} from cart`}
+                    />
                     <WishlistButton
                       productId={item.productId}
                       productTitle={item.title}

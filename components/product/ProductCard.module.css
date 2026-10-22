@@ -80,10 +80,15 @@
   pointer-events: none;
 }
 
-.wishlist {
+.actions {
   position: absolute;
   top: var(--ch-space-2);
   right: var(--ch-space-2);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ch-space-2);
 }
 
 .body {

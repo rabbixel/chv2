@@ -3,6 +3,7 @@ import type { Money } from "./common";
 export interface CheckoutBilling {
   fullName: string;
   email: string;
+  phone: string;
   country: string;
   region: string;
   address?: string;
@@ -20,10 +21,14 @@ export interface CheckoutQuote {
   taxesEnabled: boolean;
 }
 
-export interface PendingCheckoutOrder {
+export interface PreparedCheckoutOrder {
   id: string;
   number: string;
-  status: "pending";
+  status: "pending" | "complete";
   total: Money;
   created: boolean;
+  /** Server-only capability, consumed into an HttpOnly cookie by the BFF. */
+  payment_authorization_token?: string;
 }
+
+export type PendingCheckoutOrder = PreparedCheckoutOrder;

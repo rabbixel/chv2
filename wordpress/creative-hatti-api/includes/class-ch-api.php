@@ -68,6 +68,7 @@ final class CH_API {
 	private $customer_controller;
 	private $cart_controller;
 	private $checkout_controller;
+	private $payment_controller;
 
 	/**
 	 * Get singleton.
@@ -97,6 +98,7 @@ final class CH_API {
 		$this->customer_controller = new CH_Customer_Controller( $this->auth_controller );
 		$this->cart_controller = new CH_Cart_Controller( $this->auth_controller );
 		$this->checkout_controller = new CH_Checkout_Controller( $this->auth_controller, $this->cart_controller );
+		$this->payment_controller = new CH_Payment_Controller( $this->auth_controller );
 
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 		add_filter( 'rest_pre_serve_request', array( $this, 'maybe_send_cors_headers' ), 10, 4 );
@@ -118,6 +120,7 @@ final class CH_API {
 		$this->customer_controller->register_routes();
 		$this->cart_controller->register_routes();
 		$this->checkout_controller->register_routes();
+		$this->payment_controller->register_routes();
 	}
 
 	/**

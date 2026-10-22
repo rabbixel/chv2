@@ -55,6 +55,8 @@ export interface ProductService {
   listProducts(params?: ProductListParams): Promise<Paginated<Product>>;
   getProductById(id: string): Promise<Product | null>;
   getProductBySlug(slug: Slug): Promise<Product | null>;
+  /** Fresh product/variation data for server-side cart mutations. */
+  getProductForQuickAdd(slug: Slug): Promise<Product | null>;
   listRelatedProducts(slug: Slug, limit?: number): Promise<Product[]>;
   listFeaturedProducts(limit?: number): Promise<Product[]>;
   listBestsellers(limit?: number): Promise<Product[]>;
@@ -122,6 +124,10 @@ class MockProductService implements ProductService {
 
   async getProductBySlug(slug: Slug): Promise<Product | null> {
     return products.find((product) => product.slug === slug) ?? null;
+  }
+
+  async getProductForQuickAdd(slug: Slug): Promise<Product | null> {
+    return this.getProductBySlug(slug);
   }
 
   async getProductById(id: string): Promise<Product | null> {
@@ -232,6 +238,19 @@ class ApiProductService implements ProductService {
       );
       const selected = await selectGalleryImages(enrichedImages, loadImageForComparison);
       return { ...product, images: selected.images };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async getProductForQuickAdd(slug: Slug): Promise<Product | null> {
+    try {
+      const result = await apiFetch<ChApiEnvelope<ChApiProductDetail>>(
+        apiEndpoints.products.detail(slug),
+        { cache: "no-store", redirect: "error", timeoutMs: 10_000 },
+      );
+      return productFromApi(result.data);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;

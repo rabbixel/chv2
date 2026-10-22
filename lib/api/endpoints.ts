@@ -42,6 +42,8 @@ export const apiEndpoints = {
   checkout: "/v1/checkout",
   checkoutQuote: "/checkout/quote",
   checkoutPrepare: "/checkout/prepare",
+  razorpayOrderCreate: "/payment/razorpay/order",
+  razorpayPaymentVerify: "/payment/razorpay/verify",
   orders: {
     list: "/v1/orders",
     detail: (id: string) => `/v1/orders/${encodeURIComponent(id)}`,

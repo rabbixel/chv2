@@ -11,7 +11,7 @@ namespace {
 	class FakeAuth { public function bridge_permission( $request ) { return $GLOBALS['bridge_ok'] ? true : new WP_Error( 'bridge' ); } public function session_permission( $request ) { return $GLOBALS['session_ok'] ? true : new WP_Error( 'session' ); } }
 	class FakeCart { public function validate( $request ) { if ( $GLOBALS['cart_unavailable'] ) { return new WP_REST_Response( array( 'success' => false ), 422 ); } return new WP_REST_Response( array( 'success' => true, 'data' => array( 'items' => $GLOBALS['cart_items'] ) ) ); } }
 	class FakeCustomer { public $id; public $user_id; public function __construct( $id, $user_id = 0 ) { $this->id = $id; $this->user_id = $user_id; } public function attach_payment( $id, $update = false ) { $GLOBALS['customer_orders'][] = array( $this->id, $id, $update ); return true; } }
-	class FakeOrder { public $id; public $status = 'pending'; public $total; public $currency = 'INR'; public function __construct( $id, $total ) { $this->id = $id; $this->total = $total; } public function get_number() { return 'T' . $this->id; } }
+	class FakeOrder { public $id; public $type = 'sale'; public $status = 'pending'; public $total; public $currency = 'INR'; public $gateway; public function __construct( $id, $data ) { $this->id = $id; $this->total = $data['total']; $this->gateway = $data['gateway']; } public function get_number() { return 'T' . $this->id; } }
 	class FakeWpdb { public function prepare( $query, ...$args ) { return array( $query, $args ); } public function get_var( $prepared ) { return false !== strpos( $prepared[0], 'GET_LOCK' ) ? '1' : '1'; } public function query( $sql ) { $GLOBALS['transactions'][] = $sql; return false === strpos( $sql, 'FAIL' ); } }
 	$GLOBALS['wpdb'] = new FakeWpdb();
 	function register_rest_route( $ns, $route, $args ) { $GLOBALS['routes'][ $route ] = $args; }
@@ -21,14 +21,19 @@ namespace {
 	function sanitize_email( $value ) { return filter_var( (string) $value, FILTER_SANITIZE_EMAIL ); }
 	function is_email( $value ) { return (bool) filter_var( $value, FILTER_VALIDATE_EMAIL ); }
 	function wp_salt( $scheme = '' ) { return 'synthetic-test-salt'; }
+	function wp_json_encode( $value ) { return json_encode( $value ); }
 	function get_current_user_id() { return $GLOBALS['current_user']; }
 	function get_userdata( $id ) { return (object) array( 'ID' => $id, 'user_email' => 'member@example.test' ); }
 	function get_user_meta( $id, $key, $single ) { return 'Member'; }
-	function edd_add_order( $data ) { $GLOBALS['created_order_data'][] = $data; $id = ++$GLOBALS['order_id']; $GLOBALS['orders'][ $id ] = new FakeOrder( $id, $data['total'] ); return $id; }
+	function edd_add_order( $data ) { $GLOBALS['created_order_data'][] = $data; $id = ++$GLOBALS['order_id']; $GLOBALS['orders'][ $id ] = new FakeOrder( $id, $data ); return $id; }
 	function edd_add_order_item( $data ) { $GLOBALS['order_items'][] = $data; return count( $GLOBALS['order_items'] ); }
 	function edd_add_order_address( $data ) { $GLOBALS['addresses'][] = $data; return count( $GLOBALS['addresses'] ); }
 	function edd_add_order_adjustment( $data ) { $GLOBALS['adjustments'][] = $data; return count( $GLOBALS['adjustments'] ); }
 	function edd_get_order( $id ) { return $GLOBALS['orders'][ $id ] ?? false; }
+	function edd_update_order_meta( $id, $key, $value ) { $GLOBALS['order_meta'][ $id ][ $key ] = $value; return true; }
+	function edd_get_order_meta( $id, $key, $single = true ) { return $GLOBALS['order_meta'][ $id ][ $key ] ?? ''; }
+	function edd_update_customer_meta( $id, $key, $value ) { $GLOBALS['customer_meta'][ $id ][ $key ] = $value; return true; }
+	function edd_update_payment_status( $id, $status ) { $order = $GLOBALS['orders'][ $id ] ?? false; if ( ! $order || $order->status === $status ) { return false; } $order->status = $status; if ( 'complete' === $status ) { foreach ( $GLOBALS['adjustments'] as $adjustment ) { if ( (int) $adjustment['object_id'] === (int) $id && 'discount' === $adjustment['type'] ) { $GLOBALS['coupon_used'] = true; } } } $GLOBALS['completions']++; return true; }
 	function edd_get_customer_by( $field, $value ) { $GLOBALS['customer_lookup_fields'][] = $field; return 'user_id' === $field && 42 === (int) $value ? new FakeCustomer( 900, 42 ) : false; }
 	function edd_add_customer( $data ) { $GLOBALS['created_customers'][] = $data; return 901 + count( $GLOBALS['created_customers'] ); }
 	function edd_get_customer( $id ) { return new FakeCustomer( $id ); }
@@ -39,8 +44,8 @@ namespace {
 	function edd_is_test_mode() { return true; }
 	function edd_use_taxes() { return false; }
 	function edd_get_discount_by_code( $code ) { return 'SAVE' === $code ? (object) array( 'id' => 1 ) : false; }
-	function edd_is_discount_valid( $code, $user, $return_errors = false ) { return 'SAVE' === $code; }
-	function edd_get_item_discount_amount( $item, $cart, $discounts, $price ) { return $price * (int) $item['quantity'] * 0.1; }
+	function edd_is_discount_valid( $code, $user, $return_errors = false ) { return 'SAVE' === $code && empty( $GLOBALS['coupon_used'] ); }
+	function edd_get_item_discount_amount( $item, $cart, $discounts, $price ) { return $price * (int) $item['quantity'] * ( $GLOBALS['coupon_percentage'] ?? 10 ) / 100; }
 	function get_transient( $key ) { return $GLOBALS['transients'][ $key ] ?? false; }
 	function set_transient( $key, $value, $ttl ) { $GLOBALS['transients'][ $key ] = $value; return true; }
 	function delete_transient( $key ) { unset( $GLOBALS['transients'][ $key ] ); return true; }
@@ -49,11 +54,11 @@ namespace {
 	function request_for( $items, $headers = array(), $billing = array(), $discount = '' ) { return new FakeRequest( array( 'items' => $items, 'billing' => $billing, 'discount_code' => $discount ), $headers ); }
 	$GLOBALS['bridge_ok'] = true; $GLOBALS['session_ok'] = true; $GLOBALS['current_user'] = 0; $GLOBALS['order_id'] = 1000;
 	$GLOBALS['orders'] = array(); $GLOBALS['order_items'] = array(); $GLOBALS['addresses'] = array(); $GLOBALS['adjustments'] = array(); $GLOBALS['created_order_data'] = array(); $GLOBALS['created_customers'] = array();
-	$GLOBALS['customer_orders'] = array(); $GLOBALS['customer_lookup_fields'] = array(); $GLOBALS['transactions'] = array(); $GLOBALS['transients'] = array(); $GLOBALS['cart_unavailable'] = false;
+	$GLOBALS['customer_orders'] = array(); $GLOBALS['customer_lookup_fields'] = array(); $GLOBALS['transactions'] = array(); $GLOBALS['transients'] = array(); $GLOBALS['cart_unavailable'] = false; $GLOBALS['order_meta'] = array(); $GLOBALS['completions'] = 0; $GLOBALS['coupon_used'] = false; $GLOBALS['coupon_percentage'] = 10;
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ), array( 'product_id' => 20, 'price_id' => 2, 'quantity' => 2, 'unit_price' => 2500, 'available' => true ) );
 	$controller = new \CH_Checkout_Controller( new FakeAuth(), new FakeCart() );
 	$headers = array( 'Idempotency-Key' => '01234567-89ab-cdef-0123-456789abcdef' );
-	$billing = array( 'full_name' => 'Guest Buyer', 'email' => 'guest@example.test', 'country' => 'IN', 'region' => 'KA' );
+	$billing = array( 'full_name' => 'Guest Buyer', 'email' => 'guest@example.test', 'phone' => '+91 98765 43210', 'country' => 'IN', 'region' => 'KA' );
 	$guest = request_for( array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1 ) ), $headers, $billing, 'SAVE' );
 	$quote = $controller->quote( $guest );
 	check( 200 === $quote->status && 6250 === $quote->data['data']['subtotal']['amount'], 'quote uses server validated cart prices' );
@@ -61,16 +66,25 @@ namespace {
 	check( false !== strpos( $quote->headers['Cache-Control'], 'no-store' ), 'quote is private and non-cacheable' );
 	$prepared = $controller->prepare( $guest );
 	check( 201 === $prepared->status && 'pending' === $prepared->data['data']['status'], 'guest order is created pending' );
+	$payment_token = $prepared->data['data']['payment_authorization_token'] ?? '';
+	check( preg_match( '/^[a-f0-9]{64}$/D', $payment_token ) && hash( 'sha256', $payment_token ) === $GLOBALS['order_meta'][1001]['ch_payment_authorization_hash'], 'new paid checkout gets an order-scoped payment capability' );
 	check( 1 === count( $GLOBALS['created_customers'] ) && 0 === $GLOBALS['created_customers'][0]['user_id'], 'guest gets separate unlinked customer without email lookup' );
 	check( 'pending' === $GLOBALS['created_order_data'][0]['status'] && '' === $GLOBALS['created_order_data'][0]['gateway'], 'order has no payment gateway and remains pending' );
+	check( '+919876543210' === $GLOBALS['order_meta'][1001]['_edd_phone'] && '+919876543210' === $GLOBALS['customer_meta'][902]['phone'], 'validated E.164 phone is saved to EDD order and customer metadata' );
 	check( 1 === count( $GLOBALS['adjustments'] ) && 'discount' === $GLOBALS['adjustments'][0]['type'] && 1001 === $GLOBALS['adjustments'][0]['object_id'], 'discount is represented in EDD order adjustments' );
 	check( 2 === count( $GLOBALS['order_items'] ) && 20 === $GLOBALS['order_items'][1]['product_id'] && 2 === $GLOBALS['order_items'][1]['price_id'], 'items preserve product and variable-price relationships' );
 	check( 'pending' === $GLOBALS['order_items'][1]['status'] && 1001 === $GLOBALS['order_items'][1]['order_id'], 'order items are pending and point to the EDD order' );
 	check( array( 902, 1001, false ) === $GLOBALS['customer_orders'][0], 'EDD customer is attached to the new order' );
 	$again = $controller->prepare( $guest );
 	check( 200 === $again->status && false === $again->data['data']['created'] && 1 === count( $GLOBALS['created_order_data'] ), 'repeated idempotent submit reuses pending order' );
+	check( $payment_token === $again->data['data']['payment_authorization_token'], 'idempotent checkout retry reuses the same payment capability' );
+	$mismatch = request_for( array(), $headers, array_merge( $billing, array( 'phone' => '+447911123456' ) ), 'SAVE' );
+	check( 409 === $controller->prepare( $mismatch )->status && 1 === count( $GLOBALS['created_order_data'] ), 'same idempotency key rejects changed phone number' );
+	$transient_key = array_values( array_filter( array_keys( $GLOBALS['transients'] ), static function ( $key ) { return 0 === strpos( $key, 'ch_checkout_' ); } ) )[0];
+	$GLOBALS['transients'][ $transient_key ] = 1001;
+	check( 409 === $controller->prepare( $guest )->status && 1 === count( $GLOBALS['created_order_data'] ), 'legacy idempotency record without payload digest fails closed' );
 	$GLOBALS['current_user'] = 42;
-	$member_request = request_for( array(), array( 'Authorization' => 'Bearer valid', 'Idempotency-Key' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' ), array( 'full_name' => 'Member Name', 'email' => 'ignored@example.test', 'country' => 'IN' ) );
+	$member_request = request_for( array(), array( 'Authorization' => 'Bearer valid', 'Idempotency-Key' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' ), array( 'full_name' => 'Member Name', 'email' => 'ignored@example.test', 'phone' => '+14155552671', 'country' => 'IN' ) );
 	$member = $controller->prepare( $member_request );
 	check( 201 === $member->status && 42 === $GLOBALS['created_order_data'][1]['user_id'] && 900 === $GLOBALS['created_order_data'][1]['customer_id'], 'logged-in checkout resolves customer by WordPress user ID' );
 	check( 'member@example.test' === $GLOBALS['created_order_data'][1]['email'], 'logged-in billing email comes from authenticated WordPress identity' );
@@ -78,14 +92,39 @@ namespace {
 	$GLOBALS['session_ok'] = false;
 	check( $controller->bridge_permission( $member_request ) instanceof WP_Error, 'expired customer session is rejected by bridge permission' );
 	$GLOBALS['session_ok'] = true;
-	$bad_billing = request_for( array(), $headers, array( 'full_name' => 'x', 'email' => 'bad' ) );
+	$GLOBALS['current_user'] = 0;
+	$bad_billing = request_for( array(), $headers, array( 'full_name' => 'Guest Buyer', 'email' => 'guest@example.test', 'phone' => '+91 12345', 'country' => 'IN' ) );
 	check( 422 === $controller->prepare( $bad_billing )->status, 'invalid billing is rejected' );
+	$missing_phone = request_for( array(), array( 'Idempotency-Key' => 'eeeeeeee-ffff-0000-1111-222222222222' ), array( 'full_name' => 'Guest Buyer', 'email' => 'guest@example.test', 'country' => 'IN' ) );
+	check( 422 === $controller->prepare( $missing_phone )->status, 'missing phone is rejected server-side' );
+	$bad_quote_phone = request_for( array(), array(), array_merge( $billing, array( 'phone' => '9876543210' ) ) );
+	check( 422 === $controller->quote( $bad_quote_phone )->status, 'quote validates a supplied phone without requiring identity for initial quotes' );
 	$GLOBALS['cart_unavailable'] = true;
 	check( 422 === $controller->prepare( $guest )->status, 'unavailable cart item is rejected' );
 	$GLOBALS['cart_unavailable'] = false;
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 7, 'price_id' => null, 'quantity' => 1, 'unit_price' => 0, 'available' => true ) );
-	$before = count( $GLOBALS['created_order_data'] );
-	check( 422 === $controller->prepare( $guest )->status && $before === count( $GLOBALS['created_order_data'] ), 'zero-total order is explicitly rejected without creating an order' );
+	$free_headers = array( 'Idempotency-Key' => 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff' );
+	$free = request_for( array(), $free_headers, $billing );
+	$free_order = $controller->prepare( $free );
+	check( 201 === $free_order->status && 'complete' === $free_order->data['data']['status'], 'zero-total guest order completes through native EDD status API' );
+	check( 'manual' === $GLOBALS['created_order_data'][2]['gateway'] && 0.0 === (float) $GLOBALS['created_order_data'][2]['total'] && 0 === (int) $GLOBALS['created_order_data'][2]['user_id'], 'free order uses EDD manual free-purchase gateway with zero total and guest ownership' );
+	check( 'zero_total' === $GLOBALS['order_meta'][1003]['ch_checkout_type'] && 1 === $GLOBALS['completions'], 'zero-total order records checkout metadata and completes once' );
+	$free_retry = $controller->prepare( $free );
+	check( 200 === $free_retry->status && false === $free_retry->data['data']['created'] && 'complete' === $free_retry->data['data']['status'] && 1 === $GLOBALS['completions'] && 1 === count( $GLOBALS['created_order_data'] ) - 2, 'idempotent free-order retry returns the same completed order without duplicate completion' );
+	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ) );
+	$GLOBALS['coupon_percentage'] = 100;
+	$coupon_free = request_for( array(), array( 'Idempotency-Key' => 'cccccccc-dddd-eeee-ffff-000000000000' ), $billing, 'SAVE' );
+	$coupon_order = $controller->prepare( $coupon_free );
+	check( 201 === $coupon_order->status && 'complete' === $coupon_order->data['data']['status'] && true === $GLOBALS['coupon_used'], 'valid 100-percent coupon completes zero-total order and is consumed by EDD completion' );
+	$count_before_coupon_retry = count( $GLOBALS['created_order_data'] );
+	$coupon_retry = $controller->prepare( $coupon_free );
+	check( 200 === $coupon_retry->status && false === $coupon_retry->data['data']['created'] && 'complete' === $coupon_retry->data['data']['status'] && $count_before_coupon_retry === count( $GLOBALS['created_order_data'] ), 'same-key retry succeeds after coupon use without creating another completed order' );
+	$GLOBALS['cart_items'] = array( array( 'product_id' => 7, 'price_id' => null, 'quantity' => 1, 'unit_price' => 0, 'available' => true ) );
+	$GLOBALS['current_user'] = 42;
+	$member_free = request_for( array(), array( 'Authorization' => 'Bearer valid', 'Idempotency-Key' => 'dddddddd-eeee-ffff-0000-111111111111' ), array( 'full_name' => 'Member Name', 'email' => 'ignored@example.test', 'phone' => '+14155552671', 'country' => 'IN' ) );
+	$member_free_order = $controller->prepare( $member_free );
+	check( 201 === $member_free_order->status && 'complete' === $member_free_order->data['data']['status'] && 42 === $GLOBALS['created_order_data'][4]['user_id'] && 900 === $GLOBALS['created_order_data'][4]['customer_id'] && 'member@example.test' === $GLOBALS['created_order_data'][4]['email'], 'authenticated zero-total order completes against the authenticated EDD customer' );
+	$GLOBALS['current_user'] = 0;
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ) );
 	$no_key = request_for( array(), array(), $billing );
 	check( 400 === $controller->prepare( $no_key )->status, 'missing idempotency key is rejected' );

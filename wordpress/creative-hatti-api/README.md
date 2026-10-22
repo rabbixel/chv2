@@ -4,6 +4,21 @@ Custom WordPress REST API layer for the Creative Hatti Next.js frontend.
 
 Namespace: `ch/v1`
 
+## Razorpay test order preparation
+
+EDD/WordPress owns Razorpay Orders API calls because it is the pricing and order authority. Configure only test credentials in the WordPress server environment, preferably in `wp-config.php` outside version control:
+
+```php
+define( 'CH_RAZORPAY_TEST_KEY_ID', getenv( 'CH_RAZORPAY_TEST_KEY_ID' ) );
+define( 'CH_RAZORPAY_TEST_KEY_SECRET', getenv( 'CH_RAZORPAY_TEST_KEY_SECRET' ) );
+```
+
+The Key ID must begin with `rzp_test_`. The REST route `/ch/v1/payment/razorpay/order` accepts an EDD order ID and a short-lived checkout capability sent by the Next.js server only. It recalculates paise from EDD's stored INR total, locks per EDD order, and stores the Razorpay order ID through `edd_update_order_meta()`. Network timeouts and ambiguous provider responses are blocked as uncertain for reconciliation; they are never blindly retried. This route creates no payment, captures no funds, and never changes EDD order status or entitlements.
+
+The Next.js checkout opens the official Razorpay Checkout.js UI with that server-created order. Its callback is sent through the capability-protected `/ch/v1/payment/razorpay/verify` route. WordPress verifies the HMAC signature, fetches payment details using the test credentials, and checks the payment ID, stored Razorpay order ID, INR amount and payment status. Only `authorized` or provider-confirmed `captured` states are recorded as EDD order metadata; an authorized payment is never represented as captured. Verification is locked per EDD order and idempotent. It does not complete EDD orders or grant downloads/licenses; fulfillment is a separate later step.
+
+The legacy EDD Razorpay add-on remains separate. Its redirect handler requires its gateway-specific form fields (`gateway=razorpay_gateway` and `merchant_order_id`); the custom Checkout.js callback calls only the custom server route and does not send those fields or invoke the legacy gateway handler. The custom Razorpay order also uses `ch_edd_order_id` notes and never the add-on's `edd_order_id` webhook mapping key, so the add-on cannot associate a custom test order with an EDD payment.
+
 This plugin exposes catalogue data from the existing WordPress + Easy Digital Downloads database as stable frontend DTOs. It does not depend on Mayosis, WPBakery, Grid Plus, old templates, shortcodes, or raw postmeta structures.
 
 ## Architecture

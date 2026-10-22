@@ -5,7 +5,7 @@ import { apiEndpoints } from "@/lib/api/endpoints";
 import type { CustomerDownloadPurchase } from "@/lib/types/customerDownload";
 import type { Paginated, PaginationParams } from "@/lib/types/pagination";
 import { normalizePaginationParams } from "@/lib/utils";
-import { decodeWordPressPlainText } from "@/lib/creative-hatti/collections";
+import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
 import { getWordPressSessionBridgeHeaders } from "./authService";
 
 type Availability = CustomerDownloadPurchase["items"][number]["availability"];
@@ -67,7 +67,7 @@ class WordPressCustomerDownloadService implements CustomerDownloadService {
         items: purchase.items.map((item) => ({
           orderItemId: String(item.order_item_id),
           productId: String(item.product_id),
-          title: decodeWordPressPlainText(item.title),
+          title: decodeHtmlEntities(item.title),
           thumbnailUrl: item.thumbnail_url,
           productUrl: item.product_url,
           priceId: item.price_id,

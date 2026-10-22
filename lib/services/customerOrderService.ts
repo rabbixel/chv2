@@ -5,6 +5,7 @@ import { apiEndpoints } from "@/lib/api/endpoints";
 import type { CustomerOrder, CustomerReceipt } from "@/lib/types/customerOrder";
 import type { Paginated, PaginationParams } from "@/lib/types/pagination";
 import { normalizePaginationParams } from "@/lib/utils";
+import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
 import { decodeWordPressPlainText } from "@/lib/creative-hatti/collections";
 import { getWordPressSessionBridgeHeaders } from "./authService";
 
@@ -61,7 +62,7 @@ function mapOrder(order: WordPressOrder): CustomerOrder {
     tax: mapMoney(order.tax), total: mapMoney(order.total),
     paymentMethod: order.payment_method,
     items: order.items.map((item) => ({
-      productId: String(item.product_id), name: decodeWordPressPlainText(item.name),
+      productId: String(item.product_id), name: decodeHtmlEntities(item.name),
       quantity: item.quantity, unitPrice: mapMoney(item.unit_price),
       lineTotal: mapMoney(item.line_total), priceId: item.price_id,
       thumbnailUrl: item.thumbnail_url, productUrl: item.product_url,

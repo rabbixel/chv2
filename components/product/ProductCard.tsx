@@ -12,6 +12,7 @@ import {
   formatMoney,
 } from "@/lib/utils";
 import { ProductImage as ProductImageView } from "./ProductImage";
+import { QuickAddButton } from "./QuickAddButton";
 import { WishlistButton } from "./WishlistButton";
 import styles from "./ProductCard.module.css";
 
@@ -118,12 +119,14 @@ export function ProductCard({
             </Badge>
           )}
         </span>
-        <WishlistButton
-          productId={product.id}
-          productTitle={product.title}
-          initialWishlisted={wishlisted}
-          className={styles.wishlist}
-        />
+        <div className={styles.actions}>
+          <WishlistButton
+            productId={product.id}
+            productTitle={product.title}
+            initialWishlisted={wishlisted}
+          />
+          <QuickAddButton product={product} />
+        </div>
       </div>
       <div className={styles.body}>
         <p className={styles.kicker}>{kicker}</p>

@@ -59,6 +59,7 @@ interface WordPressProfile {
   email: string;
   first_name: string;
   last_name: string;
+  phone?: string;
   created_at: string;
 }
 
@@ -227,6 +228,7 @@ function fromWordPressProfile(profile: WordPressProfile): AuthUser {
     email: profile.email,
     firstName: profile.first_name,
     lastName: profile.last_name,
+    phone: profile.phone,
     createdAt: Number.isNaN(createdAt.getTime())
       ? new Date(0).toISOString()
       : createdAt.toISOString(),
@@ -251,6 +253,11 @@ export async function getWordPressSessionBridgeHeaders(): Promise<Record<string,
 /** Trusted server bridge for guest-safe cart validation, with a session when present. */
 export async function getWordPressOptionalSessionBridgeHeaders(): Promise<Record<string, string>> {
   return bridgeHeaders(await readWordPressSession() ?? undefined);
+}
+
+/** Server-only bridge headers for guest-safe endpoints that do not need user identity. */
+export function getWordPressBridgeHeaders(): Record<string, string> {
+  return bridgeHeaders();
 }
 
 async function storeWordPressSession(

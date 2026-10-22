@@ -1,11 +1,13 @@
 import { cookies } from "next/headers";
 import { licenses } from "@/data/licenses";
 import { products } from "@/data/products";
-import { apiFetch } from "@/lib/api/client";
+import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { CART_COOKIE, CART_COUNT_COOKIE } from "@/lib/constants";
-import { getWordPressOptionalSessionBridgeHeaders } from "./authService";
+import { getWordPressBridgeHeaders, getWordPressOptionalSessionBridgeHeaders } from "./authService";
 import { isLiveApiEnabled } from "./apiMode";
+import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
+import { addCartLineOnce, sameCartLine } from "./cartLine";
 import type {
   Cart,
   CartItem,
@@ -244,7 +246,7 @@ class ApiCartService implements CartService {
     try {
       const parsed: unknown = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];
-      return parsed.slice(0, 20).flatMap((entry) => {
+      const rows = parsed.slice(0, 40).flatMap((entry) => {
         if (!entry || typeof entry !== "object") return [];
         const row = entry as Record<string, unknown>;
         const productId = Number(row.product_id);
@@ -256,14 +258,29 @@ class ApiCartService implements CartService {
           ? [{ product_id: productId, price_id: priceId, quantity }]
           : [];
       });
+      const unique = new Map<string, { product_id: number; price_id: number | null; quantity: number }>();
+      for (const row of rows) {
+        const key = `${row.product_id}:${row.price_id ?? "base"}`;
+        const current = unique.get(key);
+        if (current) current.quantity = Math.min(10, current.quantity + row.quantity);
+        else unique.set(key, row);
+      }
+      return Array.from(unique.values()).slice(0, 20);
     } catch { return []; }
   }
 
   private async validate(items: Array<{ product_id: number; price_id: number | null; quantity: number }>): Promise<Cart> {
     const headers = await getWordPressOptionalSessionBridgeHeaders();
-    const envelope = await apiFetch<{ data: { currency: string; items: Array<Record<string, unknown>>; subtotal: number; item_count: number } }>(apiEndpoints.cart, {
-      method: "POST", body: { items }, headers, cache: "no-store", redirect: "error",
-    });
+    const options = { method: "POST" as const, body: { items }, cache: "no-store" as const, redirect: "error" as const };
+    let envelope: { data: { currency: string; items: Array<Record<string, unknown>>; subtotal: number; item_count: number } };
+    try {
+      envelope = await apiFetch(apiEndpoints.cart, { ...options, headers });
+    } catch (error) {
+      // Cart validation is guest-safe. If an expired optional session is rejected,
+      // retry only this public cart request without user identity.
+      if (!(error instanceof ApiError && error.status === 401 && error.code === "invalid_session" && headers.Authorization)) throw error;
+      envelope = await apiFetch(apiEndpoints.cart, { ...options, headers: getWordPressBridgeHeaders() });
+    }
     const currency = envelope.data.currency || "INR";
     const mapped: CartItem[] = envelope.data.items.map((row) => {
       const id = Number(row.product_id);
@@ -272,14 +289,14 @@ class ApiCartService implements CartService {
       const quantity = Number(row.quantity ?? 1);
       return {
         key: `${id}:${priceId ?? "base"}`, productId: String(id),
-        productSlug: String(row.slug ?? "unavailable"), title: String(row.title ?? "Product unavailable"),
+        productSlug: String(row.slug ?? "unavailable"), title: decodeHtmlEntities(String(row.title ?? "Product unavailable")),
         ...(typeof row.thumbnail === "string" && row.thumbnail ? { thumbnailUrl: row.thumbnail } : {}),
         priceId, optionName: String(row.option_name ?? ""),
         available: Boolean(row.available),
         ...(typeof row.message === "string" ? { availabilityMessage: row.message } : {}),
         priceOptions: Array.isArray(row.price_options) ? row.price_options.map((option) => {
           const value = option as Record<string, unknown>;
-          return { id: Number(value.id), name: String(value.name ?? ""), price: { amount: Number(value.amount ?? 0), currency } };
+          return { id: Number(value.id), name: decodeHtmlEntities(String(value.name ?? "")), price: { amount: Number(value.amount ?? 0), currency } };
         }) : [],
         license: "personal", quantity,
         unitPrice: { amount, currency },
@@ -320,11 +337,11 @@ class ApiCartService implements CartService {
     const id = Number(productId);
     if (!Number.isSafeInteger(id) || id <= 0 || (priceId !== null && (!Number.isSafeInteger(priceId) || priceId < 0))) throw new Error("Invalid product option.");
     const items = await this.rawItems();
-    const existing = items.find((entry) => entry.product_id === id && entry.price_id === priceId);
+    const line = { product_id: id, price_id: priceId, quantity: 1 };
+    const existing = items.some((entry) => sameCartLine(entry, line));
     if (!existing && items.length >= 20) throw new Error("Your cart can contain up to 20 products.");
-    if (existing) existing.quantity = Math.min(existing.quantity + 1, 10);
-    else items.push({ product_id: id, price_id: priceId, quantity: 1 });
-    return this.save(items, { productId: id, priceId });
+    const result = addCartLineOnce(items, line);
+    return this.save(result.lines, { productId: id, priceId });
   }
 
   async updateItem(key: string, license: LicenseCode, priceId?: number): Promise<Cart> {
