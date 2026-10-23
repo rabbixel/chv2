@@ -1,20 +1,32 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { apiFetch } from "@/lib/api/client";
+import { guestSafeApiFetch } from "@/lib/services/guestSafeRequest";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import { getWordPressOptionalSessionBridgeHeaders } from "@/lib/services/authService";
 import { getAuthService, getCartService, getCheckoutService, isWordPressAuthEnabled } from "@/lib/services";
 import type { CheckoutBilling, CheckoutQuote } from "@/lib/types";
 import { isValidPhoneNumber, normalizePhoneNumber, PHONE_ERROR } from "@/lib/validation/phone";
+import { parseRazorpayVerificationResponse } from "@/lib/payments/razorpayVerificationResponse.mjs";
+import { downloadFailureKind, type DownloadFailureKind } from "@/lib/payments/downloadFailure.mjs";
+import { ApiError } from "@/lib/api/client";
 
 export interface CheckoutQuoteActionResult {
   quote?: CheckoutQuote;
   error?: string;
 }
+export interface CheckoutDownloadsResult {
+  downloads: CheckoutOrderDownloads | null;
+  error: DownloadFailureKind | null;
+}
 const PAYMENT_AUTH_COOKIE = "ch_payment_auth";
 function value(input: unknown): string {
   return typeof input === "string" ? input.trim() : "";
+}
+
+async function paymentBridgeRequest<T>(path: string, body: unknown): Promise<T> {
+  // The retry carries the same order-scoped capability. WordPress rejects it
+  // for orders owned by another logged-in customer.
+  return guestSafeApiFetch<T>(path, { method: "POST", body, cache: "no-store", redirect: "error", timeoutMs: 25_000 });
 }
 
 async function billingFromInput(input: {
@@ -73,7 +85,7 @@ export async function preparePendingOrder(formData: FormData): Promise<CheckoutP
     });
     const discountCode = value(formData.get("discountCode")).toUpperCase();
     const result = await getCheckoutService().prepare({ cart, billing, discountCode, idempotencyKey });
-    if (result.status === "pending" && result.payment_authorization_token && /^[a-f0-9]{64}$/.test(result.payment_authorization_token)) {
+    if ((result.status === "pending" || result.status === "complete") && result.payment_authorization_token && /^[a-f0-9]{64}$/.test(result.payment_authorization_token)) {
       (await cookies()).set(PAYMENT_AUTH_COOKIE, `${result.id}.${result.payment_authorization_token}.${encodeURIComponent(result.number)}`, {
         httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/checkout", maxAge: 60 * 60 * 24 * 2,
       });
@@ -96,8 +108,21 @@ export interface RazorpayOrderDetails {
 export interface RazorpayVerificationResult {
   status: "authorized" | "captured";
   verified: true;
-  fulfilled: false;
+  fulfilled: boolean;
   edd_order_reference: string;
+}
+
+export interface CheckoutOrderStatus {
+  edd_order_reference: string;
+  order_status: "pending" | "complete" | "partially_refunded";
+  payment_status: "" | "authorized" | "captured" | "failed";
+  fulfilled: boolean;
+  free_completed: boolean;
+}
+
+export interface CheckoutOrderDownloads {
+  order: string;
+  items: Array<{ order_item_id: number; title: string; files: Array<{ key: string; name: string }> }>;
 }
 
 function paymentCapability(orderReference: string) {
@@ -114,14 +139,76 @@ async function getPaymentAuthorization(orderReference: string) {
   return { orderId: Number(match[1]), token: match[2] };
 }
 
+/** Read minimal order state on the server using the HttpOnly order capability. */
+export async function getCheckoutOrderStatus(orderReference: string): Promise<CheckoutOrderStatus | null> {
+  try {
+    const { orderId, token } = await getPaymentAuthorization(orderReference);
+    const response = await paymentBridgeRequest<unknown>(apiEndpoints.razorpayOrderStatus, { order_id: orderId, authorization_token: token });
+    if (typeof response !== "object" || response === null) return null;
+    const envelope = response as { success?: unknown; data?: Partial<CheckoutOrderStatus> };
+    const status = envelope.data;
+    if (envelope.success !== true || !status || status.edd_order_reference !== value(orderReference) ||
+      !["pending", "complete", "partially_refunded"].includes(String(status.order_status)) || !["", "authorized", "captured", "failed"].includes(String(status.payment_status)) ||
+      typeof status.fulfilled !== "boolean" || typeof status.free_completed !== "boolean" ||
+      (status.fulfilled && (!(["complete", "partially_refunded"] as string[]).includes(String(status.order_status)) || status.payment_status !== "captured")) ||
+      (status.free_completed && (status.order_status !== "complete" || status.payment_status !== "" || status.fulfilled))) return null;
+    return status as CheckoutOrderStatus;
+  } catch {
+    return null;
+  }
+}
+
+/** File names are read through the order capability; no storage URLs are returned here. */
+export async function getCompletedOrderDownloads(orderReference: string): Promise<CheckoutDownloadsResult> {
+  try {
+    const { orderId, token } = await getPaymentAuthorization(orderReference);
+    const response = await paymentBridgeRequest<unknown>(apiEndpoints.razorpayOrderDownloads, { order_id: orderId, authorization_token: token });
+    if (typeof response !== "object" || response === null) return { downloads: null, error: "temporary" };
+    const envelope = response as { success?: unknown; data?: { order?: unknown; items?: unknown } };
+    const data = envelope.data;
+    if (envelope.success !== true || !data || data.order !== value(orderReference) || !Array.isArray(data.items)) return { downloads: null, error: "temporary" };
+    const items = data.items.filter((item): item is CheckoutOrderDownloads["items"][number] => {
+      if (!item || typeof item !== "object") return false;
+      const candidate = item as CheckoutOrderDownloads["items"][number];
+      return Number.isSafeInteger(candidate.order_item_id) && candidate.order_item_id > 0 && typeof candidate.title === "string" &&
+        Array.isArray(candidate.files) && candidate.files.every((file) => typeof file?.key === "string" && typeof file?.name === "string");
+    });
+    return { downloads: { order: value(data.order), items }, error: null };
+  } catch (error) {
+    return { downloads: null, error: downloadFailureKind(error instanceof ApiError ? error.status : undefined) };
+  }
+}
+
+/** Request a fresh native EDD link after revalidating the current order capability. */
+export async function getCompletedOrderDownloadUrl(
+  orderReference: string,
+  orderItemId: number,
+  fileKey: string,
+): Promise<{ url?: string; error?: DownloadFailureKind }> {
+  try {
+    if (!Number.isSafeInteger(orderItemId) || orderItemId < 1 || !/^[A-Za-z0-9_-]{1,80}$/.test(fileKey)) return { error: "authorization" };
+    const { orderId, token } = await getPaymentAuthorization(orderReference);
+    const response = await paymentBridgeRequest<unknown>(apiEndpoints.razorpayOrderDownload, {
+      order_id: orderId, authorization_token: token, order_item_id: orderItemId, file_key: fileKey,
+    });
+    if (typeof response !== "object" || response === null) return { error: "temporary" };
+    const envelope = response as { success?: unknown; data?: { url?: unknown } };
+    if (envelope.success !== true || typeof envelope.data?.url !== "string") return { error: "temporary" };
+    const target = new URL(envelope.data.url);
+    const wordpressOrigin = new URL(process.env.CH_API_URL ?? "").origin;
+    if (!["http:", "https:"].includes(target.protocol) || target.origin !== wordpressOrigin || target.username || target.password) {
+      return { error: "temporary" };
+    }
+    return { url: target.toString() };
+  } catch (error) {
+    return { error: downloadFailureKind(error instanceof ApiError ? error.status : undefined) };
+  }
+}
+
 /** Creates/reuses a server-authoritative Razorpay order; no EDD status is changed here. */
 export async function createRazorpayOrder(orderReference: string): Promise<RazorpayOrderDetails> {
   const { orderId, token } = await getPaymentAuthorization(orderReference);
-  const headers = await getWordPressOptionalSessionBridgeHeaders();
-  const response = await apiFetch<{ success: boolean; data: RazorpayOrderDetails }>(apiEndpoints.razorpayOrderCreate, {
-    method: "POST", body: { order_id: orderId, authorization_token: token }, headers,
-    cache: "no-store", redirect: "error", timeoutMs: 25_000,
-  });
+  const response = await paymentBridgeRequest<{ success: boolean; data: RazorpayOrderDetails }>(apiEndpoints.razorpayOrderCreate, { order_id: orderId, authorization_token: token });
   if (!response.success || response.data.currency !== "INR" || !/^order_[A-Za-z0-9]+$/.test(response.data.razorpay_order_id) || !Number.isSafeInteger(response.data.amount)) {
     throw new Error("Payment setup could not be completed.");
   }
@@ -136,13 +223,6 @@ export async function verifyRazorpayPayment(
   if (!/^pay_[A-Za-z0-9]+$/.test(details.razorpay_payment_id) || !/^order_[A-Za-z0-9]+$/.test(details.razorpay_order_id) || !/^[a-f0-9]{64}$/.test(details.razorpay_signature)) {
     throw new Error("Payment verification details are invalid.");
   }
-  const headers = await getWordPressOptionalSessionBridgeHeaders();
-  const response = await apiFetch<{ success: boolean; data: RazorpayVerificationResult }>(apiEndpoints.razorpayPaymentVerify, {
-    method: "POST", body: { order_id: orderId, authorization_token: token, ...details }, headers,
-    cache: "no-store", redirect: "error", timeoutMs: 25_000,
-  });
-  if (!response.success || response.data.verified !== true || response.data.fulfilled !== false || !["authorized", "captured"].includes(response.data.status)) {
-    throw new Error("Payment could not be verified. Your order remains pending.");
-  }
-  return response.data;
+  const response = await paymentBridgeRequest<unknown>(apiEndpoints.razorpayPaymentVerify, { order_id: orderId, authorization_token: token, ...details });
+  return parseRazorpayVerificationResponse(response);
 }

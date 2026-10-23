@@ -48,6 +48,14 @@
 
 .pendingNotice p { margin: 0; color: var(--ch-color-text-muted); }
 
+.completedDownloads { display: flex; flex-direction: column; gap: var(--ch-space-3); }
+.downloadHeading { margin: 0; font-size: var(--ch-text-lg); color: var(--ch-color-text); }
+.downloadProduct { display: flex; flex-direction: column; gap: var(--ch-space-2); padding: var(--ch-space-3); border: 1px solid var(--ch-color-border); border-radius: var(--ch-radius-md); }
+.downloadProduct h4 { margin: 0; color: var(--ch-color-text); }
+.downloadProduct ul { display: flex; flex-direction: column; gap: var(--ch-space-2); padding: 0; margin: 0; list-style: none; }
+.downloadButton { width: fit-content; padding: var(--ch-space-2) var(--ch-space-3); color: var(--ch-color-brand); font: inherit; font-weight: var(--ch-weight-semibold); background: var(--ch-color-surface); border: 1px solid var(--ch-color-border); border-radius: var(--ch-radius-sm); cursor: pointer; }
+.downloadButton:disabled { cursor: wait; opacity: .65; }
+
 .paymentPanel {
   display: flex;
   flex-direction: column;

@@ -1,8 +1,7 @@
 import "server-only";
 
-import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import { getWordPressBridgeHeaders, getWordPressOptionalSessionBridgeHeaders } from "./authService";
+import { guestSafeApiFetch } from "./guestSafeRequest";
 import { isLiveApiEnabled } from "./apiMode";
 import type { Cart, CheckoutBilling, CheckoutQuote, PendingCheckoutOrder } from "@/lib/types";
 
@@ -25,55 +24,37 @@ function cartItems(cart: Cart) {
 }
 
 class WordPressCheckoutService implements CheckoutService {
-  private async request<T>(path: string, body: unknown, extraHeaders: Record<string, string> = {}): Promise<T> {
-    const headers = await getWordPressOptionalSessionBridgeHeaders();
-    const result = await apiFetch<Envelope<T>>(path, {
-      method: "POST", body, headers: { ...headers, ...extraHeaders }, cache: "no-store", redirect: "error", timeoutMs: 15_000,
-    });
-    return result.data;
-  }
-
-  private async requestGuestSafe<T>(path: string, body: unknown, extraHeaders: Record<string, string> = {}): Promise<T> {
-    try {
-      return await this.request<T>(path, body, extraHeaders);
-    } catch (error) {
-      // An invalid session is no longer an authenticated identity. Retry only
-      // guest-safe checkout operations through the trusted bridge as a guest.
-      if (!(error instanceof ApiError && error.status === 401 && error.code === "invalid_session")) throw error;
-      const response = await apiFetch<Envelope<T>>(path, {
-        method: "POST", body, headers: { ...getWordPressBridgeHeaders(), ...extraHeaders },
-        cache: "no-store", redirect: "error", timeoutMs: 15_000,
-      });
-      return response.data;
-    }
-  }
-
   async quote(input: { cart: Cart; billing: Pick<CheckoutBilling, "country" | "region"> & Partial<Pick<CheckoutBilling, "phone">>; discountCode?: string }): Promise<CheckoutQuote> {
     const body = {
       items: cartItems(input.cart), billing: { country: input.billing.country, region: input.billing.region, ...(input.billing.phone ? { phone: input.billing.phone } : {}) }, discount_code: input.discountCode ?? "",
     };
-    const raw = await this.requestGuestSafe<{
+    const envelope = await guestSafeApiFetch<Envelope<{
       currency: string; subtotal: CheckoutQuote["subtotal"]; discount: CheckoutQuote["discount"];
       tax: CheckoutQuote["tax"]; total: CheckoutQuote["total"]; discount_code?: string; taxes_enabled: boolean;
-    }>(apiEndpoints.checkoutQuote, body);
+    }>>(apiEndpoints.checkoutQuote, { method: "POST", body, cache: "no-store", redirect: "error", timeoutMs: 15_000 });
+    const raw = envelope.data;
     return { ...raw, discountCode: raw.discount_code, taxesEnabled: raw.taxes_enabled };
   }
 
   prepare(input: { cart: Cart; billing: CheckoutBilling; discountCode?: string; idempotencyKey: string }): Promise<PendingCheckoutOrder> {
-    return this.request(apiEndpoints.checkoutPrepare, {
-      items: cartItems(input.cart),
-      billing: {
-        full_name: input.billing.fullName,
-        email: input.billing.email,
-        phone: input.billing.phone,
-        country: input.billing.country,
-        region: input.billing.region,
-        address: input.billing.address ?? "",
-        city: input.billing.city ?? "",
-        postal_code: input.billing.postalCode ?? "",
+    return guestSafeApiFetch<Envelope<PendingCheckoutOrder>>(apiEndpoints.checkoutPrepare, {
+      method: "POST",
+      body: {
+        items: cartItems(input.cart),
+        billing: {
+          full_name: input.billing.fullName,
+          email: input.billing.email,
+          phone: input.billing.phone,
+          country: input.billing.country,
+          region: input.billing.region,
+          address: input.billing.address ?? "",
+          city: input.billing.city ?? "",
+          postal_code: input.billing.postalCode ?? "",
+        },
+        discount_code: input.discountCode ?? "",
       },
-      discount_code: input.discountCode ?? "",
-    }, { "Idempotency-Key": input.idempotencyKey });
+      headers: { "Idempotency-Key": input.idempotencyKey }, cache: "no-store", redirect: "error", timeoutMs: 15_000,
+    }).then((result) => result.data);
   }
 }
 

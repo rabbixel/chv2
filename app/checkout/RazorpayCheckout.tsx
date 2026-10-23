@@ -3,7 +3,8 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { loadRazorpayScript, openRazorpayCheckout } from "@/lib/payments/razorpay";
-import { createRazorpayOrder, verifyRazorpayPayment } from "./actions";
+import { getRazorpayCheckoutOutcomeCopy } from "@/lib/payments/razorpayVerificationResponse.mjs";
+import { createRazorpayOrder, verifyRazorpayPayment, type RazorpayVerificationResult } from "./actions";
 import styles from "./page.module.css";
 
 interface RazorpayCheckoutProps {
@@ -11,6 +12,8 @@ interface RazorpayCheckoutProps {
   name: string;
   email: string;
   phone: string;
+  onVerified(result: RazorpayVerificationResult): void;
+  initialVerification?: RazorpayVerificationResult | null;
 }
 
 export interface RazorpayCheckoutHandle {
@@ -18,15 +21,16 @@ export interface RazorpayCheckoutHandle {
 }
 
 export const RazorpayCheckout = forwardRef<RazorpayCheckoutHandle, RazorpayCheckoutProps>(function RazorpayCheckout(
-  { orderReference, name, email, phone },
+  { orderReference, name, email, phone, onVerified, initialVerification },
   ref,
 ) {
   const opened = useRef(false);
   const [activeOrderReference, setActiveOrderReference] = useState(orderReference ?? "");
   const [loading, setLoading] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [message, setMessage] = useState("");
-  const [finalState, setFinalState] = useState<"captured" | "authorized" | null>(null);
+  const [message, setMessage] = useState(() => initialVerification ? getRazorpayCheckoutOutcomeCopy(initialVerification).message : "");
+  const [finalState, setFinalState] = useState<"captured" | "authorized" | null>(initialVerification?.status ?? null);
+  const [fulfilled, setFulfilled] = useState(initialVerification?.fulfilled ?? false);
 
   const startCheckout = useCallback(async (reference: string) => {
     if (!reference || opened.current || loading || checkoutOpen || finalState) return;
@@ -65,10 +69,10 @@ export const RazorpayCheckout = forwardRef<RazorpayCheckoutHandle, RazorpayCheck
           setMessage("Verifying payment securely…");
           try {
             const verification = await verifyRazorpayPayment(reference, result);
+            onVerified(verification);
             setFinalState(verification.status);
-            setMessage(verification.status === "captured"
-              ? `Payment verified for order ${verification.edd_order_reference}. The order remains pending until fulfillment is enabled.`
-              : `Payment is authorized but not captured. Order ${verification.edd_order_reference} remains pending.`);
+            setFulfilled(verification.fulfilled);
+            setMessage(getRazorpayCheckoutOutcomeCopy(verification).message);
           } catch (error) {
             opened.current = false;
             setCheckoutOpen(false);
@@ -84,7 +88,7 @@ export const RazorpayCheckout = forwardRef<RazorpayCheckoutHandle, RazorpayCheck
       setLoading(false);
       setMessage(error instanceof Error ? error.message : "Payment setup failed. Your order remains pending; please retry.");
     }
-  }, [checkoutOpen, email, finalState, loading, name, phone]);
+  }, [checkoutOpen, email, finalState, loading, name, onVerified, phone]);
 
   useImperativeHandle(ref, () => ({ startCheckout }), [startCheckout]);
 
@@ -95,6 +99,10 @@ export const RazorpayCheckout = forwardRef<RazorpayCheckoutHandle, RazorpayCheck
       {loading ? "Preparing secure checkout…" : message ? "Retry secure payment" : "Pay securely with Razorpay"}
     </Button>}
     {message && <p role={finalState ? "status" : "alert"} className={finalState ? styles.methodHint : styles.error}>{message}</p>}
-    <p className={styles.methodHint}>Your order stays pending until payment is verified. Downloads are enabled only by a later fulfillment step.</p>
+    <p className={styles.methodHint}>
+      {finalState
+        ? getRazorpayCheckoutOutcomeCopy({ status: finalState, verified: true, fulfilled: finalState === "captured" && fulfilled, edd_order_reference: activeOrderReference }).note
+        : "Your order remains pending until payment is verified. Downloads are enabled only after EDD fulfillment."}
+    </p>
   </div>;
 });

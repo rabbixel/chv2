@@ -4,7 +4,9 @@ import { Breadcrumbs, Container } from "@/components/layout";
 import { Button, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { getCompletedDownloadOrderReference } from "@/lib/payments/checkoutDownloadAccess.mjs";
 import { getAuthService, getCartService, getCheckoutService, isLiveApiEnabled, isWordPressAuthEnabled } from "@/lib/services";
+import { getCompletedOrderDownloads, getCheckoutOrderStatus } from "./actions";
 import { CheckoutForm } from "./CheckoutForm";
 import styles from "./page.module.css";
 
@@ -23,8 +25,11 @@ interface CheckoutPageProps {
 
 export default async function CheckoutPage({ searchParams }: CheckoutPageProps) {
   const [cart, query] = await Promise.all([getCartService().getSessionCart(), searchParams ?? Promise.resolve({} as Record<string, string | string[] | undefined>)]);
-  const preparedNumber = typeof query.prepared === "string" ? query.prepared : undefined;
-  const completedNumber = typeof query.completed === "string" ? query.completed : undefined;
+  const requestedOrderReference = typeof query.prepared === "string" ? query.prepared : typeof query.completed === "string" ? query.completed : undefined;
+  const initialOrderStatus = requestedOrderReference ? await getCheckoutOrderStatus(requestedOrderReference) : null;
+  const completedReference = getCompletedDownloadOrderReference(initialOrderStatus);
+  const initialDownloadsResult = completedReference ? await getCompletedOrderDownloads(completedReference) : null;
+  const initialOrderDownloads = initialDownloadsResult?.downloads ?? null;
   const errorCode = typeof query.error === "string" ? query.error : "";
   const errors: Record<string, string> = {
     terms: "Accept the Terms and Privacy Policy to continue.",
@@ -35,9 +40,9 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
     prepare: "We could not prepare the pending order. Review your details and try again.",
   };
 
-  if (!cart.items.length) return <Container size="narrow"><div className={styles.page}>
+  if (!cart.items.length && !completedReference) return <Container size="narrow"><div className={styles.page}>
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Cart", href: routes.cart() }, { label: "Checkout" }]} />
-    <EmptyState headingLevel="h1" title="Your cart is empty" description="Add a digital product before checking out." action={<Button href={routes.search()}>Browse products</Button>} />
+    {requestedOrderReference ? <EmptyState headingLevel="h1" title="Order access unavailable" description="This order is not available in this browser session. For security, downloads require the original checkout capability. You can use the verified account-claim process to recover eligible purchases." action={<Button href={routes.claimAccount()}>Claim a purchase</Button>} /> : <EmptyState headingLevel="h1" title="Your cart is empty" description="Add a digital product before checking out." action={<Button href={routes.search()}>Browse products</Button>} />}
   </div></Container>;
 
   const hasUnavailable = cart.items.some((item) => item.available === false);
@@ -49,7 +54,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   const initialPhone = identity?.user.phone ?? "+91 ";
   let initialQuote = null;
   let quoteError: string | undefined;
-  if (checkoutEnabled && !hasUnavailable) {
+  if (checkoutEnabled && !hasUnavailable && !completedReference) {
     try {
       initialQuote = await getCheckoutService().quote({ cart, billing: { country: "IN", region: "" } });
     } catch {
@@ -76,8 +81,9 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
         initialPhone={initialPhone}
         signedIn={Boolean(identity)}
         idempotencyKey={randomUUID()}
-        preparedNumber={preparedNumber}
-        completedNumber={completedNumber}
+        initialOrderStatus={initialOrderStatus}
+        initialOrderDownloads={initialOrderDownloads}
+        initialDownloadsError={initialDownloadsResult?.error ?? null}
       />}
     </div>
   </Container>;

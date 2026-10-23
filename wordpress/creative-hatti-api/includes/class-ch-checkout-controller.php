@@ -93,7 +93,7 @@ final class CH_Checkout_Controller {
 			$order_id = edd_add_order( array(
 				'type' => 'sale', 'status' => 'pending', 'user_id' => $user_id,
 				'customer_id' => $customer_id, 'email' => $calculation['billing']['email'],
-				'gateway' => 0.0 === (float) $calculation['total'] ? 'manual' : '', 'mode' => function_exists( 'edd_is_test_mode' ) && edd_is_test_mode() ? 'test' : 'live',
+				'gateway' => 0.0 === (float) $calculation['total'] ? 'manual' : 'ch_razorpay', 'mode' => 0.0 !== (float) $calculation['total'] ? 'test' : ( function_exists( 'edd_is_test_mode' ) && edd_is_test_mode() ? 'test' : 'live' ),
 				'currency' => edd_get_currency(), 'payment_key' => edd_generate_order_payment_key( $calculation['billing']['email'] ),
 				'order_number' => function_exists( 'edd_set_order_number' ) ? edd_set_order_number() : '',
 				'tax_rate_id' => $calculation['tax_rate_id'], 'subtotal' => $calculation['subtotal'],
@@ -144,11 +144,9 @@ final class CH_Checkout_Controller {
 
 			$customer = edd_get_customer( $customer_id );
 			if ( ! $customer || ! $customer->attach_payment( $order_id, false ) ) { throw new RuntimeException( 'Could not link the pending order.' ); }
-			if ( (float) $calculation['total'] > 0 ) {
-				$payment_token = bin2hex( random_bytes( 32 ) );
-				if ( ! function_exists( 'edd_update_order_meta' ) || ! edd_update_order_meta( $order_id, 'ch_payment_authorization_hash', hash( 'sha256', $payment_token ) ) || ! set_transient( 'ch_pay_auth_' . (int) $order_id, $payment_token, 2 * DAY_IN_SECONDS ) ) {
-					throw new RuntimeException( 'Could not authorize payment setup.' );
-				}
+			$payment_token = bin2hex( random_bytes( 32 ) );
+			if ( ! function_exists( 'edd_update_order_meta' ) || ! edd_update_order_meta( $order_id, 'ch_payment_authorization_hash', hash( 'sha256', $payment_token ) ) || ! set_transient( 'ch_pay_auth_' . (int) $order_id, $payment_token, 2 * DAY_IN_SECONDS ) ) {
+				throw new RuntimeException( 'Could not authorize order status access.' );
 			}
 			if ( ! set_transient( $transient, array( 'order_id' => (int) $order_id, 'payload_digest' => $payload_digest ), 2 * DAY_IN_SECONDS ) ) { throw new RuntimeException( 'Could not save checkout idempotency state.' ); }
 			if ( false === $wpdb->query( 'COMMIT' ) ) { throw new RuntimeException( 'Could not commit pending order.' ); }
@@ -352,8 +350,9 @@ final class CH_Checkout_Controller {
 
 	private function order_payload( $order, $created ) {
 		$payment_allowed = 'pending' === $order->status && (float) $order->total > 0;
-		$payment_token_hash = $payment_allowed && function_exists( 'edd_get_order_meta' ) ? edd_get_order_meta( $order->id, 'ch_payment_authorization_hash', true ) : '';
-		$payment_token = $payment_allowed && function_exists( 'get_transient' ) ? get_transient( 'ch_pay_auth_' . (int) $order->id ) : '';
+		$status_allowed = $payment_allowed || ( 'complete' === $order->status && 0.0 === (float) $order->total && 'zero_total' === edd_get_order_meta( $order->id, 'ch_checkout_type', true ) );
+		$payment_token_hash = $status_allowed && function_exists( 'edd_get_order_meta' ) ? edd_get_order_meta( $order->id, 'ch_payment_authorization_hash', true ) : '';
+		$payment_token = $status_allowed && function_exists( 'get_transient' ) ? get_transient( 'ch_pay_auth_' . (int) $order->id ) : '';
 		if ( ! $payment_token_hash ) { $payment_token = ''; }
 		return array(
 			'id' => (int) $order->id,

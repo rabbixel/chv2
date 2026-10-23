@@ -6,9 +6,11 @@ import { Button, Input } from "@/components/ui";
 import type { Cart, CheckoutQuote } from "@/lib/types";
 import { routes } from "@/lib/routes";
 import { formatMoney } from "@/lib/utils";
+import { getCheckoutParentNotice } from "@/lib/payments/checkoutParentNotice.mjs";
+import { downloadFailureMessage, type DownloadFailureKind } from "@/lib/payments/downloadFailure.mjs";
 import { isValidPhoneNumber, PHONE_ERROR } from "@/lib/validation/phone";
 import { RazorpayCheckout, type RazorpayCheckoutHandle } from "./RazorpayCheckout";
-import { preparePendingOrder, quoteCheckout } from "./actions";
+import { getCompletedOrderDownloadUrl, getCompletedOrderDownloads, preparePendingOrder, quoteCheckout, type CheckoutOrderDownloads, type CheckoutOrderStatus, type RazorpayVerificationResult } from "./actions";
 import styles from "./page.module.css";
 
 interface CheckoutFormProps {
@@ -20,8 +22,9 @@ interface CheckoutFormProps {
   initialPhone: string;
   signedIn: boolean;
   idempotencyKey: string;
-  preparedNumber?: string;
-  completedNumber?: string;
+  initialOrderStatus: CheckoutOrderStatus | null;
+  initialOrderDownloads: CheckoutOrderDownloads | null;
+  initialDownloadsError: DownloadFailureKind | null;
 }
 
 function sameQuote(left: CheckoutQuote | null, right: CheckoutQuote): boolean {
@@ -35,7 +38,7 @@ function sameQuote(left: CheckoutQuote | null, right: CheckoutQuote): boolean {
 
 export function CheckoutForm({
   cart, initialQuote, initialQuoteError, initialName, initialEmail, initialPhone,
-  signedIn, idempotencyKey, preparedNumber, completedNumber,
+  signedIn, idempotencyKey, initialOrderStatus, initialOrderDownloads, initialDownloadsError,
 }: CheckoutFormProps) {
   const [quote, setQuote] = useState(initialQuote);
   const [quoteError, setQuoteError] = useState(initialQuoteError ?? "");
@@ -49,15 +52,40 @@ export function CheckoutForm({
   const [country, setCountry] = useState("IN");
   const [region, setRegion] = useState("");
   const [discountCode, setDiscountCode] = useState("");
-  const [activePreparedNumber, setActivePreparedNumber] = useState(preparedNumber ?? "");
-  const [activeCompletedNumber, setActiveCompletedNumber] = useState(completedNumber ?? "");
+  const [activePreparedNumber, setActivePreparedNumber] = useState(initialOrderStatus?.order_status === "pending" ? initialOrderStatus.edd_order_reference : "");
+  const [activeCompletedNumber, setActiveCompletedNumber] = useState(initialOrderStatus?.fulfilled || initialOrderStatus?.free_completed ? initialOrderStatus.edd_order_reference : "");
+  const [verificationResult, setVerificationResult] = useState<RazorpayVerificationResult | null>(() => initialOrderStatus && ["authorized", "captured"].includes(initialOrderStatus.payment_status)
+    ? { status: initialOrderStatus.payment_status as "authorized" | "captured", verified: true, fulfilled: initialOrderStatus.fulfilled, edd_order_reference: initialOrderStatus.edd_order_reference }
+    : null);
+  const [initialPaymentFailed] = useState(initialOrderStatus?.payment_status === "failed");
+  const [completedDownloads, setCompletedDownloads] = useState(initialOrderDownloads);
+  const [downloadsError, setDownloadsError] = useState<DownloadFailureKind | null>(initialDownloadsError);
+  const [downloadingFile, setDownloadingFile] = useState("");
+  const [downloadError, setDownloadError] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const paymentRef = useRef<RazorpayCheckoutHandle>(null);
 
-  const currentPreparedNumber = activePreparedNumber || preparedNumber;
-  const currentCompletedNumber = activeCompletedNumber || completedNumber;
+  const downloadPurchasedFile = async (orderReference: string, orderItemId: number, fileKey: string) => {
+    const actionKey = `${orderItemId}:${fileKey}`;
+    if (downloadingFile) return;
+    setDownloadingFile(actionKey);
+    setDownloadError("");
+    try {
+      const result = await getCompletedOrderDownloadUrl(orderReference, orderItemId, fileKey);
+      if (!result.url) { setDownloadError(downloadFailureMessage(result.error ?? "temporary")); return; }
+      window.location.assign(result.url);
+    } catch {
+      setDownloadError(downloadFailureMessage("temporary"));
+    } finally {
+      setDownloadingFile("");
+    }
+  };
+
+  const currentPreparedNumber = activePreparedNumber;
+  const currentCompletedNumber = activeCompletedNumber;
+  const paymentNotice = getCheckoutParentNotice(verificationResult);
   const nameError = nameTouched && fullName.trim().length < 2 ? "Enter your full name." : undefined;
   const emailError = emailTouched && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) ? "Enter a valid email address." : undefined;
   const phoneError = phoneTouched && !isValidPhoneNumber(phone) ? PHONE_ERROR : undefined;
@@ -107,6 +135,10 @@ export function CheckoutForm({
       }
       if (prepared.order.status === "complete") {
         setActiveCompletedNumber(prepared.order.number);
+        const downloads = await getCompletedOrderDownloads(prepared.order.number);
+        setCompletedDownloads(downloads.downloads);
+        setDownloadsError(downloads.error);
+        setVerificationResult(null);
         window.history.replaceState(null, "", `${routes.checkout()}?completed=${encodeURIComponent(prepared.order.number)}`);
         return;
       }
@@ -131,14 +163,38 @@ export function CheckoutForm({
         {!currentPreparedNumber && !currentCompletedNumber && <p className={styles.progress} aria-label="Checkout progress"><strong>1. Billing details</strong><span>2. Secure payment</span></p>}
         {currentCompletedNumber ? (
           <section className={styles.pendingNotice} role="status">
-            <h2 className={styles.sectionHeading}>Free order complete</h2>
-            <p>Order reference <strong>{currentCompletedNumber}</strong> is complete. EDD has recorded the zero-value order and enabled its authorized download entitlements.</p>
-            <p>No payment was taken.</p>
+            <h2 className={styles.sectionHeading}>{paymentNotice?.kind === "complete" ? paymentNotice.title : "Free order complete"}</h2>
+            <p>Order reference <strong>{currentCompletedNumber}</strong> is complete. {paymentNotice?.kind === "complete" ? paymentNotice.message : "EDD recorded the zero-value order and enabled its authorized download entitlements."}</p>
+            {!verificationResult?.fulfilled && <p>No payment was taken.</p>}
+            {completedDownloads?.items.length ? <div className={styles.completedDownloads}>
+              <h3 className={styles.downloadHeading}>Your purchased files</h3>
+              {completedDownloads.items.map((item) => <section className={styles.downloadProduct} key={item.order_item_id}>
+                <h4>{item.title}</h4>
+                <ul>{item.files.map((file) => <li key={`${item.order_item_id}:${file.key}`}>
+                  <button type="button" className={styles.downloadButton} disabled={Boolean(downloadingFile)} onClick={() => void downloadPurchasedFile(currentCompletedNumber, item.order_item_id, file.key)}>
+                    {downloadingFile === `${item.order_item_id}:${file.key}` ? "Preparing download…" : `Download ${file.name}`}
+                  </button>
+                </li>)}</ul>
+              </section>)}
+              <p>Download links are created when you click and may expire. If one expires, return here and request a fresh link.</p>
+              {downloadError && <p role="alert" className={styles.error}>{downloadError}</p>}
+            </div> : <p>{downloadFailureMessage(downloadsError ?? "temporary")}</p>}
+            <p>Optional: <Link href={routes.claimAccount()}>Claim your purchase for an account</Link>. We will verify your email before linking purchases; no account is created automatically.</p>
+          </section>
+        ) : paymentNotice?.kind === "fulfillment-pending" ? (
+          <section className={styles.pendingNotice} role="status">
+            <h2 className={styles.sectionHeading}>{paymentNotice.title}</h2>
+            <p>Payment was captured for order <strong>{verificationResult?.edd_order_reference}</strong>. {paymentNotice.message}</p>
+          </section>
+        ) : paymentNotice?.kind === "authorized" ? (
+          <section className={styles.pendingNotice} role="status">
+            <h2 className={styles.sectionHeading}>{paymentNotice.title}</h2>
+            <p>Payment for order <strong>{verificationResult?.edd_order_reference}</strong> is {paymentNotice.message.slice("Payment is ".length)}</p>
           </section>
         ) : currentPreparedNumber ? (
           <section className={styles.pendingNotice} role="status">
             <h2 className={styles.sectionHeading}>Order ready for payment</h2>
-            <p>Order reference <strong>{currentPreparedNumber}</strong> is pending. Continue securely with Razorpay to pay; downloads remain unavailable until payment verification and fulfillment.</p>
+            <p>Order reference <strong>{currentPreparedNumber}</strong> is pending. {initialPaymentFailed ? "The previous payment attempt failed; you can retry securely with Razorpay." : "Continue securely with Razorpay to pay; downloads remain unavailable until payment verification and fulfillment."}</p>
           </section>
         ) : (
           <form onSubmit={submitCheckout} className={styles.form} onInvalidCapture={() => { setNameTouched(true); setEmailTouched(true); setPhoneTouched(true); }}>
@@ -179,7 +235,16 @@ export function CheckoutForm({
               : "Your payment is processed securely by Razorpay. Downloads are enabled only after payment verification and fulfillment."}</p>
           </form>
         )}
-        {!currentCompletedNumber && <RazorpayCheckout ref={paymentRef} orderReference={currentPreparedNumber} name={fullName || initialName} email={email || initialEmail} phone={phone || initialPhone} />}
+        {!currentCompletedNumber && <RazorpayCheckout ref={paymentRef} orderReference={currentPreparedNumber} name={fullName || initialName} email={email || initialEmail} phone={phone || initialPhone} initialVerification={initialOrderStatus && ["authorized", "captured"].includes(initialOrderStatus.payment_status) ? verificationResult : null} onVerified={(result) => {
+          setVerificationResult(result);
+          if (result.fulfilled) {
+            setActiveCompletedNumber(result.edd_order_reference);
+            void getCompletedOrderDownloads(result.edd_order_reference).then((downloads) => {
+              setCompletedDownloads(downloads.downloads);
+              setDownloadsError(downloads.error);
+            });
+          }
+        }} />}
       </div>
 
       <aside className={styles.side} aria-label="Order summary">

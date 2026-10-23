@@ -58,7 +58,9 @@ namespace {
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ), array( 'product_id' => 20, 'price_id' => 2, 'quantity' => 2, 'unit_price' => 2500, 'available' => true ) );
 	$controller = new \CH_Checkout_Controller( new FakeAuth(), new FakeCart() );
 	$headers = array( 'Idempotency-Key' => '01234567-89ab-cdef-0123-456789abcdef' );
-	$billing = array( 'full_name' => 'Guest Buyer', 'email' => 'guest@example.test', 'phone' => '+91 98765 43210', 'country' => 'IN', 'region' => 'KA' );
+	// This address is also used by a synthetic WordPress account below. Guest
+	// checkout must remain unlinked and must not look up customers by email.
+	$billing = array( 'full_name' => 'Guest Buyer', 'email' => 'member@example.test', 'phone' => '+91 98765 43210', 'country' => 'IN', 'region' => 'KA' );
 	$guest = request_for( array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1 ) ), $headers, $billing, 'SAVE' );
 	$quote = $controller->quote( $guest );
 	check( 200 === $quote->status && 6250 === $quote->data['data']['subtotal']['amount'], 'quote uses server validated cart prices' );
@@ -68,8 +70,8 @@ namespace {
 	check( 201 === $prepared->status && 'pending' === $prepared->data['data']['status'], 'guest order is created pending' );
 	$payment_token = $prepared->data['data']['payment_authorization_token'] ?? '';
 	check( preg_match( '/^[a-f0-9]{64}$/D', $payment_token ) && hash( 'sha256', $payment_token ) === $GLOBALS['order_meta'][1001]['ch_payment_authorization_hash'], 'new paid checkout gets an order-scoped payment capability' );
-	check( 1 === count( $GLOBALS['created_customers'] ) && 0 === $GLOBALS['created_customers'][0]['user_id'], 'guest gets separate unlinked customer without email lookup' );
-	check( 'pending' === $GLOBALS['created_order_data'][0]['status'] && '' === $GLOBALS['created_order_data'][0]['gateway'], 'order has no payment gateway and remains pending' );
+	check( 1 === count( $GLOBALS['created_customers'] ) && 0 === $GLOBALS['created_customers'][0]['user_id'] && 'member@example.test' === $GLOBALS['created_customers'][0]['email'], 'guest using an account email gets a separate unlinked customer without email lookup' );
+	check( 'pending' === $GLOBALS['created_order_data'][0]['status'] && 'ch_razorpay' === $GLOBALS['created_order_data'][0]['gateway'], 'paid custom order uses its isolated EDD gateway identifier and remains pending' );
 	check( '+919876543210' === $GLOBALS['order_meta'][1001]['_edd_phone'] && '+919876543210' === $GLOBALS['customer_meta'][902]['phone'], 'validated E.164 phone is saved to EDD order and customer metadata' );
 	check( 1 === count( $GLOBALS['adjustments'] ) && 'discount' === $GLOBALS['adjustments'][0]['type'] && 1001 === $GLOBALS['adjustments'][0]['object_id'], 'discount is represented in EDD order adjustments' );
 	check( 2 === count( $GLOBALS['order_items'] ) && 20 === $GLOBALS['order_items'][1]['product_id'] && 2 === $GLOBALS['order_items'][1]['price_id'], 'items preserve product and variable-price relationships' );
@@ -107,10 +109,13 @@ namespace {
 	$free = request_for( array(), $free_headers, $billing );
 	$free_order = $controller->prepare( $free );
 	check( 201 === $free_order->status && 'complete' === $free_order->data['data']['status'], 'zero-total guest order completes through native EDD status API' );
+	$free_status_token = $free_order->data['data']['payment_authorization_token'] ?? '';
+	check( preg_match( '/^[a-f0-9]{64}$/D', $free_status_token ) && hash( 'sha256', $free_status_token ) === $GLOBALS['order_meta'][1003]['ch_payment_authorization_hash'], 'completed free order gets a scoped status-read capability without enabling payment' );
 	check( 'manual' === $GLOBALS['created_order_data'][2]['gateway'] && 0.0 === (float) $GLOBALS['created_order_data'][2]['total'] && 0 === (int) $GLOBALS['created_order_data'][2]['user_id'], 'free order uses EDD manual free-purchase gateway with zero total and guest ownership' );
 	check( 'zero_total' === $GLOBALS['order_meta'][1003]['ch_checkout_type'] && 1 === $GLOBALS['completions'], 'zero-total order records checkout metadata and completes once' );
 	$free_retry = $controller->prepare( $free );
 	check( 200 === $free_retry->status && false === $free_retry->data['data']['created'] && 'complete' === $free_retry->data['data']['status'] && 1 === $GLOBALS['completions'] && 1 === count( $GLOBALS['created_order_data'] ) - 2, 'idempotent free-order retry returns the same completed order without duplicate completion' );
+	check( $free_status_token === $free_retry->data['data']['payment_authorization_token'], 'idempotent free-order retry reuses its existing scoped status capability' );
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ) );
 	$GLOBALS['coupon_percentage'] = 100;
 	$coupon_free = request_for( array(), array( 'Idempotency-Key' => 'cccccccc-dddd-eeee-ffff-000000000000' ), $billing, 'SAVE' );
@@ -124,6 +129,8 @@ namespace {
 	$member_free = request_for( array(), array( 'Authorization' => 'Bearer valid', 'Idempotency-Key' => 'dddddddd-eeee-ffff-0000-111111111111' ), array( 'full_name' => 'Member Name', 'email' => 'ignored@example.test', 'phone' => '+14155552671', 'country' => 'IN' ) );
 	$member_free_order = $controller->prepare( $member_free );
 	check( 201 === $member_free_order->status && 'complete' === $member_free_order->data['data']['status'] && 42 === $GLOBALS['created_order_data'][4]['user_id'] && 900 === $GLOBALS['created_order_data'][4]['customer_id'] && 'member@example.test' === $GLOBALS['created_order_data'][4]['email'], 'authenticated zero-total order completes against the authenticated EDD customer' );
+	check( 'test' === $GLOBALS['created_order_data'][0]['mode'] && 'test' === $GLOBALS['created_order_data'][1]['mode'] && 'ch_razorpay' === $GLOBALS['created_order_data'][1]['gateway'], 'paid custom Razorpay orders record test mode and use the custom gateway identifier' );
+	check( 'test' === $GLOBALS['created_order_data'][2]['mode'] && 'test' === $GLOBALS['created_order_data'][3]['mode'] && 'test' === $GLOBALS['created_order_data'][4]['mode'], 'zero-total orders continue to follow EDD configured mode' );
 	$GLOBALS['current_user'] = 0;
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ) );
 	$no_key = request_for( array(), array(), $billing );
