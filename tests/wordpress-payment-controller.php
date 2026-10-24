@@ -10,7 +10,7 @@ class Request { private $p; public function __construct( $p ) { $this->p = $p; }
 class Auth { public function bridge_permission( $request ) { return true; } public function session_permission( $request ) { return true; } }
 class FakeOrder { public $id; public $user_id; public $type; public $status; public $currency; public $total; public $gateway; public $email; public function __construct( $data ) { foreach ( $data as $key => $value ) { $this->$key = $value; } } public function get_number() { return 'CH-' . $this->id; } }
 class FakeDownload { public function get_files_for_price_id( $price_id ) { return array( 'main' => array( 'name' => 'Synthetic asset', 'file' => 's3://private/synthetic.zip' ) ); } }
-class FakeDb { public $busy = false; public function prepare( $sql, ...$args ) { return array( $sql, $args ); } public function get_var( $query ) { if ( strpos( $query[0], 'GET_LOCK' ) !== false ) { return $this->busy ? '0' : '1'; } return '1'; } }
+class FakeDb { public $busy = false; public $prefix = 'wp_'; public function prepare( $sql, ...$args ) { return array( $sql, $args ); } public function get_var( $query ) { if ( strpos( $query[0], 'GET_LOCK' ) !== false ) { return $this->busy ? '0' : '1'; } if ( strpos( $query[0], 'COALESCE(SUM' ) !== false ) { return $GLOBALS['reserved_qty'] ?? 0; } return '1'; } }
 function register_rest_route( ...$args ) {}
 function add_filter( ...$args ) {}
 function rest_ensure_response( $response ) { return $response; }
@@ -18,10 +18,12 @@ function absint( $value ) { return abs( (int) $value ); }
 function sanitize_text_field( $value ) { return trim( strip_tags( (string) $value ) ); }
 function sanitize_key( $value ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $value ) ); }
 function get_current_user_id() { return $GLOBALS['user_id']; }
+function get_post_meta( $id, $key, $single = true ) { if ( '_edd_purchase_limit' === $key ) { return $GLOBALS['limits'][ $id ] ?? ''; } if ( '_edd_download_sales' === $key ) { return (string) ( $GLOBALS['sales'][ $id ] ?? 0 ); } return ''; }
+function edd_get_download_sales_stats( $id ) { return $GLOBALS['sales'][ $id ] ?? 0; }
 function edd_get_currency() { return $GLOBALS['currency']; }
 function edd_get_order( $id ) { return $GLOBALS['orders'][ $id ] ?? false; }
 function edd_get_order_meta( $id, $key, $single = true ) { return $GLOBALS['meta'][ $id ][ $key ] ?? ''; }
-function edd_get_order_items( $args ) { return array_values( array_filter( $GLOBALS['order_items'] ?? array(), static function ( $item ) use ( $args ) { return (int) $item->order_id === (int) $args['order_id'] && in_array( $item->status, $args['status__in'], true ); } ) ); }
+function edd_get_order_items( $args ) { return array_values( array_filter( $GLOBALS['order_items'] ?? array(), static function ( $item ) use ( $args ) { return (int) $item->order_id === (int) $args['order_id'] && ( empty( $args['status__in'] ) || in_array( $item->status, $args['status__in'], true ) ); } ) ); }
 function edd_get_order_item( $id ) { return $GLOBALS['order_items'][ $id ] ?? false; }
 function edd_get_download( $id ) { return new FakeDownload(); }
 function edd_get_file_name( $file ) { return $file['name']; }
@@ -40,13 +42,14 @@ function wp_remote_post( $url, $args ) { $GLOBALS['calls']++; $GLOBALS['sent'] =
 function wp_remote_get( $url, $args ) { $GLOBALS['get_calls']++; $GLOBALS['requested_url'] = $url; return $GLOBALS['payment_provider']; }
 function wp_remote_retrieve_response_code( $response ) { return $response['code']; }
 function wp_remote_retrieve_body( $response ) { return $response['body']; }
+require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-purchase-limit-service.php';
 require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-payment-controller.php';
 
 function reset_fixture( $order = array() ) {
-	$GLOBALS['wpdb'] = new FakeDb(); $GLOBALS['user_id'] = 0; $GLOBALS['currency'] = 'INR'; $GLOBALS['calls'] = 0; $GLOBALS['get_calls'] = 0; $GLOBALS['meta'] = array(); $GLOBALS['transients'] = array(); $GLOBALS['transactions'] = array(); $GLOBALS['transaction_fail'] = false; $GLOBALS['download_url_args'] = null;
+	$GLOBALS['wpdb'] = new FakeDb(); $GLOBALS['user_id'] = 0; $GLOBALS['currency'] = 'INR'; $GLOBALS['calls'] = 0; $GLOBALS['get_calls'] = 0; $GLOBALS['meta'] = array(); $GLOBALS['transients'] = array(); $GLOBALS['transactions'] = array(); $GLOBALS['transaction_fail'] = false; $GLOBALS['download_url_args'] = null; $GLOBALS['limits'] = array(); $GLOBALS['sales'] = array(); $GLOBALS['reserved_qty'] = 0;
 	$GLOBALS['orders'] = array( 10 => new FakeOrder( array_merge( array( 'id' => 10, 'user_id' => 0, 'type' => 'sale', 'status' => 'pending', 'currency' => 'INR', 'total' => '12.50', 'gateway' => 'ch_razorpay' ), $order ) ) );
 	$GLOBALS['orders'][10]->email = 'synthetic@example.test';
-	$GLOBALS['order_items'] = array( 21 => (object) array( 'id' => 21, 'order_id' => 10, 'product_id' => 44, 'price_id' => 2, 'status' => 'complete' ), 22 => (object) array( 'id' => 22, 'order_id' => 11, 'product_id' => 44, 'price_id' => 2, 'status' => 'complete' ) );
+	$GLOBALS['order_items'] = array( 21 => (object) array( 'id' => 21, 'order_id' => 10, 'product_id' => 44, 'quantity' => 1, 'price_id' => 2, 'status' => 'complete' ), 22 => (object) array( 'id' => 22, 'order_id' => 11, 'product_id' => 44, 'quantity' => 1, 'price_id' => 2, 'status' => 'complete' ) );
 	$GLOBALS['meta'][10]['ch_payment_authorization_hash'] = hash( 'sha256', str_repeat( 'a', 64 ) );
 	$GLOBALS['provider'] = array( 'code' => 200, 'body' => json_encode( array( 'id' => 'order_test123', 'amount' => 1250, 'currency' => 'INR' ) ) );
 	$GLOBALS['payment_provider'] = array( 'code' => 200, 'body' => json_encode( array( 'id' => 'pay_test123', 'order_id' => 'order_test123', 'amount' => 1250, 'currency' => 'INR', 'status' => 'captured', 'captured' => true ) ) );
@@ -67,6 +70,8 @@ expect( 1250 === $GLOBALS['sent']['amount'] && 'created' === $GLOBALS['meta'][10
 expect( 'creative-hatti-api-test' === $GLOBALS['sent']['notes']['ch_integration'] && '10' === $GLOBALS['sent']['notes']['ch_edd_order_id'] && ! isset( $GLOBALS['sent']['notes']['edd_order_id'] ), 'custom test orders do not expose the legacy EDD webhook mapping key' );
 expect( 'pending' === $GLOBALS['orders'][10]->status, 'creating a Razorpay order does not complete the EDD order' );
 $again = call_payment(); expect( 200 === $again->status && 1 === $GLOBALS['calls'], 'retry reuses existing Razorpay order' );
+reset_fixture(); $GLOBALS['limits'][44] = '1'; $GLOBALS['sales'][44] = 1; expect( 409 === call_payment()->status && 0 === $GLOBALS['calls'], 'Razorpay preparation rejects an exhausted historical limit' );
+reset_fixture(); $GLOBALS['limits'][44] = '1'; $GLOBALS['sales'][44] = 0; $GLOBALS['meta'][10]['ch_purchase_limit_reservation_expires_at'] = time() - 1; expect( 409 === call_payment()->status && 0 === $GLOBALS['calls'], 'expired order with no provider attempt cannot start a payment' );
 
 reset_fixture( array( 'user_id' => 7 ) ); $GLOBALS['user_id'] = 8; expect( 404 === call_payment()->status, 'authenticated customer cannot use another account order capability' );
 reset_fixture(); $GLOBALS['user_id'] = 7; expect( 200 === call_payment()->status, 'guest order capability remains usable after sign-in' );

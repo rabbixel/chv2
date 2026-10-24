@@ -32,8 +32,8 @@ export async function GET(
     `File: ${download.fileName}`,
     `Order: ${download.orderId}`,
     "",
-    "The backend serves the real file through a short-lived signed URL.",
-    "This placeholder only exists so the download flow works in mock mode.",
+    "Real orders provide a secure, time-limited download link.",
+    "This sample file is only for preview and does not contain the purchased product.",
     "",
   ].join("\n");
   return new Response(body, {

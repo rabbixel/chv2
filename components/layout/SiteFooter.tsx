@@ -32,9 +32,9 @@ const SECTIONS: FooterSection[] = [
     heading: "Account",
     links: [
       { label: "Login", href: routes.login() },
-      { label: "Orders", href: routes.accountOrders() },
-      { label: "Downloads", href: routes.accountDownloads() },
-      { label: "Wishlist", href: routes.accountWishlist() },
+      { label: "Orders", href: routes.login(routes.accountOrders()) },
+      { label: "Downloads", href: routes.login(routes.accountDownloads()) },
+      { label: "Wishlist", href: routes.login(routes.accountWishlist()) },
     ],
   },
   {
@@ -76,7 +76,7 @@ export function SiteFooter() {
       <div className={styles.bottom}>
         <div className={`ch-container ${styles.bottomInner}`}>
           <p>© 2026 {SITE.name}. All rights reserved.</p>
-          <p>Crafted in India · GST invoices on every order</p>
+          <p>Digital Downloads · Secure Checkout</p>
         </div>
       </div>
     </footer>

@@ -1,0 +1,24 @@
+.page {
+  min-width: 0;
+  padding-block: var(--ch-space-6) var(--ch-space-16);
+}
+
+.header {
+  margin-block: var(--ch-space-6) var(--ch-space-5);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: var(--ch-text-3xl);
+  line-height: var(--ch-leading-3xl);
+}
+
+.header p {
+  margin: var(--ch-space-2) 0 0;
+  color: var(--ch-color-text-muted);
+  line-height: var(--ch-leading-lg);
+}
+
+.signal {
+  font-size: var(--ch-text-sm);
+}

@@ -124,7 +124,7 @@ function WordPressLicenses({ licenses }: { licenses: Paginated<CustomerLicense> 
                       {licenseOrderLinkId(license.purchaseType, license.purchaseId) && license.purchaseNumber
                         ? <>Order <Link href={routes.accountOrder(licenseOrderLinkId(license.purchaseType, license.purchaseId)!)}>{license.purchaseNumber}</Link></>
                         : license.purchaseType === "legacy_payment" && license.purchaseId
-                          ? `Legacy payment #${license.purchaseId}`
+                          ? `Previous payment #${license.purchaseId}`
                           : "Purchase reference unavailable"}
                       {license.activationLimit !== null ? ` · ${license.activationCount} of ${license.activationLimit} activations` : ` · ${license.activationCount} activations`}
                       {license.lifetime ? " · Lifetime" : license.expiresAt ? ` · Expires ${formatDate(license.expiresAt)}` : ""}

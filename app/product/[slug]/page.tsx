@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { Breadcrumbs, Container } from "@/components/layout";
 import {
   ProductGallery,
@@ -24,6 +25,7 @@ import {
   getCollectionService,
   getLicenseService,
   getProductService,
+  getWishlistService,
 } from "@/lib/services";
 import { categoryDisplayName } from "@/lib/taxonomy";
 import type { Collection, Product, ProductKind } from "@/lib/types";
@@ -125,6 +127,9 @@ function findRelatedCollections(
  * keywords and related products / collection / category.
  */
 export default async function ProductPage({ params }: ProductPageProps) {
+  // Render the availability overlay on every request; explicitly cached
+  // product/media fetches remain cached for fast SEO-friendly page output.
+  await connection();
   const { slug } = await params;
   const product = await getProductService().getProductBySlug(slug);
   // No loading.tsx in this segment on purpose: a Suspense fallback would
@@ -132,10 +137,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // (vercel/next.js#98954).
   if (!product) notFound();
 
-  const [related, collections, licenses] = await Promise.all([
+  const [related, collections, licenses, wishlistState] = await Promise.all([
     getProductService().listRelatedProducts(slug, 8),
     getCollectionService().listCollections(),
     getLicenseService().getLicensesByCodes(product.licenses),
+    getWishlistService().getSavedProductIds([product.id]).catch(() => new Set<string>()),
   ]);
   const relatedCollections = findRelatedCollections(product, collections);
   const [primarySlug, groupSlug] = product.categorySlugs;
@@ -217,8 +223,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
               <div className={styles.wishlist}>
                 <WishlistButton
+                  key={product.id}
                   productId={product.id}
                   productTitle={product.title}
+                  initialWishlisted={wishlistState.has(product.id)}
+                  returnTo={routes.product(product.slug)}
                 />
                 <span className={styles.wishlistLabel}>Wishlist</span>
               </div>

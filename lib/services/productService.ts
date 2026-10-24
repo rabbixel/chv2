@@ -8,7 +8,6 @@ import {
   productionWordPressHostname,
 } from "@/lib/creative-hatti/media";
 import {
-  galleryComparisonCandidates,
   selectGalleryImages,
 } from "@/lib/creative-hatti/image-matching.mjs";
 import {
@@ -20,6 +19,7 @@ import type {
   ChApiEnvelope,
   ChApiProductCard,
   ChApiProductDetail,
+  ChApiProductAvailabilityBatch,
   ChApiSitemapBatch,
   ChWpMedia,
 } from "@/lib/creative-hatti/types";
@@ -219,7 +219,8 @@ class ApiProductService implements ProductService {
         tags: [cacheTags.products],
       },
     );
-    return paginatedFromApi(result, productFromApi);
+    const paginated = paginatedFromApi(result, productFromApi);
+    return { ...paginated, items: await refreshProductAvailability(paginated.items) };
   }
 
   async getProductBySlug(slug: Slug): Promise<Product | null> {
@@ -231,10 +232,9 @@ class ApiProductService implements ProductService {
           tags: [cacheTags.product(slug)],
         },
       );
-      const product = productFromApi(result.data);
-      const candidates = new Set(galleryComparisonCandidates(product.images).flat());
-      const enrichedImages = await mapWithConcurrency(product.images, 4, (image, index) =>
-        candidates.has(index) ? enrichImageMetadata(image) : Promise.resolve(image),
+      const product = await refreshProductAvailability([productFromApi(result.data)]).then((items) => items[0]);
+      const enrichedImages = await mapWithConcurrency(product.images, 4, (image) =>
+        enrichImageMetadata(image),
       );
       const selected = await selectGalleryImages(enrichedImages, loadImageForComparison);
       return { ...product, images: selected.images };
@@ -267,10 +267,9 @@ class ApiProductService implements ProductService {
           tags: [cacheTags.product(id)],
         },
       );
-      const product = productFromApi(result.data);
-      const candidates = new Set(galleryComparisonCandidates(product.images).flat());
-      const enrichedImages = await mapWithConcurrency(product.images, 4, (image, index) =>
-        candidates.has(index) ? enrichImageMetadata(image) : Promise.resolve(image),
+      const product = await refreshProductAvailability([productFromApi(result.data)]).then((items) => items[0]);
+      const enrichedImages = await mapWithConcurrency(product.images, 4, (image) =>
+        enrichImageMetadata(image),
       );
       const selected = await selectGalleryImages(enrichedImages, loadImageForComparison);
       return { ...product, images: selected.images };
@@ -313,6 +312,32 @@ class ApiProductService implements ProductService {
   async listNewArrivals(limit = 8): Promise<Product[]> {
     const result = await this.listProducts({ sort: "newest", pageSize: limit });
     return result.items;
+  }
+}
+
+/** Overlay current purchase state onto cached catalogue records. */
+export async function refreshProductAvailability(products: Product[]): Promise<Product[]> {
+  if (products.length === 0) return products;
+  try {
+    const result = await apiFetch<ChApiEnvelope<ChApiProductAvailabilityBatch>>(
+      apiEndpoints.products.availability,
+      {
+        searchParams: { ids: products.map((product) => product.id).join(",") },
+        cache: "no-store",
+        timeoutMs: 8_000,
+      },
+    );
+    const states = new Map(result.data.items.map((item) => [String(item.id), item]));
+    return products.map((product) => {
+      const state = states.get(String(product.id));
+      return state
+        ? { ...product, soldOut: state.sold_out, purchasable: state.available }
+        : { ...product, soldOut: false, purchasable: false };
+    });
+  } catch {
+    // When current state cannot be checked, fail closed in the UI. Checkout
+    // still performs the authoritative server-side availability validation.
+    return products.map((product) => ({ ...product, soldOut: false, purchasable: false }));
   }
 }
 

@@ -1,0 +1,17 @@
+.prompt {
+  margin: var(--ch-space-5) 0 0;
+  color: var(--ch-color-text-muted);
+  font-size: var(--ch-text-sm);
+  line-height: 1.6;
+}
+
+.prompt a {
+  color: var(--ch-color-text);
+  text-underline-offset: 0.18em;
+}
+
+.prompt a:focus-visible {
+  outline: 2px solid var(--ch-color-focus, currentColor);
+  outline-offset: 3px;
+  border-radius: var(--ch-radius-sm);
+}

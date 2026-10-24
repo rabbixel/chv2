@@ -19,6 +19,14 @@ The Next.js checkout opens the official Razorpay Checkout.js UI with that server
 
 The legacy EDD Razorpay add-on remains separate. Its redirect handler requires its gateway-specific form fields (`gateway=razorpay_gateway` and `merchant_order_id`); the custom Checkout.js callback calls only the custom server route and does not send those fields or invoke the legacy gateway handler. The custom Razorpay order also uses `ch_edd_order_id` notes and never the add-on's `edd_order_id` webhook mapping key, so the add-on cannot associate a custom test order with an EDD payment.
 
+## Historical EDD purchase limits
+
+The API preserves `_edd_purchase_limit` as-is. Missing, blank, and zero values are unlimited; positive values cap site-wide sales across all price variations; `-1` is permanently unavailable until an administrator changes that product's metadata. Invalid negative or malformed values fail closed. Sales use `edd_get_gross_order_statuses()` and sum matching EDD sale order-item quantities, matching the historical add-on's site-wide counting rule. EDD gross statuses include refunded items, so a refund does not silently reopen a limited design; administrators must explicitly change its limit metadata to make it available again.
+
+Limited-product purchases use MySQL per-product advisory locks shared by the custom checkout, payment preparation, EDD's standard checkout validation, and EDD's supported payment/order status-transition filters. The committed EDD pending order items are the durable reservations; repeated callbacks reuse the same order rows and do not add reservations. Custom checkout reservations expire after 48 hours only when no Razorpay order exists and no creation attempt is still creating, uncertain, or provider-created. An existing or uncertain provider attempt remains reserved after that window because it may still succeed. EDD failed/cancelled orders without authoritative closure evidence also remain reserved conservatively. A stale reservation that remains pinned requires provider reconciliation and an administrator's order action; it is not released just because time passed.
+
+Product and indexed-search responses include `availability.available`, `availability.sold_out`, and `availability.remaining`. The storefront keeps stable product content cached and overlays availability from the bounded, `no-store` batch route below on product, archive, and search renders. Server-side cart, checkout, payment preparation, and final EDD completion checks remain authoritative and reject an oversell.
+
 This plugin exposes catalogue data from the existing WordPress + Easy Digital Downloads database as stable frontend DTOs. It does not depend on Mayosis, WPBakery, Grid Plus, old templates, shortcodes, or raw postmeta structures.
 
 ## Architecture
@@ -100,6 +108,10 @@ Product card DTO:
 ```
 
 Tags are not returned in product list responses because this installation has millions of `download_tag` relationships.
+
+### `GET /wp-json/ch/v1/products/availability?ids=161470,161873`
+
+Returns current availability for up to 48 comma-separated published product IDs. The response sets `Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0` so the storefront can refresh purchase state independently of cached titles, images, prices, and descriptions. The response envelope contains `data.items`, each with `id`, `available`, `sold_out`, and `remaining`. Unknown or unpublished products are omitted; malformed or oversized ID lists return an error.
 
 ### `GET /wp-json/ch/v1/products/{id}`
 

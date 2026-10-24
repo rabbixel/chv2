@@ -4,5 +4,7 @@ export { AccountProductArtwork } from "./AccountProductArtwork";
 export { AccountSidebar } from "./AccountSidebar";
 export { DownloadButton } from "./DownloadButton";
 export type { DownloadButtonProps } from "./DownloadButton";
+export { CustomerDownloadActions } from "./CustomerDownloadActions";
+export { PurchaseRecoveryPrompt } from "./PurchaseRecoveryPrompt";
 export { WishlistItemCard } from "./WishlistItemCard";
 export type { WishlistItemCardProps } from "./WishlistItemCard";

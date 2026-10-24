@@ -68,9 +68,9 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
       <h1 className={styles.title}>Checkout</h1>
       {errorCode && <p role="alert" className={styles.error}>{errors[errorCode] ?? "Checkout could not be completed."}</p>}
       {hasUnavailable && <p role="alert" className={styles.error}>Your cart contains unavailable products. Remove them before checkout.</p>}
-      {!checkoutEnabled && <p role="alert" className={styles.error}>Checkout is unavailable in mock mode. Configure the local WordPress/EDD API to prepare real pending orders.</p>}
+      {!checkoutEnabled && <p role="alert" className={styles.error}>Checkout is temporarily unavailable. Please try again later.</p>}
       {!checkoutEnabled || hasUnavailable ? <section className={styles.pendingNotice}>
-        <p>Checkout needs an available cart and the configured WordPress/EDD backend.</p>
+        <p>Checkout needs an available cart. Return to your cart and try again.</p>
         <Button href={routes.cart()}>Return to cart</Button>
       </section> : <CheckoutForm
         cart={cart}

@@ -11,7 +11,7 @@ import { WishlistButton } from "@/components/product";
 import { Button, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
-import { getCartService, getProductService } from "@/lib/services";
+import { getCartService, getProductService, getWishlistService } from "@/lib/services";
 import type { Product } from "@/lib/types";
 import { formatMoney } from "@/lib/utils";
 import { clearCart } from "./actions";
@@ -55,14 +55,17 @@ export default async function CartPage({ searchParams }: CartPageProps) {
 
   const productBySlug = new Map<string, Product>();
   const productSlugs = [...new Set(cart.items.filter((item) => item.available !== false).map((item) => item.productSlug))];
-  await Promise.all(productSlugs.map(async (slug) => {
+  const [wishlistState] = await Promise.all([
+    getWishlistService().getSavedProductIds(cart.items.map((item) => item.productId)).catch(() => new Set<string>()),
+    ...productSlugs.map(async (slug) => {
     try {
       const product = await getProductService().getProductBySlug(slug);
       if (product) productBySlug.set(slug, product);
     } catch {
       // Keep the cart usable if optional image/product detail lookup is unavailable.
     }
-  }));
+    }),
+  ]);
 
   return (
     <Container>
@@ -110,6 +113,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
                     <WishlistButton
                       productId={item.productId}
                       productTitle={item.title}
+                      initialWishlisted={wishlistState.has(item.productId)}
                     />
                   </div>
                 }

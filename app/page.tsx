@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Container } from "@/components/layout";
 import { JsonLd } from "@/components/seo";
 import {
@@ -40,6 +41,8 @@ export const metadata: Metadata = {
  * content config), and every tile links to a working search query.
  */
 export default async function HomePage() {
+  // Keep cached catalogue content, but refresh purchase state for each visit.
+  await connection();
   const mainPromise = Promise.all([
     getProductService().listFeaturedProducts(8),
     getCategoryService().listCategories(),

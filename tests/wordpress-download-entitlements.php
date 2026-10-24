@@ -1,7 +1,7 @@
 <?php
 /** Synthetic tests for Creative Hatti's EDD customer download authorization layer. */
 define( 'ABSPATH', __DIR__ );
-eval( 'namespace EDD\\Orders; class Order { public $id; public $type; public $status; public $customer_id; public $date_created; public function get_number() { return (string) $this->id; } }' );
+eval( 'namespace EDD\\Orders; class Order { public $id; public $type; public $status; public $customer_id; public $date_created; public $gateway; public $user_id; public function get_number() { return (string) $this->id; } }' );
 class CH_Auth_Controller {}
 class CH_Media { public function featured_image( $id ) { return array(); } }
 class WP_Error {}
@@ -31,6 +31,7 @@ foreach ( array( 1 => 'complete', 2 => 'partially_refunded', 3 => 'refunded', 4 
 	$order->type = 'sale';
 	$order->status = $status;
 	$order->customer_id = 4 === $id ? 999 : 4;
+	$order->gateway = 'manual';
 	$order->date_created = '2026-01-01 00:00:00';
 	$GLOBALS['orders'][ $id ] = $order;
 }

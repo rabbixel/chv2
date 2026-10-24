@@ -5,6 +5,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { SiteFooter, SiteHeader } from "@/components/layout";
 import { CartEventBridge } from "@/components/cart/CartEventBridge";
+import { CartStateProvider } from "@/components/cart/CartStateProvider";
 import { SITE } from "@/lib/constants";
 import "./globals.css";
 import styles from "./layout.module.css";
@@ -35,15 +36,17 @@ export default function RootLayout({
         <a href="#main-content" className="ch-skip-link">
           Skip to content
         </a>
-        <CartEventBridge>
-          <div className={styles.shell}>
-            <SiteHeader />
-            <main id="main-content" className={styles.main}>
-              {children}
-            </main>
-            <SiteFooter />
-          </div>
-        </CartEventBridge>
+        <CartStateProvider>
+          <CartEventBridge>
+            <div className={styles.shell}>
+              <SiteHeader />
+              <main id="main-content" className={styles.main}>
+                {children}
+              </main>
+              <SiteFooter />
+            </div>
+          </CartEventBridge>
+        </CartStateProvider>
       </body>
     </html>
   );

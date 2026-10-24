@@ -30,6 +30,7 @@ function wp_remote_get( $url, $args ) { $GLOBALS['requests'][] = $url; return $G
 function wp_remote_retrieve_response_code( $response ) { return $response['code']; }
 function wp_remote_retrieve_body( $response ) { return $response['body']; }
 function maybe_serialize( $value ) { return is_array( $value ) || is_object( $value ) ? serialize( $value ) : (string) $value; }
+require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-purchase-limit-service.php';
 require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-payment-controller.php';
 $passed = 0; $failed = 0;
 function check( $ok, $label ) { global $passed, $failed; if ( $ok ) { $passed++; } else { $failed++; fwrite( STDERR, "FAIL: {$label}\n" ); } }

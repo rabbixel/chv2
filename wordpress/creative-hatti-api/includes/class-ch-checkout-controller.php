@@ -5,8 +5,9 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 final class CH_Checkout_Controller {
 	private $auth;
 	private $cart;
+	private $limits;
 
-	public function __construct( $auth, $cart ) { $this->auth = $auth; $this->cart = $cart; }
+	public function __construct( $auth, $cart ) { $this->auth = $auth; $this->cart = $cart; $this->limits = new CH_Purchase_Limit_Service(); }
 
 	public function register_routes() {
 		foreach ( array( 'quote' => 'quote', 'prepare' => 'prepare' ) as $route => $callback ) {
@@ -36,14 +37,6 @@ final class CH_Checkout_Controller {
 	}
 
 	public function prepare( $request ) {
-		try {
-			// A completed zero-total coupon can become consumed before an identical
-			// retry. Defer validity enforcement until after the idempotency lookup.
-			$calculation = $this->calculate( $request, true, true );
-		} catch ( Exception $error ) {
-			return $this->private_response( CH_API::error( 'checkout_invalid', $error->getMessage(), 422 ) );
-		}
-
 		$key = (string) $request->get_header( 'idempotency-key' );
 		if ( ! preg_match( '/^[a-f0-9-]{36}$/iD', $key ) ) {
 			return $this->private_response( CH_API::error( 'invalid_idempotency_key', 'Refresh checkout and try again.', 400 ) );
@@ -51,11 +44,13 @@ final class CH_Checkout_Controller {
 
 		global $wpdb;
 		$user_id = get_current_user_id();
-		$scope = $user_id ? 'user:' . $user_id : 'guest:' . hash( 'sha256', strtolower( $calculation['billing']['email'] ) );
+		$billing_input = $request->get_param( 'billing' );
+		$billing_input = is_array( $billing_input ) ? $billing_input : array();
+		$scope_email = strtolower( sanitize_email( (string) ( $billing_input['email'] ?? '' ) ) );
+		$scope = $user_id ? 'user:' . $user_id : 'guest:' . hash( 'sha256', $scope_email );
 		$digest = hash_hmac( 'sha256', $scope . '|' . strtolower( $key ), wp_salt( 'auth' ) );
 		$transient = 'ch_checkout_' . substr( $digest, 0, 40 );
 		$lock_name = 'ch_checkout_' . substr( $digest, 0, 48 );
-		$payload_digest = $this->checkout_payload_digest( $calculation );
 		$locked = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock_name ) );
 		if ( '1' !== (string) $locked ) {
 			return $this->private_response( CH_API::error( 'checkout_busy', 'Checkout is busy. Please retry shortly.', 503 ) );
@@ -64,6 +59,14 @@ final class CH_Checkout_Controller {
 		try {
 			$stored = get_transient( $transient );
 			$existing_id = absint( is_array( $stored ) ? ( $stored['order_id'] ?? 0 ) : $stored );
+			try {
+				// A matching idempotency replay is allowed to read its own order even
+				// after that order consumed the final available unit.
+				$calculation = $this->calculate( $request, true, true, $existing_id, $existing_id > 0 );
+			} catch ( Exception $error ) {
+				return $this->private_response( CH_API::error( 'checkout_invalid', $error->getMessage(), 422 ) );
+			}
+			$payload_digest = $this->checkout_payload_digest( $calculation );
 			if ( $existing_id ) {
 				$existing = function_exists( 'edd_get_order' ) ? edd_get_order( $existing_id ) : false;
 				if ( $existing ) {
@@ -81,6 +84,20 @@ final class CH_Checkout_Controller {
 				}
 				delete_transient( $transient );
 			}
+
+			$locked_products = $this->limits->acquire_for_products( array_column( $calculation['items'], 'id' ), 5 );
+			if ( is_wp_error( $locked_products ) ) { return $this->private_response( CH_API::error( 'purchase_limit_busy', 'Product availability is being updated. Please retry shortly.', 503 ) ); }
+			foreach ( $calculation['items'] as $item ) {
+				$availability = $this->limits->availability( $item['id'], $item['quantity'] );
+				if ( empty( $availability['available'] ) ) { return $this->private_response( CH_API::error( 'purchase_limit_exhausted', 'A product in your cart is no longer available.', 409 ) ); }
+			}
+			try {
+				$locked_calculation = $this->calculate( $request, true, true );
+			} catch ( Exception $error ) {
+				return $this->private_response( CH_API::error( 'checkout_invalid', $error->getMessage(), 422 ) );
+			}
+			if ( ! hash_equals( $payload_digest, $this->checkout_payload_digest( $locked_calculation ) ) ) { return $this->private_response( CH_API::error( 'checkout_changed', 'Product availability or checkout details changed. Review your cart and try again.', 409 ) ); }
+			$calculation = $locked_calculation;
 
 			if ( '' !== $calculation['discount_code'] && ! $this->is_discount_valid_for_cart( $calculation['discount_code'], $calculation['discount_user'], $calculation['cart_items'] ) ) {
 				return $this->private_response( CH_API::error( 'checkout_invalid', 'The discount code is unavailable or not eligible.', 422 ) );
@@ -100,6 +117,7 @@ final class CH_Checkout_Controller {
 				'discount' => $calculation['discount'], 'tax' => $calculation['tax'], 'total' => $calculation['total'],
 			) );
 			if ( ! $order_id ) { throw new RuntimeException( 'Could not prepare the pending order.' ); }
+			if ( ! edd_update_order_meta( $order_id, 'ch_purchase_limit_reservation_state', 'reserved' ) || ! edd_update_order_meta( $order_id, 'ch_purchase_limit_reservation_expires_at', time() + ( 2 * DAY_IN_SECONDS ) ) ) { throw new RuntimeException( 'Could not persist product reservations.' ); }
 
 			foreach ( $calculation['items'] as $index => $item ) {
 				$item_id = edd_add_order_item( array(
@@ -161,14 +179,15 @@ final class CH_Checkout_Controller {
 			return $this->private_response( CH_API::error( 'checkout_prepare_failed', 'Could not prepare the pending order. Please retry.', 500 ) );
 		} finally {
 			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
+			CH_Purchase_Limit_Service::release_all_locks();
 		}
 	}
 
-	private function calculate( $request, $require_identity, $defer_discount_validation = false ) {
+	private function calculate( $request, $require_identity, $defer_discount_validation = false, $exclude_order_id = 0, $skip_purchase_limits = false ) {
 		if ( ! function_exists( 'edd_add_order' ) || ! function_exists( 'edd_add_order_item' ) || ! function_exists( 'edd_add_order_address' ) ) {
 			throw new RuntimeException( 'EDD checkout is unavailable.', 503 );
 		}
-		$cart_response = $this->cart->validate( $request );
+		$cart_response = $this->cart->validate( $request, $exclude_order_id, $skip_purchase_limits );
 		if ( $cart_response->get_status() >= 400 ) { throw new RuntimeException( 'The cart could not be validated.' ); }
 		$cart_payload = $cart_response->get_data()['data'] ?? array();
 		$validated = $cart_payload['items'] ?? array();

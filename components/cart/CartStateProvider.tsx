@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { getQuickAddCartState } from "@/app/cart/actions";
 import { CART_UPDATED_CHANNEL, CART_UPDATED_EVENT } from "@/lib/constants";
 import type { CartLineIdentity } from "@/lib/types";
@@ -12,12 +13,13 @@ interface CartStateValue {
 
 const CartStateContext = createContext<CartStateValue | null>(null);
 
-export function useThumbnailCartState() {
+export function useCartState() {
   return useContext(CartStateContext);
 }
 
 export function CartStateProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartLineIdentity[] | null>(null);
+  const pathname = usePathname();
 
   const refresh = useCallback(async () => {
     try {
@@ -28,7 +30,7 @@ export function CartStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initialRefresh = window.setTimeout(() => void refresh(), 0);
+    const routeRefresh = window.setTimeout(() => void refresh(), 0);
     const channel = typeof BroadcastChannel === "undefined"
       ? null
       : new BroadcastChannel(CART_UPDATED_CHANNEL);
@@ -47,14 +49,14 @@ export function CartStateProvider({ children }: { children: ReactNode }) {
     document.addEventListener("visibilitychange", onVisibilityChange);
     channel?.addEventListener("message", onChannelMessage);
     return () => {
-      window.clearTimeout(initialRefresh);
+      window.clearTimeout(routeRefresh);
       window.removeEventListener(CART_UPDATED_EVENT, onCartUpdated);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       channel?.removeEventListener("message", onChannelMessage);
       channel?.close();
     };
-  }, [refresh]);
+  }, [pathname, refresh]);
 
   return <CartStateContext.Provider value={{ items, setItems }}>{children}</CartStateContext.Provider>;
 }

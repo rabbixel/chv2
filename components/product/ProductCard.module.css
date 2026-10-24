@@ -169,8 +169,21 @@
 }
 
 .free {
+  display: inline-block;
   font-size: var(--ch-text-lg);
   font-weight: var(--ch-weight-bold);
   letter-spacing: var(--ch-tracking-tight);
   color: var(--ch-color-brand);
+  text-decoration: none;
+}
+
+.free:hover {
+  color: var(--ch-color-brand-strong);
+  text-decoration: underline;
+}
+
+.free:focus-visible {
+  border-radius: var(--ch-radius-sm);
+  outline: 2px solid var(--ch-focus-ring-color);
+  outline-offset: 2px;
 }

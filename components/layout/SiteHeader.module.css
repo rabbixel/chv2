@@ -29,7 +29,8 @@
 }
 
 .mainInner {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
   align-items: center;
   min-width: 0;
   gap: var(--ch-space-2);
@@ -99,7 +100,7 @@
   display: flex;
   align-items: center;
   gap: 0;
-  margin-left: auto;
+  justify-self: end;
   flex: none;
 }
 
@@ -115,14 +116,17 @@
 
 @media (max-width: 359px) {
   .actions > :first-child { display: none; }
-  .brandLogo { width: 6rem; }
+  .brandLogo { width: 7.25rem; }
   .mainInner { gap: var(--ch-space-1); }
 }
 
 @media (min-width: 768px) {
   .mainInner {
+    display: flex;
     gap: var(--ch-space-4);
   }
+
+  .actions { margin-left: auto; }
 
   .tagline {
     display: block;

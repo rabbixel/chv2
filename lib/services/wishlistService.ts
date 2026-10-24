@@ -1,12 +1,15 @@
 import { cookies } from "next/headers";
-import { apiFetch } from "@/lib/api/client";
+import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { WISHLIST_COOKIE, WISHLIST_COUNT_COOKIE } from "@/lib/constants";
 import { normalizeWishlist, setWishlistItem, shouldSeedDemoWishlist } from "@/lib/creative-hatti/wishlist";
+import { getWordPressSessionBridgeHeaders } from "./authService";
+import { isLiveApiEnabled } from "./apiMode";
 import type { ID, Wishlist } from "@/lib/types";
 
 export interface WishlistService {
   getWishlist(): Promise<Wishlist>;
+  getSavedProductIds(productIds: readonly ID[]): Promise<Set<ID>>;
   addItem(productId: ID): Promise<Wishlist>;
   removeItem(productId: ID): Promise<Wishlist>;
 }
@@ -101,6 +104,11 @@ class MockWishlistService implements WishlistService {
     return (await readSession()).wishlist;
   }
 
+  async getSavedProductIds(productIds: readonly ID[]): Promise<Set<ID>> {
+    const saved = new Set((await this.getWishlist()).items.map((item) => item.productId));
+    return new Set(productIds.filter((productId) => saved.has(productId)));
+  }
+
   async addItem(productId: ID): Promise<Wishlist> {
     const { id, wishlist } = await readSession();
     const items = setWishlistItem(wishlist.items, productId, true, new Date().toISOString());
@@ -127,23 +135,46 @@ class MockWishlistService implements WishlistService {
 
 class ApiWishlistService implements WishlistService {
   async getWishlist(): Promise<Wishlist> {
-    return normalizeWishlist(await apiFetch<Wishlist>(apiEndpoints.wishlist));
+    return normalizeWishlist(await apiFetch<{ data: Wishlist }>(apiEndpoints.wishlist, {
+      headers: await getWordPressSessionBridgeHeaders(),
+      cache: "no-store",
+      redirect: "error",
+    }).then((result) => result.data));
+  }
+
+  async getSavedProductIds(productIds: readonly ID[]): Promise<Set<ID>> {
+    try {
+      const wishlist = await this.getWishlist();
+      const saved = new Set(wishlist.items.map((item) => item.productId));
+      return new Set(productIds.filter((productId) => saved.has(productId)));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return new Set();
+      throw error;
+    }
   }
 
   async addItem(productId: ID): Promise<Wishlist> {
-    const wishlist = normalizeWishlist(await apiFetch<Wishlist>(apiEndpoints.wishlist, {
+    const result = await apiFetch<{ data: Wishlist }>(apiEndpoints.wishlist, {
       method: "POST",
       body: { productId },
-    }));
+      headers: await getWordPressSessionBridgeHeaders(),
+      cache: "no-store",
+      redirect: "error",
+    });
+    const wishlist = normalizeWishlist(result.data);
     await writeCountMirror(wishlist);
     return wishlist;
   }
 
   async removeItem(productId: ID): Promise<Wishlist> {
-    const wishlist = normalizeWishlist(await apiFetch<Wishlist>(apiEndpoints.wishlist, {
+    const result = await apiFetch<{ data: Wishlist }>(apiEndpoints.wishlist, {
       method: "DELETE",
       body: { productId },
-    }));
+      headers: await getWordPressSessionBridgeHeaders(),
+      cache: "no-store",
+      redirect: "error",
+    });
+    const wishlist = normalizeWishlist(result.data);
     await writeCountMirror(wishlist);
     return wishlist;
   }
@@ -153,7 +184,7 @@ let cached: WishlistService | null = null;
 
 export function getWishlistService(): WishlistService {
   cached ??=
-    process.env.USE_MOCK_API === "false"
+    isLiveApiEnabled()
       ? new ApiWishlistService()
       : new MockWishlistService();
   return cached;

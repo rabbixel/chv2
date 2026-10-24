@@ -13,6 +13,7 @@ import { ApiError } from "@/lib/api/client";
 import type { Paginated } from "@/lib/types";
 import type { CustomerOrder } from "@/lib/types/customerOrder";
 import { receiptActionLabel } from "@/lib/receiptPresentation";
+import { PurchaseRecoveryPrompt } from "@/components/account";
 import { formatDate, formatMoney } from "@/lib/utils";
 import styles from "../section.module.css";
 
@@ -58,6 +59,7 @@ export default async function AccountOrdersPage({ searchParams }: AccountOrdersP
   return (
     <div>
       <h1 className={styles.title}>Orders</h1>
+      <PurchaseRecoveryPrompt />
       <p className={styles.lede}>
         Every purchase, with its payment status and download access.
       </p>
@@ -106,6 +108,7 @@ function CustomerOrders({ orders }: { orders: Paginated<CustomerOrder> }) {
   return (
     <div>
       <h1 className={styles.title}>Orders</h1>
+      <PurchaseRecoveryPrompt />
       <p className={styles.lede}>Your purchases and their order status.</p>
       {orders.items.length === 0 ? (
         <EmptyState

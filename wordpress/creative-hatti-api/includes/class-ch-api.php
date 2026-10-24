@@ -69,6 +69,7 @@ final class CH_API {
 	private $cart_controller;
 	private $checkout_controller;
 	private $payment_controller;
+	private $wishlist_controller;
 
 	/**
 	 * Get singleton.
@@ -94,11 +95,12 @@ final class CH_API {
 		$this->auth_controller = new CH_Auth_Controller();
 		$this->claim_controller = new CH_Claim_Controller( $this->auth_controller );
 		$this->orders_controller = new CH_Orders_Controller( $this->auth_controller );
-		$this->downloads_controller = new CH_Downloads_Controller( $this->auth_controller );
 		$this->customer_controller = new CH_Customer_Controller( $this->auth_controller );
 		$this->cart_controller = new CH_Cart_Controller( $this->auth_controller );
 		$this->checkout_controller = new CH_Checkout_Controller( $this->auth_controller, $this->cart_controller );
 		$this->payment_controller = new CH_Payment_Controller( $this->auth_controller );
+		$this->downloads_controller = new CH_Downloads_Controller( $this->auth_controller, $this->payment_controller );
+		$this->wishlist_controller = new CH_Wishlist_Controller( $this->auth_controller );
 
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 		add_filter( 'rest_pre_serve_request', array( $this, 'maybe_send_cors_headers' ), 10, 4 );
@@ -121,6 +123,7 @@ final class CH_API {
 		$this->cart_controller->register_routes();
 		$this->checkout_controller->register_routes();
 		$this->payment_controller->register_routes();
+		$this->wishlist_controller->register_routes();
 	}
 
 	/**

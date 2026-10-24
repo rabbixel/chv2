@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
+import { useCartState } from "@/components/cart/CartStateProvider";
 import { Icon, IconButton } from "@/components/ui";
 import { CART_COUNT_COOKIE, CART_UPDATED_EVENT } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -33,11 +34,13 @@ function subscribeCount(onChange: () => void): () => void {
 }
 
 function LiveBadge({ initialCount }: CartCountBadgeProps) {
-  const count = useSyncExternalStore(
+  const cookieCount = useSyncExternalStore(
     subscribeCount,
     () => readCountCookie() ?? initialCount,
     () => initialCount,
   );
+  const cartState = useCartState();
+  const count = cartState?.items?.length ?? cookieCount;
   return (
     <IconButton label="Cart" href={routes.cart()} badge={count}>
       <Icon name="bag" />

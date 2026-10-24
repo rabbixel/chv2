@@ -32,6 +32,11 @@ export interface CartLineIdentity {
   priceId: number | null;
 }
 
+/** Order snapshot identity used to remove only the lines purchased at checkout. */
+export interface CheckoutCartLine extends CartLineIdentity {
+  quantity: number;
+}
+
 export interface Cart {
   id: ID;
   currency: CurrencyCode;

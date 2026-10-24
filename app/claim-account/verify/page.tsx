@@ -29,7 +29,7 @@ export default async function ClaimVerificationPage({ searchParams }: VerifyPage
       lede={
         user
           ? "Continue to securely link the verified purchase record to your signed-in account."
-          : "Complete verification to create an account and link your historical purchase."
+          : "Verify your email to create an account and connect your previous purchase."
       }
       error={error}
       footer={

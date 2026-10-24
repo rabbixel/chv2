@@ -11,6 +11,17 @@ export interface ChApiPagination {
   total_pages: number;
 }
 
+export interface ChApiProductAvailability {
+  id: number;
+  available: boolean;
+  sold_out: boolean;
+  remaining: number | null;
+}
+
+export interface ChApiProductAvailabilityBatch {
+  items: ChApiProductAvailability[];
+}
+
 export interface ChApiSearchResult extends ChApiEnvelope<ChApiProductCard[]> {
   facets: import("@/lib/types").SearchFacet[];
   took_ms: number;
@@ -65,6 +76,7 @@ export interface ChApiProductCard {
   featured?: boolean;
   file_type?: string | null;
   file_size?: string | null;
+  availability?: { available: boolean; sold_out: boolean; remaining: number | null };
   /** SEO overrides can be included by detail and paginated sitemap feeds. */
   seo?: ChApiSeo;
   meta_title?: string | null;

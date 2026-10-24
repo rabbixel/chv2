@@ -4,7 +4,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 final class CH_Cart_Controller {
 	private $auth;
-	public function __construct( $auth ) { $this->auth = $auth; }
+	private $limits;
+	public function __construct( $auth, $limits = null ) { $this->auth = $auth; $this->limits = $limits instanceof CH_Purchase_Limit_Service ? $limits : new CH_Purchase_Limit_Service(); }
 
 	public function register_routes() {
 		register_rest_route( CH_API::NAMESPACE, '/cart/validate', array(
@@ -23,7 +24,7 @@ final class CH_Cart_Controller {
 			: true;
 	}
 
-	public function validate( $request ) {
+	public function validate( $request, $exclude_order_id = 0, $skip_purchase_limits = false ) {
 		$input = $request->get_param( 'items' );
 		if ( ! is_array( $input ) || count( $input ) > 20 ) {
 			return CH_API::error( 'invalid_cart', 'Cart is invalid or too large.', 400 );
@@ -56,16 +57,9 @@ final class CH_Cart_Controller {
 			$amount = $variable ? (float) edd_get_price_option_amount( $id, $price_id ) : (float) edd_get_download_price( $id );
 			if ( ! is_finite( $amount ) || $amount < 0 ) { $items[] = $base; continue; }
 			if ( ! $quantities_enabled || ( method_exists( $product, 'quantities_disabled' ) && $product->quantities_disabled() ) ) { $quantity = 1; }
-			$sold_out = function_exists( 'edd_pl_is_item_sold_out' ) && edd_pl_is_item_sold_out( $id, $price_id, false, false );
-			if ( $sold_out ) { $base['message'] = 'This product has reached its purchase limit.'; $items[] = $base; continue; }
-			if ( function_exists( 'edd_pl_get_file_purchase_limit' ) && function_exists( 'edd_pl_get_file_purchases' ) ) {
-				$limit     = (int) edd_pl_get_file_purchase_limit( $id, null, $price_id );
-				$purchased = (int) edd_pl_get_file_purchases( $id, $price_id );
-				if ( -1 === $limit || ( $limit > 0 && $purchased + $quantity > $limit ) ) {
-					$base['message'] = 'The requested quantity exceeds the remaining purchase limit.';
-					$items[] = $base;
-					continue;
-				}
+			if ( ! $skip_purchase_limits ) {
+				$limit_state = $this->limits->availability( $id, $quantity, $exclude_order_id );
+				if ( empty( $limit_state['available'] ) ) { $base['message'] = ! empty( $limit_state['sold_out'] ) ? 'This product is sold out.' : 'The requested quantity exceeds the remaining purchase limit.'; $items[] = $base; continue; }
 			}
 			$title = get_the_title( $id );
 			$options = array();

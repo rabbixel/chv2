@@ -8,9 +8,11 @@ import { getWordPressBridgeHeaders, getWordPressOptionalSessionBridgeHeaders } f
 import { isLiveApiEnabled } from "./apiMode";
 import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
 import { addCartLineOnce, sameCartLine } from "./cartLine";
+import { removePurchasedCartLines } from "./checkoutCartCleanup.mjs";
 import type {
   Cart,
   CartItem,
+  CheckoutCartLine,
   ID,
   LicenseCode,
   Money,
@@ -34,6 +36,7 @@ export interface CartService {
   addItem(productId: ID, license: LicenseCode, priceId?: number | null): Promise<Cart>;
   updateItem(key: string, license: LicenseCode, priceId?: number): Promise<Cart>;
   removeItem(key: string): Promise<Cart>;
+  removeCheckoutItems(lines: CheckoutCartLine[]): Promise<Cart>;
   applyCoupon(code: string): Promise<Cart>;
   removeCoupon(): Promise<Cart>;
   clearCart(): Promise<Cart>;
@@ -214,6 +217,15 @@ class MockCartService implements CartService {
     );
   }
 
+  async removeCheckoutItems(lines: CheckoutCartLine[]): Promise<Cart> {
+    const { id, cart } = await readSession();
+    const remaining = cart.items.filter((item) => !lines.some((line) =>
+      String(line.productId) === String(item.productId) &&
+      line.priceId === (item.priceId ?? null),
+    ));
+    return writeSession({ ...cart, items: remaining }, id);
+  }
+
   async applyCoupon(code: string): Promise<Cart> {
     const normalized = code.trim().toUpperCase();
     if (!MOCK_COUPONS[normalized]) {
@@ -373,6 +385,10 @@ class ApiCartService implements CartService {
     if (!target) return cart;
     const id = Number(target.productId);
     return this.save((await this.rawItems()).filter((entry) => !(entry.product_id === id && entry.price_id === target.priceId)));
+  }
+
+  async removeCheckoutItems(lines: CheckoutCartLine[]): Promise<Cart> {
+    return this.save(removePurchasedCartLines(await this.rawItems(), lines));
   }
 
   applyCoupon(code: string): Promise<Cart> {

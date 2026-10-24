@@ -77,6 +77,10 @@ export interface Product {
   compareAtPrice?: Money;
 
   status: ProductStatus;
+  /** Server-side EDD purchase limit availability. */
+  soldOut?: boolean;
+  /** Whether the API currently accepts another purchase, including reservations. */
+  purchasable?: boolean;
   /** Top-level taxonomy group (see `lib/taxonomy.ts`). */
   productGroup: ProductGroupSlug;
   /** Product format — metadata varies by kind. */

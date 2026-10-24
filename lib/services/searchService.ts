@@ -18,6 +18,7 @@ import type {
 } from "@/lib/types";
 import { normalizePaginationParams, paginateItems } from "@/lib/utils";
 import { searchRequestParams, searchFacetsFromApi } from "@/lib/creative-hatti/search";
+import { refreshProductAvailability } from "./productService";
 
 export interface SearchService {
   searchProducts(params: SearchParams): Promise<SearchResult<Product>>;
@@ -223,7 +224,7 @@ class ApiSearchService implements SearchService {
     const paginated = paginatedFromApi(result, productFromApi);
 
     return {
-      items: paginated.items,
+      items: await refreshProductAvailability(paginated.items),
       pagination: paginated.pagination,
       query: params.query,
       sort: params.sort ?? "relevance",

@@ -41,6 +41,22 @@ class CH_Products_Controller {
 	public function register_routes() {
 		register_rest_route(
 			CH_API::NAMESPACE,
+			'/products/availability',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_product_availability' ),
+				'permission_callback' => array( 'CH_API', 'public_read_permission' ),
+				'args'                => array(
+					'ids' => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			CH_API::NAMESPACE,
 			'/products',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -103,6 +119,48 @@ class CH_Products_Controller {
 				),
 			)
 		);
+	}
+
+	/**
+	 * Return current availability for a bounded batch of public products.
+	 *
+	 * This small response is deliberately uncached so storefronts can retain
+	 * cached product content while refreshing purchase availability per request.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function get_product_availability( WP_REST_Request $request ) {
+		$raw_ids = explode( ',', (string) $request['ids'] );
+		if ( count( $raw_ids ) > 48 ) {
+			return CH_API::error( 'too_many_products', 'Availability requests are limited to 48 products.', 400 );
+		}
+
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return CH_API::error( 'invalid_products', 'At least one valid product ID is required.', 400 );
+		}
+
+		$service = new CH_Purchase_Limit_Service();
+		$items   = array();
+		foreach ( $ids as $id ) {
+			$post = get_post( $id );
+			if ( ! $this->is_public_product( $post ) ) {
+				continue;
+			}
+
+			$state    = $service->availability( $id, 1 );
+			$items[] = array(
+				'id'        => $id,
+				'available' => (bool) $state['available'],
+				'sold_out'  => (bool) $state['sold_out'],
+				'remaining' => $state['remaining'],
+			);
+		}
+
+		$response = CH_API::success( array( 'items' => $items ) );
+		$response->header( 'Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0' );
+		return $response;
 	}
 
 	/**

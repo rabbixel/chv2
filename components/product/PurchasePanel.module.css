@@ -36,6 +36,13 @@
   color: var(--ch-color-success);
 }
 
+.soldOut {
+  margin: 0;
+  font-size: var(--ch-text-xl);
+  font-weight: var(--ch-weight-semibold);
+  color: var(--ch-color-danger);
+}
+
 .licenseNote {
   margin: 0;
   font-size: var(--ch-text-sm);
