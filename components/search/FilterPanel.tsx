@@ -7,6 +7,7 @@ import {
   withListingPatch,
   type ListingParams,
 } from "@/lib/search-params";
+import { filterOptionsByFacet } from "@/lib/search-facet-options";
 import { getGroup, productGroups } from "@/lib/taxonomy";
 import type { Collection, SearchFacetValue } from "@/lib/types";
 import styles from "./FilterPanel.module.css";
@@ -90,6 +91,30 @@ export function FilterPanel({
 
   const vectorGroup = getGroup("vector-creatives");
   const characterGroup = getGroup("character-bundle");
+  const visibleGroups = filterOptionsByFacet(
+    productGroups,
+    (group) => group.slug,
+    categoryFacet,
+    params.groups,
+  );
+  const vectorCategories = filterOptionsByFacet(
+    vectorGroup?.subcategories ?? [],
+    (subcategory) => subcategory.slug,
+    categoryFacet,
+    params.cats,
+  );
+  const characterCategories = filterOptionsByFacet(
+    characterGroup?.subcategories ?? [],
+    (subcategory) => subcategory.slug,
+    categoryFacet,
+    params.cats,
+  );
+  const visibleFileTypes = filterOptionsByFacet(
+    FILE_TYPES,
+    (type) => type,
+    fileTypeFacet,
+    params.files,
+  );
 
   return (
     <div className={styles.panel}>
@@ -100,30 +125,30 @@ export function FilterPanel({
         </Link>
       </div>
 
-      {!hideGroups && (
-      <fieldset className={styles.group}>
-        <legend className={styles.legend}>Product Group</legend>
-        {productGroups.map((group) => (
-          <label key={group.slug} className={styles.check}>
-            <input
-              type="checkbox"
-              checked={params.groups.includes(group.slug as (typeof params.groups)[number])}
-              onChange={() =>
-                push({
-                  groups: toggle(params.groups, group.slug) as typeof params.groups,
-                })
-              }
-            />
-            <span>{group.name}</span>
-          </label>
-        ))}
-      </fieldset>
+      {!hideGroups && visibleGroups.length > 0 && (
+        <fieldset className={styles.group}>
+          <legend className={styles.legend}>Product Group</legend>
+          {visibleGroups.map((group) => (
+            <label key={group.slug} className={styles.check}>
+              <input
+                type="checkbox"
+                checked={params.groups.includes(group.slug as (typeof params.groups)[number])}
+                onChange={() =>
+                  push({
+                    groups: toggle(params.groups, group.slug) as typeof params.groups,
+                  })
+                }
+              />
+              <span>{group.name}</span>
+            </label>
+          ))}
+        </fieldset>
       )}
 
-      {vectorGroup && (
+      {vectorGroup && vectorCategories.length > 0 && (
         <fieldset className={styles.group}>
           <legend className={styles.legend}>Vector Creative Categories</legend>
-          {vectorGroup.subcategories.filter((sub) => catCount(sub.slug) > 0 || params.cats.includes(sub.slug)).map((sub) => (
+          {vectorCategories.map((sub) => (
             <label key={sub.slug} className={styles.check}>
               <input
                 type="checkbox"
@@ -137,10 +162,10 @@ export function FilterPanel({
         </fieldset>
       )}
 
-      {characterGroup && (
+      {characterGroup && characterCategories.length > 0 && (
         <fieldset className={styles.group}>
           <legend className={styles.legend}>Character Categories</legend>
-          {characterGroup.subcategories.filter((sub) => catCount(sub.slug) > 0 || params.cats.includes(sub.slug)).map((sub) => (
+          {characterCategories.map((sub) => (
             <label key={sub.slug} className={styles.check}>
               <input
                 type="checkbox"
@@ -192,28 +217,30 @@ export function FilterPanel({
         ))}
       </fieldset>
 
-      <fieldset className={styles.group}>
-        <legend className={styles.legend}>File Type</legend>
-        {FILE_TYPES.filter((type) => fileCount(type) > 0 || params.files.includes(type)).map((type) => {
-          const count = fileCount(type);
-          return (
-            <label
-              key={type}
-              className={styles.check}
-              data-disabled={count === 0 && !params.files.includes(type)}
-            >
-              <input
-                type="checkbox"
-                checked={params.files.includes(type)}
-                disabled={count === 0 && !params.files.includes(type)}
-                onChange={() => push({ files: toggle(params.files, type) })}
-              />
-              <span>{type}</span>
-              <span className={styles.count}>{count}</span>
-            </label>
-          );
-        })}
-      </fieldset>
+      {visibleFileTypes.length > 0 && (
+        <fieldset className={styles.group}>
+          <legend className={styles.legend}>File Type</legend>
+          {visibleFileTypes.map((type) => {
+            const count = fileCount(type);
+            return (
+              <label
+                key={type}
+                className={styles.check}
+                data-disabled={count === 0 && !params.files.includes(type)}
+              >
+                <input
+                  type="checkbox"
+                  checked={params.files.includes(type)}
+                  disabled={count === 0 && !params.files.includes(type)}
+                  onChange={() => push({ files: toggle(params.files, type) })}
+                />
+                <span>{type}</span>
+                <span className={styles.count}>{count}</span>
+              </label>
+            );
+          })}
+        </fieldset>
+      )}
 
       <fieldset className={styles.group}>
         <legend className={styles.legend}>Compatible Software</legend>
