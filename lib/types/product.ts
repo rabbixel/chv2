@@ -114,7 +114,7 @@ export interface Product {
   featured: boolean;
   bestseller: boolean;
   isNew: boolean;
-  /** Free product (`price.amount === 0`). */
+  /** All valid purchasable options are free; mixed-price products are not free. */
   isFree: boolean;
   /** Alias of `featured` for the product-page contract. */
   isFeatured: boolean;

@@ -205,7 +205,17 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
   const tags = (detail.tags ?? []).map((tag) => tag.name);
   const createdAt = detail.date ?? new Date(0).toISOString();
   const updatedAt = detail.modified ?? createdAt;
-  const isFree = apiProduct.price.amount === 0;
+  const variableAmounts = detail.variable_prices?.map((option) => option.amount);
+  const validVariableAmounts = variableAmounts?.filter((amount): amount is number | string => {
+    if (amount === null || amount === undefined || (typeof amount === "string" && amount.trim() === "")) return false;
+    const parsed = Number(amount);
+    return Number.isFinite(parsed) && parsed >= 0;
+  });
+  const isFree = apiProduct.price.class
+    ? apiProduct.price.class === "free"
+    : variableAmounts
+      ? Boolean(validVariableAmounts?.length) && validVariableAmounts!.every((amount) => Number(amount) === 0)
+      : apiProduct.price.amount === 0;
 
   return {
     id: String(apiProduct.id),

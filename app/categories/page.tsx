@@ -31,7 +31,7 @@ export default async function CategoriesPage() {
         <Breadcrumbs items={[{ label: "Home", href: routes.home() }, { label: "All categories" }]} />
         <header className={styles.header}>
           <h1>All categories</h1>
-          <p>Explore digital artwork and design resources by category.</p>
+          <p>Find the perfect design for your next creative project.</p>
         </header>
         <ul className={styles.grid}>
           {roots.map((category) => (

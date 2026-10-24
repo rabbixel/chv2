@@ -52,7 +52,7 @@ test("protected footer destinations retain the server-side login return path", a
   assert.match(login, /<input type="hidden" name="next" value=\{next\}/);
 });
 
-test("discovery pages use publication date, recorded sales, and zero-price filtering", async () => {
+test("discovery pages filter paid and free collections before backend pagination", async () => {
   const [newArrivals, popular, free, search, wpIndex] = await Promise.all([
     read("../app/new-arrivals/page.tsx"),
     read("../app/popular/page.tsx"),
@@ -62,12 +62,39 @@ test("discovery pages use publication date, recorded sales, and zero-price filte
   ]);
   assert.match(newArrivals, /sort="newest"/);
   assert.match(popular, /sort="best-selling"/);
+  assert.match(popular, /paidOnly/);
   assert.match(free, /freeOnly/);
+  assert.match(search, /paidOnly \? \{ availability: "paid" \}/);
+  assert.match(search, /freeOnly \? \{ availability: "free" \}/);
   assert.match(search, /getSearchService\(\)\.searchProducts/);
   assert.match(wpIndex, /'newest' => 'd\.published DESC'/);
   assert.match(wpIndex, /'best-selling' => 'd\.sales DESC'/);
-  assert.match(wpIndex, /'free' === \$request\['avail'\].*d\.price=0/);
+  assert.match(wpIndex, /d\.price_valid=1 AND d\.has_paid_option=1/);
+  assert.match(wpIndex, /d\.price_valid=1 AND d\.has_free_option=1 AND d\.has_paid_option=0/);
+  assert.doesNotMatch(wpIndex, /d\.price=0/);
   assert.match(wpIndex, /'_edd_download_sales'/);
+});
+
+test("marketplace descriptions use customer-friendly copy without exposing ranking details", async () => {
+  const [popular, free, arrivals, categories, footer, listing, constants, footerStyles] = await Promise.all([
+    read("../app/popular/page.tsx"),
+    read("../app/free-downloads/page.tsx"),
+    read("../app/new-arrivals/page.tsx"),
+    read("../app/categories/page.tsx"),
+    read("../components/layout/SiteFooter.tsx"),
+    read("../components/search/CuratedProductListing.tsx"),
+    read("../lib/constants.ts"),
+    read("../components/layout/SiteFooter.module.css"),
+  ]);
+  assert.match(popular, /title="Popular Designs"/);
+  assert.match(popular, /Loved by creators\. Explore our most popular designs\./);
+  assert.match(free, /Explore creative designs you can download for free\./);
+  assert.match(arrivals, /Fresh ideas, new inspirations\. Discover our latest designs\./);
+  assert.match(categories, /Find the perfect design for your next creative project\./);
+  assert.match(constants, /Bringing ideas to life with unique Indian vector illustrations, creative characters, and ready-to-use designs\./);
+  assert.match(footer, /Prices in \{SITE\.currency\}.*Secure checkout/);
+  assert.doesNotMatch(listing, /Ordered by|recorded product sales|purchase options/);
+  assert.match(footerStyles, /\.brand\s*\{[^}]*max-width/);
 });
 
 test("policy content is visibly marked for review and contact does not imply form delivery", async () => {

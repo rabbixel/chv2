@@ -12,8 +12,10 @@ async function loadSource(path, replacements = []) {
   return `data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`;
 }
 const media = await loadSource("../lib/creative-hatti/media.ts");
-const adapters = await loadSource("../lib/creative-hatti/adapters.ts", [['"./media"', JSON.stringify(media)]]);
+const html = await loadSource("../lib/creative-hatti/html.ts");
+const adapters = await loadSource("../lib/creative-hatti/adapters.ts", [['"./media"', JSON.stringify(media)], ['"./html"', JSON.stringify(html)]]);
 const search = await import(await loadSource("../lib/creative-hatti/search.ts", [['"./adapters"', JSON.stringify(adapters)]]));
+const { productFromApi } = await import(adapters);
 const { apiFetch, ApiError } = await import(await loadSource("../lib/api/client.ts"));
 
 test("indexed search forwards the query, every filter and sort without losing multiselect values", () => {
@@ -38,6 +40,25 @@ test("browse mode has no accidental filters and category facets preserve server 
   assert.equal(search.searchFacetsFromApi(facets)[0].values[0].value, "character-bundle");
   assert.equal(search.searchFacetsFromApi(facets)[0].values[0].count, 123);
   assert.equal(facets[0].values[0].value, "character-bundles");
+});
+
+test("curated collection availability is sent to the indexed server query", () => {
+  for (const availability of ["paid", "free"]) {
+    const request = search.searchRequestParams({ query: "", page: 3, pageSize: 24, sort: "best-selling", filters: { availability } });
+    assert.equal(request.avail, availability);
+    assert.equal(request.page, 3);
+    assert.equal(request.sort, "best-selling");
+  }
+});
+
+test("product cards classify mixed-price details as paid rather than free", () => {
+  const product = (price, variable_prices) => productFromApi({
+    id: 1, title: "Fixture", slug: "fixture", price: { amount: price, currency: "INR" }, categories: [], variable_prices,
+  });
+  assert.equal(product(0, [{ amount: 0 }, { amount: 250 }]).isFree, false);
+  assert.equal(product(0, [{ amount: 0 }, { amount: "invalid" }]).isFree, true);
+  assert.equal(product(0, [{ amount: "invalid" }]).isFree, false);
+  assert.equal(product(0, undefined).isFree, true);
 });
 
 test("API client safely encodes query punctuation and propagates index failures", async () => {

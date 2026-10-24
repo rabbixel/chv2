@@ -12,6 +12,7 @@ export interface CuratedProductListingProps {
   pathname: string;
   sort: SearchSortKey;
   freeOnly?: boolean;
+  paidOnly?: boolean;
   page?: number;
 }
 
@@ -21,11 +22,12 @@ export async function CuratedProductListing({
   pathname,
   sort,
   freeOnly = false,
+  paidOnly = false,
   page = 1,
 }: CuratedProductListingProps) {
   const result = await getSearchService().searchProducts({
     query: "",
-    filters: freeOnly ? { availability: "free" } : undefined,
+    filters: freeOnly ? { availability: "free" } : paidOnly ? { availability: "paid" } : undefined,
     sort,
     page,
     pageSize: PAGINATION.defaultPageSize,
@@ -38,9 +40,6 @@ export async function CuratedProductListing({
         <header className={styles.header}>
           <h1>{title}</h1>
           <p>{description}</p>
-          {sort === "newest" && <p className={styles.signal}>Ordered by product publication date.</p>}
-          {sort === "best-selling" && <p className={styles.signal}>Ordered by recorded product sales.</p>}
-          {freeOnly && <p className={styles.signal}>Only products with a zero listed price are shown.</p>}
         </header>
         <ProductGrid
           products={result.items}
@@ -48,7 +47,7 @@ export async function CuratedProductListing({
           cardTitleAs="h2"
           masonry
           empty={{
-            title: freeOnly ? "No free downloads found" : "No products found",
+            title: freeOnly ? "No free downloads found" : paidOnly ? "No paid products found" : "No products found",
             description: "Please check back later or browse all categories.",
           }}
           pagination={{

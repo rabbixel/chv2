@@ -16,5 +16,5 @@ export default async function FreeDownloadsPage({ searchParams }: Props) {
   const query = (await searchParams) ?? {};
   const rawPage = Array.isArray(query.page) ? query.page[0] : query.page;
   const page = rawPage && /^[1-9]\d{0,4}$/.test(rawPage) ? Number(rawPage) : 1;
-  return <CuratedProductListing title="Free downloads" description="Explore products with a zero listed price. Their product pages explain the available download flow." pathname={routes.freeDownloads()} sort="newest" freeOnly page={page} />;
+  return <CuratedProductListing title="Free downloads" description="Explore creative designs you can download for free." pathname={routes.freeDownloads()} sort="newest" freeOnly page={page} />;
 }

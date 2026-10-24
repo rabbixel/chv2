@@ -16,5 +16,5 @@ export default async function NewArrivalsPage({ searchParams }: Props) {
   const query = (await searchParams) ?? {};
   const rawPage = Array.isArray(query.page) ? query.page[0] : query.page;
   const page = rawPage && /^[1-9]\d{0,4}$/.test(rawPage) ? Number(rawPage) : 1;
-  return <CuratedProductListing title="New arrivals" description="Find the latest additions to the marketplace." pathname={routes.newArrivals()} sort="newest" page={page} />;
+  return <CuratedProductListing title="New arrivals" description="Fresh ideas, new inspirations. Discover our latest designs." pathname={routes.newArrivals()} sort="newest" page={page} />;
 }

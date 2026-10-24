@@ -6,7 +6,7 @@ export const SITE = {
   name: "Creative Hatti",
   tagline: "Premium digital creative assets",
   description:
-    "Creative Hatti is a curated marketplace for fonts, graphics, templates and design resources.",
+    "Bringing ideas to life with unique Indian vector illustrations, creative characters, and ready-to-use designs.",
   locale: "en-IN",
   currency: "INR",
     url: readSiteUrl(),

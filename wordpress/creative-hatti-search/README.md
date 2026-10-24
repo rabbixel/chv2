@@ -35,11 +35,12 @@ catalogue page cap.
 Index creation adds three prefixed InnoDB tables; it does not alter WordPress
 source tables. Build batches use ID keysets, 100 products and one transaction
 per batch. An interrupted initial build resumes from its last committed batch.
-`wp ch-search reindex --restart` restarts from zero. Subsequent full builds
-refresh the active index in batches; they do not provide an atomic whole-index
-swap. A MySQL advisory lock prevents concurrent CLI builds.
-Search returns HTTP 503 until the first full build succeeds. Failed queries
-also return 503; the storefront shows a retry state instead of mock results.
+`wp ch-search reindex --restart` restarts from zero. A full rebuild marks the
+index unavailable until every document has been refreshed, then reconciles
+orphans and marks it ready. A MySQL advisory lock prevents concurrent CLI
+builds. Reindexing is repeatable: each product's old derived rows are removed
+before its document, tokens, and facets are rewritten. Search returns HTTP 503
+during an initial build or full rebuild; failed queries also return 503.
 
 ## Query contract
 
@@ -53,9 +54,18 @@ Example: `/indexed-search?q=diwali&sort=price-asc&file=EPS,PNG&page=2&per_page=2
 | `cat`, `group` | API taxonomy slugs, comma-separated; category ancestors included |
 | `file`, `app` | File types and compatible application names/tokens |
 | `min`, `max` | Integer **paise**, inclusive; product DTO prices remain **rupees** |
-| `avail` | free or paid, derived from the lowest purchasable price |
+| `avail` | `paid` includes a valid purchasable option above zero; `free` includes products whose valid purchasable options are all zero. Mixed-price products appear in `paid` only. Missing, blank, negative, non-numeric, non-finite and otherwise invalid prices appear in neither collection. |
 | `collection` | Editorial collection slug mapped to its search terms |
 | `rating`, `license`, `sale` | Explicit indexed attributes supplied by the integration filter |
+
+The documents table stores `price_valid`, `has_free_option`, and
+`has_paid_option` alongside the minimum valid price. Products without any
+valid option are excluded from both curated price collections. Mixed products
+are returned only for `avail=paid`, and their card displays the lowest
+positive option while the index retains the true lowest option for price
+filters and ordering. The paid/free predicate is included in the indexed match
+query, before totals, facets, sorting, and pagination. `ch-search status`
+reports indexed valid, paid, free-only, mixed, and invalid totals.
 
 Each multi-select accepts up to 8 values (100 bytes each). OR within each
 parameter; AND across parameters and query tokens. Unknown collections and
