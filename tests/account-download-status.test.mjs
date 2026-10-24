@@ -30,9 +30,9 @@ test("download controls do not claim S3 object existence and handle expired EDD 
     read("../app/account/page.tsx"),
     read("../app/account/actions.ts"),
   ]);
-  assert.match(downloadsPage, /EDD authorization does not confirm that the corresponding S3 object exists/);
+  assert.match(downloadsPage, /A link being available does not guarantee that the file itself can be retrieved/);
   assert.match(dashboard, /CustomerDownloadActions item=\{item\}/);
-  assert.match(accountActions, /EDD download access is no longer available or may have expired/);
+  assert.match(accountActions, /Download access is no longer available or may have expired/);
   assert.doesNotMatch(accountActions, /S3 object exists/);
 });
 

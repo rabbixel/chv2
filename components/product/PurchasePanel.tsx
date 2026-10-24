@@ -165,7 +165,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
         <Button onClick={handleFreeCheckout} size="lg" fullWidth loading={pending} disabled={pending || cartLoading}>
           {alreadyInCart ? "Continue to free checkout" : "Get free download"}
         </Button>
-        <p className={styles.licenseNote}>Complete the zero-value checkout to receive an EDD-authorized download link. No payment or account creation is required.</p>
+        <p className={styles.licenseNote}>Download this design for free. Simply complete the checkout to get your files. No payment or account required.</p>
         {product.isCustomizable && (
           <Button variant="ghost" fullWidth href={routes.customize()}>
             Get Quote for Customization

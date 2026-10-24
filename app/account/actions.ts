@@ -324,7 +324,7 @@ export async function requestCustomerDownloadAction(
     return { url: download.url };
   } catch (error) {
     if (error instanceof ApiError && [401, 403, 404].includes(error.status ?? 0)) {
-      return { error: "EDD download access is no longer available or may have expired." };
+      return { error: "Download access is no longer available or may have expired." };
     }
     return { error: "Your download could not be prepared. Please try again shortly." };
   }

@@ -157,7 +157,7 @@ export function CheckoutForm({
       }
       if (!sameQuote(quote, latest.quote)) {
         setQuote(latest.quote);
-        setQuoteNotice("Totals have been updated by EDD. Review the amount and click the checkout button again to continue.");
+        setQuoteNotice("Your total has changed. Review the amount and continue when you’re ready.");
         return;
       }
 
@@ -176,7 +176,7 @@ export function CheckoutForm({
         return;
       }
       if (prepared.order.total.currency !== latest.quote.total.currency || prepared.order.total.amount !== latest.quote.total.amount) {
-        setCheckoutError("EDD returned a different order total. Refresh checkout to review the current price before paying.");
+        setCheckoutError("Your order total has changed. Refresh checkout to review the current price before paying.");
         return;
       }
 
@@ -197,7 +197,7 @@ export function CheckoutForm({
         {currentCompletedNumber ? (
           <section className={styles.pendingNotice} role="status">
             <h2 className={styles.sectionHeading}>{paymentNotice?.kind === "complete" ? paymentNotice.title : "Free order complete"}</h2>
-            <p>Order reference <strong>{currentCompletedNumber}</strong> is complete. {paymentNotice?.kind === "complete" ? paymentNotice.message : "EDD recorded the zero-value order and enabled its authorized download entitlements."}</p>
+            <p>Order reference <strong>{currentCompletedNumber}</strong> is complete. {paymentNotice?.kind === "complete" ? paymentNotice.message : "Your free order is complete, and your files are ready."}</p>
             {!verificationResult?.fulfilled && <p>No payment was taken.</p>}
             {completedDownloads?.items.length ? <div className={styles.completedDownloads}>
               <h3 className={styles.downloadHeading}>Your purchased files</h3>
@@ -209,7 +209,7 @@ export function CheckoutForm({
                   </button>
                 </li>)}</ul>
               </section>)}
-              <p>Download links are created when you click and may expire. If one expires, return here and request a fresh link.</p>
+              <p>Secure download links are created when you click and may expire. If one expires, return here and request a fresh link.</p>
               {downloadError && <p role="alert" className={styles.error}>{downloadError}</p>}
             </div> : <p>{downloadFailureMessage(downloadsError ?? "temporary")}</p>}
             <p>Optional: <Link href={routes.claimAccount()}>Claim your purchase for an account</Link>. We will verify your email before linking purchases; no account is created automatically.</p>
@@ -217,17 +217,17 @@ export function CheckoutForm({
         ) : paymentNotice?.kind === "fulfillment-pending" ? (
           <section className={styles.pendingNotice} role="status">
             <h2 className={styles.sectionHeading}>{paymentNotice.title}</h2>
-            <p>Payment was captured for order <strong>{verificationResult?.edd_order_reference}</strong>. {paymentNotice.message}</p>
+            <p>Payment was received for order <strong>{verificationResult?.edd_order_reference}</strong>. {paymentNotice.message}</p>
           </section>
         ) : paymentNotice?.kind === "authorized" ? (
           <section className={styles.pendingNotice} role="status">
             <h2 className={styles.sectionHeading}>{paymentNotice.title}</h2>
-            <p>Payment for order <strong>{verificationResult?.edd_order_reference}</strong> is {paymentNotice.message.slice("Payment is ".length)}</p>
+            <p>{paymentNotice.message} Order <strong>{verificationResult?.edd_order_reference}</strong> remains pending.</p>
           </section>
         ) : currentPreparedNumber ? (
           <section className={styles.pendingNotice} role="status">
             <h2 className={styles.sectionHeading}>Order ready for payment</h2>
-            <p>Order reference <strong>{currentPreparedNumber}</strong> is pending. {initialPaymentFailed ? "The previous payment attempt failed; you can retry securely with Razorpay." : "Continue securely with Razorpay to pay; downloads remain unavailable until payment verification and fulfillment."}</p>
+            <p>Order reference <strong>{currentPreparedNumber}</strong> is pending. {initialPaymentFailed ? "The previous payment attempt failed; you can try again securely with Razorpay." : "Continue securely with Razorpay to pay. Downloads become available after payment is confirmed and your order is complete."}</p>
           </section>
         ) : (
           <form onSubmit={submitCheckout} className={styles.form} onInvalidCapture={() => { setNameTouched(true); setEmailTouched(true); setPhoneTouched(true); }}>
@@ -245,7 +245,7 @@ export function CheckoutForm({
                   <input type="hidden" name="country" value={country} />
                   <input type="hidden" name="region" value={region} />
                 </>}
-                <Input label="Discount code" name="discountCode" autoComplete="off" maxLength={64} value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} hint="Optional. EDD checks the code and its eligibility." />
+                <Input label="Discount code" name="discountCode" autoComplete="off" maxLength={64} value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} hint="Optional. We’ll check whether this code applies to your order." />
                 <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
               </div>
               <div className={styles.quoteActions}>
@@ -264,8 +264,8 @@ export function CheckoutForm({
               {quote?.total.amount === 0 ? "Complete Free Order" : quote ? `Pay ${formatMoney(quote.total)} Securely` : "Checkout totals unavailable"}
             </Button>
             <p className={styles.methodHint}>{quote?.total.amount === 0
-              ? "EDD completes zero-value orders without Razorpay and grants only its normal download entitlements."
-              : "Your payment is processed securely by Razorpay. Downloads are enabled only after payment verification and fulfillment."}</p>
+              ? "Free orders do not require payment. Your files become available when the order is complete."
+              : "Your payment is processed securely by Razorpay. Downloads become available after payment is confirmed and your order is complete."}</p>
           </form>
         )}
         {!currentCompletedNumber && <RazorpayCheckout ref={paymentRef} orderReference={currentPreparedNumber} name={fullName || initialName} email={email || initialEmail} phone={phone || initialPhone} initialVerification={initialOrderStatus && ["authorized", "captured"].includes(initialOrderStatus.payment_status) ? verificationResult : null} onVerified={(result) => {
@@ -296,8 +296,8 @@ export function CheckoutForm({
             {quote.discount.amount > 0 && <div className={styles.totalRow}><dt>Discount{quote.discountCode ? ` (${quote.discountCode})` : ""}</dt><dd>−{formatMoney(quote.discount)}</dd></div>}
             <div className={styles.totalRow}><dt>Tax</dt><dd>{formatMoney(quote.tax)}</dd></div>
             <div className={`${styles.totalRow} ${styles.grandTotal}`}><dt>Total</dt><dd>{formatMoney(quote.total)}</dd></div>
-          </dl> : <p role="status">{quoteError || "Checkout totals are being calculated by EDD."}</p>}
-          <p className={styles.methodHint}>Prices, discounts and totals are confirmed by EDD.</p>
+          </dl> : <p role="status">{quoteError || "Your checkout total is being calculated."}</p>}
+          <p className={styles.methodHint}>Prices, discounts, and totals are confirmed before payment.</p>
         </section>
       </aside>
     </div>

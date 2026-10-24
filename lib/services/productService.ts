@@ -8,7 +8,6 @@ import {
   productionWordPressHostname,
 } from "@/lib/creative-hatti/media";
 import {
-  galleryComparisonCandidates,
   selectGalleryImages,
 } from "@/lib/creative-hatti/image-matching.mjs";
 import {
@@ -234,9 +233,8 @@ class ApiProductService implements ProductService {
         },
       );
       const product = await refreshProductAvailability([productFromApi(result.data)]).then((items) => items[0]);
-      const candidates = new Set(galleryComparisonCandidates(product.images).flat());
-      const enrichedImages = await mapWithConcurrency(product.images, 4, (image, index) =>
-        candidates.has(index) ? enrichImageMetadata(image) : Promise.resolve(image),
+      const enrichedImages = await mapWithConcurrency(product.images, 4, (image) =>
+        enrichImageMetadata(image),
       );
       const selected = await selectGalleryImages(enrichedImages, loadImageForComparison);
       return { ...product, images: selected.images };
@@ -270,9 +268,8 @@ class ApiProductService implements ProductService {
         },
       );
       const product = await refreshProductAvailability([productFromApi(result.data)]).then((items) => items[0]);
-      const candidates = new Set(galleryComparisonCandidates(product.images).flat());
-      const enrichedImages = await mapWithConcurrency(product.images, 4, (image, index) =>
-        candidates.has(index) ? enrichImageMetadata(image) : Promise.resolve(image),
+      const enrichedImages = await mapWithConcurrency(product.images, 4, (image) =>
+        enrichImageMetadata(image),
       );
       const selected = await selectGalleryImages(enrichedImages, loadImageForComparison);
       return { ...product, images: selected.images };

@@ -15,7 +15,7 @@ export default function ContactPage() {
     <ContentPage title="Contact" description="For product questions, order access, or help with a download, contact the Creative Hatti team.">
       <section>
         <h2>Email</h2>
-        <p>The existing WordPress Contact page lists <a href={routes.contactEmail()}>hello@creativehatti.com</a> for product questions and support.</p>
+        <p>Email <a href={routes.contactEmail()}>hello@creativehatti.com</a> for product questions and support.</p>
         <p>This link opens your email application. The website does not confirm whether an email was sent or received.</p>
         <Button href={routes.contactEmail("Creative Hatti support")}>Email Creative Hatti</Button>
       </section>

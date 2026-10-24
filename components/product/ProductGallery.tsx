@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, TouchEvent } from "react";
 import { Icon } from "@/components/ui";
 import type { ProductImage } from "@/lib/types";
+import { largestGalleryImageIndex } from "@/lib/creative-hatti/gallery-display.mjs";
 import { ProductImage as ProductImageView } from "./ProductImage";
 import { cn } from "@/lib/utils";
 import styles from "./ProductGallery.module.css";
@@ -68,7 +69,7 @@ function GalleryArt({
 
 export function ProductGallery({ images, title }: ProductGalleryProps) {
   const count = images.length;
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => largestGalleryImageIndex(images));
   const [lightbox, setLightbox] = useState(false);
   const touchX = useRef<number | null>(null);
   const stageRef = useRef<HTMLButtonElement>(null);
@@ -165,7 +166,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
             image={current}
             title={title}
             decorative={false}
-            eager={index === 0}
+            eager={index === largestGalleryImageIndex(images)}
           />
         </button>
         {count > 1 && (

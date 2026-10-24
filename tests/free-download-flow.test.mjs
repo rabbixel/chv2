@@ -14,7 +14,7 @@ test("free product action enters the idempotent cart and zero-value checkout flo
   assert.match(panel, /quickAddToCart\(\s*product\.slug/);
   assert.match(panel, /syncCart\(result\);\s*router\.push\(routes\.checkout\(\)\)/);
   assert.match(panel, /Continue to free checkout|Get free download/);
-  assert.match(panel, /zero-value checkout to receive an EDD-authorized download link/);
+  assert.match(panel, /Download this design for free\. Simply complete the checkout to get your files\. No payment or account required\./);
   assert.doesNotMatch(panel, /href=\{routes\.accountDownloads\(\)\}/);
   assert.match(cartActions, /if \(existing\) return \{ status: "already"/);
   assert.match(checkoutForm, /if \(prepared\.order\.status === "complete"\)[\s\S]*?getCompletedOrderDownloads/);

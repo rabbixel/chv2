@@ -29,7 +29,7 @@ export default function FrequentlyAskedQuestionsPage() {
         </details>
         <details className={styles.faqItem}>
           <summary>What if a download link does not work?</summary>
-          <p>Return to the Downloads page and request a fresh link. If the file still cannot be retrieved, <Link href={routes.contact()}>contact support</Link> with the order number and product title. A download button confirms purchase authorization, not that a storage file is present.</p>
+          <p>Return to the Downloads page and request a fresh link. If the file still cannot be retrieved, <Link href={routes.contact()}>contact support</Link> with the order number and product title. A download button means access was approved, but it does not confirm that the file is available or has downloaded successfully.</p>
         </details>
         <details className={styles.faqItem}>
           <summary>How do commissioned custom designs work?</summary>

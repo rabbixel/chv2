@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 
 export default function LicensingPage() {
   return (
-    <ContentPage title="License information" description="A draft summary of the licensing terms documented on the previous WordPress storefront." policyDraft>
+  <ContentPage title="License information" description="A draft summary of the licensing terms from the previous Creative Hatti website." policyDraft>
       <section>
         <h2>Check the applicable license</h2>
-        <p>Review the license terms shown for the product and price option before purchase or use. The current connection between EDD price options and the historical Standard or Extended/Team license terms has not been verified for every product. This summary does not assign a license to an option that is unclear.</p>
+        <p>Review the license terms shown for the product and price option before purchase or use. We have not confirmed which current purchase options match the previous Standard or Extended/Team terms for every product. This summary does not assign a license to an option that is unclear.</p>
       </section>
       <section>
         <h2>Standard License in the historical terms</h2>
@@ -24,7 +24,7 @@ export default function LicensingPage() {
       <section>
         <h2>Extended and Team use in the historical terms</h2>
         <p>The historical agreement describes Team licensing for shared-drive access by team members and use for multiple clients. It describes Extended licensing for uses beyond the Standard terms, including merchandise with material creative or functional elements, certain commercial-space wall art, and images incorporated as elements of digital templates for sale or distribution.</p>
-        <p>These are summaries of historical terms. The exact scope and which current EDD price option, if any, grants each right must be confirmed before relying on them.</p>
+        <p>These are summaries of previous terms. The exact scope and which current purchase option, if any, grants each right must be confirmed before relying on them.</p>
       </section>
       <section>
         <h2>Purchase limits and ownership</h2>
@@ -32,7 +32,7 @@ export default function LicensingPage() {
       </section>
       <section>
         <h2>Editorial-use content</h2>
-        <p>The historical Terms and Conditions state that some images or illustrations featuring people may be marked “Editorial Use Only” when a commercial release is not available. The page lists news, archives, publications, documentaries, nonfiction books, and public-service content as examples, and excludes promotional graphics, packaging, advertising, merchandise, and social-media campaigns. Product-specific labels and the current applicability of this legacy rule require owner review.</p>
+        <p>The previous Terms and Conditions state that some images or illustrations featuring people may be marked “Editorial Use Only” when a commercial release is not available. The page lists news, archives, publications, documentaries, nonfiction books, and public-service content as examples, and excludes promotional graphics, packaging, advertising, merchandise, and social-media campaigns. Product-specific labels and whether this earlier rule still applies require owner review.</p>
       </section>
       <section>
         <h2>Commissioned custom designs</h2>
@@ -42,7 +42,7 @@ export default function LicensingPage() {
       </section>
       <section>
         <h2>Owner approval needed</h2>
-        <p>Confirm current Standard, Team, and Extended scopes; map EDD price options to those terms; confirm editorial-use labeling; and obtain legal review of custom copyright-assignment scope and formalities before removing this draft notice.</p>
+        <p>Confirm current Standard, Team, and Extended scopes; confirm which purchase options match those terms and which products are marked for editorial use; and obtain legal review of custom copyright-assignment scope and formalities before removing this draft notice.</p>
       </section>
     </ContentPage>
   );

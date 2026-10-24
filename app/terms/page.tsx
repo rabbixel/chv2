@@ -22,7 +22,7 @@ export default function TermsPage() {
       </section>
       <section>
         <h2>Licenses and intellectual property</h2>
-        <p>The historical license information describes a perpetual, non-exclusive Standard License where that license was granted, and says that the same graphic may be purchased by other customers. It restricts redistribution or resale of source files, trademark use, and certain online templates. Historical Extended/Team terms describe additional rights for specified uses. Review the <a href={routes.licenseInformation()}>license information draft</a> and confirm the applicable terms for the product and price option before use. A technical purchase limit does not transfer copyright or create exclusive ownership.</p>
+        <p>The previous license information describes a perpetual, non-exclusive Standard License where that license was granted, and says that the same graphic may be purchased by other customers. It restricts redistribution or resale of source files, trademark use, and certain online templates. Previous Extended/Team terms describe additional rights for specified uses. Review the <a href={routes.licenseInformation()}>license information draft</a> and confirm the applicable terms for the product and price option before use. A product&apos;s purchase limit does not transfer copyright or create exclusive ownership.</p>
         <p>The historical Terms also state that images or illustrations featuring a celebrity, politician, artist, or other person without a commercial release are for editorial use only. Product-specific labeling and the current scope of those restrictions require owner confirmation.</p>
       </section>
       <section>
@@ -37,8 +37,8 @@ export default function TermsPage() {
         <p>Payments are handled through the payment method shown at checkout. Digital access is associated with the order after the relevant payment and order checks complete. If an order or file appears incorrect, contact the team through the <a href={routes.contact()}>Contact page</a>.</p>
       </section>
       <section>
-        <h2>Legacy service terms to reconcile</h2>
-        <p>The existing WordPress Terms also describe a limited, non-transferable, revocable license to use the service and contain user-submitted-content and seller/community provisions. Confirm which clauses remain relevant to the current storefront before adopting or removing them.</p>
+        <h2>Additional terms to confirm</h2>
+        <p>The Terms from the previous Creative Hatti website also describe a limited, non-transferable, revocable license to use the service and include rules for customer-submitted content and seller or community features. Confirm which clauses still apply before adopting or removing them.</p>
       </section>
       <section>
         <h2>Owner approval needed</h2>

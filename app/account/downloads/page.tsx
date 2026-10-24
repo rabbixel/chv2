@@ -190,7 +190,7 @@ function WordPressDownloads({
           )}
         </>
       )}
-      <p className={styles.note}>Each button requests a fresh EDD-authorized link. Download limits and access rules still apply. EDD authorization does not confirm that the corresponding S3 object exists.</p>
+      <p className={styles.note}>Each button creates a fresh secure download link. Download limits and access rules still apply. A link being available does not guarantee that the file itself can be retrieved.</p>
     </div>
   );
 }

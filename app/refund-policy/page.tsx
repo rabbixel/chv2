@@ -15,7 +15,7 @@ export default function RefundPolicyPage() {
       <section>
         <h2>Digital products</h2>
         <p>Successfully delivered digital products are generally non-refundable, except where a refund or another remedy is required by applicable law. If a product is defective, corrupted, inaccessible, materially different from its description, or was not delivered, contact us so we can investigate and provide an appropriate remedy.</p>
-        <p>A download button, an EDD authorization, or the creation of a download link confirms that access was authorized. It does not by itself prove that the file reached your device or opened successfully. If the file is missing or cannot be retrieved, report the problem before treating the download as delivered.</p>
+        <p>A download button or secure link means access was approved. It does not by itself prove that the file reached your device or opened successfully. If the file is missing or cannot be retrieved, report the problem before treating the download as delivered.</p>
       </section>
       <section>
         <h2>Payment and download problems</h2>

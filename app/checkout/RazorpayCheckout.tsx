@@ -102,7 +102,7 @@ export const RazorpayCheckout = forwardRef<RazorpayCheckoutHandle, RazorpayCheck
     <p className={styles.methodHint}>
       {finalState
         ? getRazorpayCheckoutOutcomeCopy({ status: finalState, verified: true, fulfilled: finalState === "captured" && fulfilled, edd_order_reference: activeOrderReference }).note
-        : "Your order remains pending until payment is verified. Downloads are enabled only after EDD fulfillment."}
+        : "Your order remains pending until payment is confirmed. Downloads become available when the order is complete."}
     </p>
   </div>;
 });

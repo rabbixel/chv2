@@ -6,7 +6,7 @@ import { routes } from "@/lib/routes";
 export const revalidate = 1800;
 export const metadata: Metadata = {
   title: "Popular designs",
-  description: "Explore Creative Hatti products ordered by recorded EDD sales.",
+  description: "Explore Creative Hatti products ranked by recorded sales.",
   alternates: { canonical: `${SITE.url}${routes.popular()}` },
 };
 

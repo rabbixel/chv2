@@ -48,7 +48,7 @@ export function ClaimVerificationForm({
   if (pendingClaim && !signedIn) {
     return (
       <div className={styles.form}>
-        <p className={styles.note}>Your verified link is ready. Sign in to the WordPress account that uses that email to continue.</p>
+        <p className={styles.note}>Your email is verified. Sign in to the Creative Hatti account registered with that email to continue.</p>
         <Link className={styles.link} href={routes.login(routes.claimVerify())}>
           Sign in to continue
         </Link>
