@@ -71,6 +71,13 @@
   color: var(--ch-color-text-inverse);
 }
 
+.list a:focus-visible,
+.logoLink:focus-visible {
+  outline: 2px solid var(--ch-color-text-inverse);
+  outline-offset: var(--ch-space-1);
+  border-radius: var(--ch-radius-xs);
+}
+
 .bottom {
   border-top: 1px solid rgb(255 255 255 / 0.14);
 }

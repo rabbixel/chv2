@@ -2,8 +2,8 @@
  * Single source of truth for storefront URLs.
  * Components must build links through these helpers — never hardcode paths.
  *
- * Placeholder routes (categories index, marketing pages, …) intentionally
- * resolve to future paths; they render the branded 404 until built.
+ * Keep internal navigation paths centralized here so page links and
+ * redirects share the same route definitions.
  */
 
 export const routes = {
@@ -44,10 +44,13 @@ export const routes = {
   claimVerify: () => "/claim-account/verify",
   resetPassword: () => "/reset-password",
   contact: () => "/contact",
+  contactEmail: (subject?: string) =>
+    `mailto:hello@creativehatti.com${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`,
   help: () => "/help",
   faqs: () => "/faqs",
   refundPolicy: () => "/refund-policy",
   about: () => "/about",
   terms: () => "/terms",
   privacy: () => "/privacy",
+  licenseInformation: () => "/licensing",
 } as const;

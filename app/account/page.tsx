@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AccountProductArtwork, DownloadButton } from "@/components/account";
+import { AccountProductArtwork, CustomerDownloadActions, DownloadButton } from "@/components/account";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { SITE } from "@/lib/constants";
@@ -186,20 +186,20 @@ function WordPressDashboard({
             ))}</div>
           ) : <EmptyState title="No orders yet" description="Orders you place will appear here." action={<Link href={routes.accountOrders()}>View orders</Link>} />}
         </section>
-        <section aria-label="Recent purchased products">
+        <section className={styles.recentPurchases} aria-label="Recent purchased products">
           <h2 className={styles.splitTitle}>Recent purchased products</h2>
           {downloads === null ? (
             <EmptyState title="Purchase history could not be loaded" description="Please refresh the page or try again shortly." />
           ) : recentItems.length ? (
             <div className={styles.list}>{recentItems.map(({ purchase, item }) => (
               <Card key={item.orderItemId}>
-                <div className={`${styles.row} ${styles.dashboardRow}`}>
+                <div className={`${styles.row} ${styles.purchaseRow}`}>
                   <AccountProductArtwork title={item.title} image={item.productUrl ? productImages.get(item.productUrl) : undefined} fallbackUrl={item.thumbnailUrl} />
                   <div className={styles.rowMain}>
                     <p className={styles.rowTitle}>{item.productUrl ? <Link href={item.productUrl}>{item.title}</Link> : item.title}</p>
-                    <p className={styles.rowMeta}>Order <Link href={routes.accountOrder(purchase.orderId)}>{purchase.orderNumber}</Link> · {item.entitledFileCount} configured file{item.entitledFileCount === 1 ? "" : "s"}</p>
+                    <p className={styles.rowMeta}>Order <Link href={routes.accountOrder(purchase.orderId)}>{purchase.orderNumber}</Link> · {item.entitledFileCount} file{item.entitledFileCount === 1 ? "" : "s"}</p>
                   </div>
-                  <div className={styles.rowSide}><span className={`${styles.rowMeta} ${styles.deliveryStatus}`}>Delivery not enabled</span></div>
+                  <div className={styles.purchaseActions}><CustomerDownloadActions item={item} /></div>
                 </div>
               </Card>
             ))}</div>

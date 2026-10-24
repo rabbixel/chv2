@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AccountProductArtwork, DownloadButton } from "@/components/account";
+import { AccountProductArtwork, CustomerDownloadActions, DownloadButton, PurchaseRecoveryPrompt } from "@/components/account";
 import { ApiError } from "@/lib/api/client";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { SITE } from "@/lib/constants";
@@ -26,12 +26,14 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 interface AccountDownloadsPageProps {
-  searchParams: Promise<{ page?: string | string[] }>;
+  searchParams: Promise<{ page?: string | string[]; recovered?: string | string[] }>;
 }
 
 export default async function AccountDownloadsPage({ searchParams }: AccountDownloadsPageProps) {
+  const query = await searchParams;
+  const recovered = query.recovered === "1";
+
   if (isWordPressAuthEnabled()) {
-    const query = await searchParams;
     const pageValue = Array.isArray(query.page) ? query.page[0] : query.page;
     const page = pageValue && /^[1-9][0-9]{0,4}$/.test(pageValue) ? Number(pageValue) : 1;
     let downloads: Paginated<CustomerDownloadPurchase>;
@@ -51,7 +53,7 @@ export default async function AccountDownloadsPage({ searchParams }: AccountDown
     const productImages = await resolveProductImagesByUrl(
       downloads.items.flatMap((purchase) => purchase.items.map((item) => item.productUrl)),
     );
-    return <WordPressDownloads downloads={downloads} productImages={productImages} />;
+    return <WordPressDownloads downloads={downloads} productImages={productImages} recovered={recovered} />;
   }
 
   const downloads = await getDownloadService().listDownloads();
@@ -67,6 +69,8 @@ export default async function AccountDownloadsPage({ searchParams }: AccountDown
   return (
     <div>
       <h1 className={styles.title}>Downloads</h1>
+      {recovered && <p role="status" className={styles.notice}>Your previous purchases are connected to your account. <Link href={routes.accountDownloads()}>View Account Downloads</Link> or choose an available file below.</p>}
+      <PurchaseRecoveryPrompt />
       <p className={styles.lede}>
         Your files, ready whenever inspiration strikes.
       </p>
@@ -126,9 +130,11 @@ export default async function AccountDownloadsPage({ searchParams }: AccountDown
 function WordPressDownloads({
   downloads,
   productImages,
+  recovered,
 }: {
   downloads: Paginated<CustomerDownloadPurchase>;
   productImages: Map<string, ProductImage>;
+  recovered: boolean;
 }) {
   const entries = downloads.items.flatMap((purchase) =>
     purchase.items.map((item) => ({ purchase, item })),
@@ -137,6 +143,8 @@ function WordPressDownloads({
   return (
     <div>
       <h1 className={styles.title}>Downloads</h1>
+      {recovered && <p role="status" className={styles.notice}>Your previous purchases are connected to your account. <Link href={routes.accountDownloads()}>View Account Downloads</Link> or choose an available file below.</p>}
+      <PurchaseRecoveryPrompt />
       <p className={styles.lede}>Your purchased products and download availability.</p>
       {entries.length === 0 ? (
         <EmptyState
@@ -149,7 +157,7 @@ function WordPressDownloads({
           <div className={styles.list}>
             {entries.map(({ purchase, item }) => (
               <Card key={item.orderItemId}>
-                <div className={styles.row}>
+                <div className={`${styles.row} ${styles.purchaseRow}`}>
                   <AccountProductArtwork
                     title={item.title}
                     image={item.productUrl ? productImages.get(item.productUrl) : undefined}
@@ -168,30 +176,7 @@ function WordPressDownloads({
                       {item.availability === "available" && ` · ${item.entitledFileCount} file${item.entitledFileCount === 1 ? "" : "s"} available`}
                     </p>
                   </div>
-                  <div className={styles.rowSide}>
-                    {item.downloadEnabled && item.files.length > 0 ? (
-                      <div className={styles.downloadFiles}>
-                        {item.files.map((file) => (
-                          <div className={styles.downloadFile} key={`${item.orderItemId}:${file.key}`}>
-                            <span className={styles.rowMeta}>{file.name}</span>
-                            <DownloadButton
-                              orderItemId={item.orderItemId}
-                              fileKey={file.key}
-                              label={/\.zip$/i.test(file.name) ? "Download ZIP" : "Download file"}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className={styles.rowMeta}>
-                        {item.availability === "no_entitled_files"
-                          ? "No files are available for this purchase option"
-                          : item.availability === "product_unavailable"
-                            ? "Product files are no longer available"
-                            : "Download access is currently unavailable"}
-                      </span>
-                    )}
-                  </div>
+                  <div className={styles.purchaseActions}><CustomerDownloadActions item={item} /></div>
                 </div>
               </Card>
             ))}
@@ -205,7 +190,7 @@ function WordPressDownloads({
           )}
         </>
       )}
-      <p className={styles.note}>Each button requests a fresh EDD authorized download link. Download limits and access rules still apply.</p>
+      <p className={styles.note}>Each button requests a fresh EDD-authorized link. Download limits and access rules still apply. EDD authorization does not confirm that the corresponding S3 object exists.</p>
     </div>
   );
 }

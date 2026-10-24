@@ -224,7 +224,9 @@ export async function completeGuestClaimAction(formData: FormData): Promise<void
     redirect(`${routes.claimVerify()}?error=${encodeURIComponent(message)}`);
   }
   revalidatePath(routes.account());
-  redirect(routes.account());
+  revalidatePath(routes.accountOrders());
+  revalidatePath(routes.accountDownloads());
+  redirect(`${routes.accountDownloads()}?recovered=1`);
 }
 
 export async function signOutForGuestClaimAction(): Promise<void> {
@@ -322,7 +324,7 @@ export async function requestCustomerDownloadAction(
     return { url: download.url };
   } catch (error) {
     if (error instanceof ApiError && [401, 403, 404].includes(error.status ?? 0)) {
-      return { error: "This download is no longer available for your account." };
+      return { error: "EDD download access is no longer available or may have expired." };
     }
     return { error: "Your download could not be prepared. Please try again shortly." };
   }

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import legacyProductRedirects from "./data/legacy-product-redirects.json";
+import { routes } from "./lib/routes";
 console.log(">>> CREATIVE HATTI NEXT CONFIG LOADED <<<");
 
 const nextConfig: NextConfig = {
@@ -105,18 +106,15 @@ images: {
         destination: "/product/:slug",
         permanent: true,
       },
-      // Bare plural prefixes: the catalogue browse surface is /search
-      // and category discovery lives on the homepage.
+      // Product catalogue legacy URL.
       {
         source: "/products",
         destination: "/search",
         permanent: true,
       },
-      {
-        source: "/categories",
-        destination: "/",
-        permanent: true,
-      },
+      { source: "/terms-and-conditions", destination: routes.terms(), permanent: true },
+      { source: "/privacy-policy-2", destination: routes.privacy(), permanent: true },
+      { source: "/license", destination: routes.licenseInformation(), permanent: true },
       // The wishlist is account-scoped; guests bounce to login.
       {
         source: "/wishlist",

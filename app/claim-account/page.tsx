@@ -12,8 +12,8 @@ import styles from "./page.module.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Access a classic-store purchase",
-  description: "Verify your email to access historical Creative Hatti purchases.",
+  title: "Recover Your Previous Purchases",
+  description: "Verify your email to recover eligible Creative Hatti orders and downloads.",
   alternates: { canonical: `${SITE.url}/claim-account` },
   robots: { index: false, follow: false },
 };
@@ -48,11 +48,11 @@ export default async function ClaimAccountPage({ searchParams }: ClaimPageProps)
     return (
       <AuthCard
         title="Check your inbox"
-        notice="If we can verify an eligible purchase record for that email, a link is on its way. Check your inbox and spam folder."
+        notice="If there are eligible purchases to connect, we’ll send a verification link. Check your inbox and spam folder."
         footer={<Link href={routes.login()}>Back to log in</Link>}
       >
         <p className={styles.note}>
-          For your privacy, this page does not confirm whether an account or purchase history exists.
+          For your privacy, we do not confirm whether the email is linked to a purchase. Purchases already connected to your account are in Orders and Downloads. A new verification link expires after 30 minutes.
         </p>
       </AuthCard>
     );
@@ -60,8 +60,8 @@ export default async function ClaimAccountPage({ searchParams }: ClaimPageProps)
 
   return (
     <AuthCard
-      title="Access a classic-store purchase"
-      lede="Enter the email address used for your older Creative Hatti purchases. We will send a verification link if an eligible purchase record is found."
+      title="Recover Your Previous Purchases"
+      lede="Purchased as a guest or used the previous Creative Hatti website? You can recover eligible orders and downloads here. Enter the email address used for those purchases. We’ll send a one-time verification link to confirm you own that email. Open the link within 30 minutes to connect eligible purchases to your account."
       error={error}
       footer={
         <span>
@@ -71,7 +71,7 @@ export default async function ClaimAccountPage({ searchParams }: ClaimPageProps)
     >
       <form action={requestGuestClaimAction} className={styles.form}>
         <Input
-          label="Purchase email"
+          label="Email used for your purchase"
           name="email"
           type="email"
           autoComplete="email"
@@ -79,7 +79,7 @@ export default async function ClaimAccountPage({ searchParams }: ClaimPageProps)
           required
         />
         <SubmitButton fullWidth pendingLabel="Sending…">
-          Send verification link
+          Email me a verification link
         </SubmitButton>
       </form>
     </AuthCard>
