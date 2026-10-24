@@ -16,9 +16,12 @@ define( 'CH_API_FILE', __FILE__ );
 define( 'CH_API_DIR', plugin_dir_path( __FILE__ ) );
 
 require_once CH_API_DIR . 'includes/class-ch-cache.php';
+require_once CH_API_DIR . 'includes/class-ch-purchase-limit-service.php';
 require_once CH_API_DIR . 'includes/class-ch-media.php';
 require_once CH_API_DIR . 'includes/class-ch-product-transformer.php';
 require_once CH_API_DIR . 'includes/class-ch-products-controller.php';
+require_once CH_API_DIR . 'includes/class-ch-wishlist-service.php';
+require_once CH_API_DIR . 'includes/class-ch-wishlist-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-categories-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-auth-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-claim-controller.php';
@@ -33,6 +36,8 @@ require_once CH_API_DIR . 'includes/class-ch-api.php';
 add_action(
 	'plugins_loaded',
 	static function () {
+		$limits = new CH_Purchase_Limit_Service();
+		$limits->register_hooks();
 		CH_API::instance();
 	}
 );

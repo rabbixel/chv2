@@ -11,9 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class CH_Downloads_Controller {
 	private $auth_controller;
+	private $payment_controller;
 
-	public function __construct( CH_Auth_Controller $auth_controller ) {
+	public function __construct( CH_Auth_Controller $auth_controller, ?CH_Payment_Controller $payment_controller = null ) {
 		$this->auth_controller = $auth_controller;
+		$this->payment_controller = $payment_controller;
 	}
 
 	public function register_routes() {
@@ -30,6 +32,46 @@ final class CH_Downloads_Controller {
 				),
 			)
 		);
+		register_rest_route(
+			CH_API::NAMESPACE,
+			'/customer/downloads/file',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'request_file_url' ),
+				'permission_callback' => array( $this->auth_controller, 'session_permission' ),
+			)
+		);
+	}
+
+	/** Mint a fresh native EDD URL only for a deliverable item owned by this authenticated EDD customer. */
+	public function request_file_url( $request ) {
+		if ( ! function_exists( 'edd_get_order_item' ) || ! function_exists( 'edd_get_order' ) || ! function_exists( 'edd_get_download_file_url' ) ) {
+			return CH_API::error( 'edd_unavailable', 'Download delivery is temporarily unavailable.', 503 );
+		}
+		$customer = $this->current_customer();
+		if ( is_wp_error( $customer ) ) { return CH_API::error( 'edd_unavailable', 'Download delivery is temporarily unavailable.', 503 ); }
+		$item_id = absint( $request->get_param( 'order_item_id' ) );
+		$file_key = $request->get_param( 'file_key' );
+		if ( ! $customer || ! $item_id || ! is_string( $file_key ) || ! preg_match( '/^[A-Za-z0-9_-]{1,80}$/D', $file_key ) ) {
+			return CH_API::error( 'download_unavailable', 'This file is not available for this account.', 404 );
+		}
+		$item = edd_get_order_item( $item_id );
+		if ( ! $item || ! in_array( (string) ( $item->status ?? '' ), $this->deliverable_item_statuses(), true ) ) {
+			return CH_API::error( 'download_unavailable', 'This file is not available for this account.', 404 );
+		}
+		$order = edd_get_order( (int) $item->order_id );
+		if ( ! $this->is_customer_order_eligible( $order, $customer ) ) {
+			return CH_API::error( 'download_unavailable', 'This file is not available for this account.', 404 );
+		}
+		$files = $this->entitled_files( (int) $item->product_id, $item->price_id ?? null );
+		if ( ! array_key_exists( $file_key, $files ) || ! is_array( $files[ $file_key ] ) || empty( $files[ $file_key ]['file'] ) ) {
+			return CH_API::error( 'download_unavailable', 'This file is not available for this account.', 404 );
+		}
+		$url = edd_get_download_file_url( $item, (string) $order->email, $file_key );
+		if ( ! is_string( $url ) || '' === $url ) {
+			return CH_API::error( 'download_unavailable', 'This file is temporarily unavailable. Please try again.', 503 );
+		}
+		return CH_API::success( array( 'url' => esc_url_raw( $url ) ) );
 	}
 
 	public function validate_positive_integer( $value ) {
@@ -72,8 +114,8 @@ final class CH_Downloads_Controller {
 				)
 			)
 		);
-		$orders = array_values( array_filter( (array) $orders, static function ( $order ) use ( $customer ) {
-			return $order instanceof EDD\Orders\Order && 'sale' === $order->type && (int) $order->customer_id === (int) $customer->id;
+		$orders = array_values( array_filter( (array) $orders, function ( $order ) use ( $customer ) {
+			return $order instanceof EDD\Orders\Order && $this->is_customer_order_eligible( $order, $customer );
 		} ) );
 
 		return CH_API::collection(
@@ -180,6 +222,11 @@ final class CH_Downloads_Controller {
 				$usable_files = array_filter( $files, static function ( $file ) {
 					return is_array( $file ) && isset( $file['file'] ) && is_string( $file['file'] ) && '' !== trim( $file['file'] );
 				} );
+				$public_files = array();
+				foreach ( $usable_files as $file_key => $file ) {
+					$file_name = function_exists( 'edd_get_file_name' ) ? edd_get_file_name( $file ) : basename( (string) $file['file'] );
+					$public_files[] = array( 'key' => (string) $file_key, 'name' => sanitize_text_field( (string) $file_name ) );
+				}
 				$thumbnail = null;
 				$product_url = null;
 				$title = trim( sanitize_text_field( html_entity_decode( (string) $item->product_name, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
@@ -189,7 +236,7 @@ final class CH_Downloads_Controller {
 					$image = $media->featured_image( $product->ID );
 					$thumbnail = is_array( $image ) && ! empty( $image['url'] ) ? $image['url'] : null;
 					$product_url = '/product/' . rawurlencode( $product->post_name );
-					$availability = $usable_files ? 'delivery_disabled' : 'no_entitled_files';
+					$availability = $usable_files ? 'available' : 'no_entitled_files';
 				}
 				$order_items[] = array(
 					'order_item_id'       => (int) $item->id,
@@ -201,7 +248,8 @@ final class CH_Downloads_Controller {
 					'quantity'            => max( 1, (int) $item->quantity ),
 					'entitled_file_count' => count( $usable_files ),
 					'availability'        => $availability,
-					'download_enabled'    => false,
+					'download_enabled'    => ! empty( $public_files ),
+					'files'               => $public_files,
 				);
 			}
 			if ( empty( $order_items ) ) {
@@ -230,5 +278,31 @@ final class CH_Downloads_Controller {
 		}
 
 		return array();
+	}
+
+	private function deliverable_item_statuses() {
+		return function_exists( 'edd_get_deliverable_order_item_statuses' ) ? edd_get_deliverable_order_item_statuses() : array( 'complete', 'partially_refunded' );
+	}
+
+	/** Match the logged-in WordPress user to EDD's customer record and completed parent order. */
+	private function is_customer_order_eligible( $order, $customer ) {
+		if ( ! $order || 'sale' !== (string) $order->type || ! in_array( (string) $order->status, array( 'complete', 'partially_refunded' ), true ) || (int) $order->customer_id !== (int) $customer->id ) { return false; }
+		$user_id = get_current_user_id();
+		if ( ! $user_id || (int) $customer->user_id !== $user_id || ( ! empty( $order->user_id ) && (int) $order->user_id !== $user_id ) ) { return false; }
+		$gateway = (string) ( $order->gateway ?? '' );
+		$is_custom_order = 'ch_razorpay' === $gateway || ( '' === $gateway && $this->has_custom_payment_markers( (int) $order->id ) );
+		if ( $is_custom_order ) {
+			if ( ! $this->payment_controller || ! $this->payment_controller->has_verified_custom_payment_association( (int) $order->id, $order ) ) { return false; }
+			if ( '1' === (string) edd_get_order_meta( (int) $order->id, 'ch_razorpay_full_refund_verified', true ) || 'refunded' === (string) $order->status ) { return false; }
+		}
+		return true;
+	}
+
+	/** Distinguish legacy EDD orders with no gateway from custom orders whose gateway was not recorded. */
+	private function has_custom_payment_markers( $order_id ) {
+		foreach ( array( 'ch_payment_authorization_hash', 'ch_checkout_type', 'ch_razorpay_order_id', 'ch_razorpay_verified_payment_id', 'ch_razorpay_verified_payment_status', 'ch_razorpay_amount_paise' ) as $meta_key ) {
+			if ( '' !== (string) edd_get_order_meta( $order_id, $meta_key, true ) ) { return true; }
+		}
+		return false;
 	}
 }

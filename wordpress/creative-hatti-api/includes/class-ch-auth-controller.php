@@ -418,7 +418,7 @@ final class CH_Auth_Controller {
 	/** Set no-store on successes and errors for all private auth responses. */
 	public function disable_auth_response_caching( $response, $server, $request ) {
 		$route = $request->get_route();
-		if ( 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/auth/' ) || 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/customer/claim/' ) || 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/customer/' ) || '/' . CH_API::NAMESPACE . '/cart/validate' === $route || 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/checkout/' ) ) {
+		if ( 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/auth/' ) || 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/customer/claim/' ) || 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/customer/' ) || '/' . CH_API::NAMESPACE . '/wishlist' === $route || '/' . CH_API::NAMESPACE . '/cart/validate' === $route || 0 === strpos( $route, '/' . CH_API::NAMESPACE . '/checkout/' ) ) {
 			$response = rest_ensure_response( $response );
 			$response->header( 'Cache-Control', 'private, no-store, no-cache, max-age=0, must-revalidate' );
 			$response->header( 'Pragma', 'no-cache' );

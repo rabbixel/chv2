@@ -12,7 +12,7 @@ namespace {
 	class FakeCart { public function validate( $request ) { if ( $GLOBALS['cart_unavailable'] ) { return new WP_REST_Response( array( 'success' => false ), 422 ); } return new WP_REST_Response( array( 'success' => true, 'data' => array( 'items' => $GLOBALS['cart_items'] ) ) ); } }
 	class FakeCustomer { public $id; public $user_id; public function __construct( $id, $user_id = 0 ) { $this->id = $id; $this->user_id = $user_id; } public function attach_payment( $id, $update = false ) { $GLOBALS['customer_orders'][] = array( $this->id, $id, $update ); return true; } }
 	class FakeOrder { public $id; public $type = 'sale'; public $status = 'pending'; public $total; public $currency = 'INR'; public $gateway; public function __construct( $id, $data ) { $this->id = $id; $this->total = $data['total']; $this->gateway = $data['gateway']; } public function get_number() { return 'T' . $this->id; } }
-	class FakeWpdb { public function prepare( $query, ...$args ) { return array( $query, $args ); } public function get_var( $prepared ) { return false !== strpos( $prepared[0], 'GET_LOCK' ) ? '1' : '1'; } public function query( $sql ) { $GLOBALS['transactions'][] = $sql; return false === strpos( $sql, 'FAIL' ); } }
+	class FakeWpdb { public $prefix = 'wp_'; public function prepare( $query, ...$args ) { return array( $query, $args ); } public function get_var( $prepared ) { if ( false !== strpos( $prepared[0], 'GET_LOCK' ) ) { return '1'; } if ( false !== strpos( $prepared[0], 'COALESCE(SUM' ) ) { return $GLOBALS['reserved_qty'] ?? 0; } return '1'; } public function query( $sql ) { $GLOBALS['transactions'][] = $sql; return false === strpos( $sql, 'FAIL' ); } }
 	$GLOBALS['wpdb'] = new FakeWpdb();
 	function register_rest_route( $ns, $route, $args ) { $GLOBALS['routes'][ $route ] = $args; }
 	function rest_ensure_response( $response ) { return $response; }
@@ -23,10 +23,11 @@ namespace {
 	function wp_salt( $scheme = '' ) { return 'synthetic-test-salt'; }
 	function wp_json_encode( $value ) { return json_encode( $value ); }
 	function get_current_user_id() { return $GLOBALS['current_user']; }
+	function is_wp_error( $value ) { return $value instanceof WP_Error; }
 	function get_userdata( $id ) { return (object) array( 'ID' => $id, 'user_email' => 'member@example.test' ); }
 	function get_user_meta( $id, $key, $single ) { return 'Member'; }
 	function edd_add_order( $data ) { $GLOBALS['created_order_data'][] = $data; $id = ++$GLOBALS['order_id']; $GLOBALS['orders'][ $id ] = new FakeOrder( $id, $data ); return $id; }
-	function edd_add_order_item( $data ) { $GLOBALS['order_items'][] = $data; return count( $GLOBALS['order_items'] ); }
+	function edd_add_order_item( $data ) { $GLOBALS['order_items'][] = $data; if ( ! empty( $GLOBALS['product_limits'][ $data['product_id'] ] ) ) { $GLOBALS['reserved_qty'] += (int) $data['quantity']; } return count( $GLOBALS['order_items'] ); }
 	function edd_add_order_address( $data ) { $GLOBALS['addresses'][] = $data; return count( $GLOBALS['addresses'] ); }
 	function edd_add_order_adjustment( $data ) { $GLOBALS['adjustments'][] = $data; return count( $GLOBALS['adjustments'] ); }
 	function edd_get_order( $id ) { return $GLOBALS['orders'][ $id ] ?? false; }
@@ -47,6 +48,10 @@ namespace {
 	function edd_is_discount_valid( $code, $user, $return_errors = false ) { return 'SAVE' === $code && empty( $GLOBALS['coupon_used'] ); }
 	function edd_get_item_discount_amount( $item, $cart, $discounts, $price ) { return $price * (int) $item['quantity'] * ( $GLOBALS['coupon_percentage'] ?? 10 ) / 100; }
 	function get_transient( $key ) { return $GLOBALS['transients'][ $key ] ?? false; }
+	function get_post_meta( $id, $key, $single = true ) { if ( '_edd_purchase_limit' === $key ) { return $GLOBALS['product_limits'][ $id ] ?? ''; } if ( '_edd_download_sales' === $key ) { return (string) ( $GLOBALS['product_sales'][ $id ] ?? 0 ); } return ''; }
+	function edd_get_download_sales_stats( $id ) { return $GLOBALS['product_sales'][ $id ] ?? 0; }
+	function edd_get_gross_order_statuses() { return array( 'complete', 'refunded', 'partially_refunded', 'revoked', 'on_hold' ); }
+	require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-purchase-limit-service.php';
 	function set_transient( $key, $value, $ttl ) { $GLOBALS['transients'][ $key ] = $value; return true; }
 	function delete_transient( $key ) { unset( $GLOBALS['transients'][ $key ] ); return true; }
 	require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-checkout-controller.php';
@@ -54,7 +59,7 @@ namespace {
 	function request_for( $items, $headers = array(), $billing = array(), $discount = '' ) { return new FakeRequest( array( 'items' => $items, 'billing' => $billing, 'discount_code' => $discount ), $headers ); }
 	$GLOBALS['bridge_ok'] = true; $GLOBALS['session_ok'] = true; $GLOBALS['current_user'] = 0; $GLOBALS['order_id'] = 1000;
 	$GLOBALS['orders'] = array(); $GLOBALS['order_items'] = array(); $GLOBALS['addresses'] = array(); $GLOBALS['adjustments'] = array(); $GLOBALS['created_order_data'] = array(); $GLOBALS['created_customers'] = array();
-	$GLOBALS['customer_orders'] = array(); $GLOBALS['customer_lookup_fields'] = array(); $GLOBALS['transactions'] = array(); $GLOBALS['transients'] = array(); $GLOBALS['cart_unavailable'] = false; $GLOBALS['order_meta'] = array(); $GLOBALS['completions'] = 0; $GLOBALS['coupon_used'] = false; $GLOBALS['coupon_percentage'] = 10;
+	$GLOBALS['customer_orders'] = array(); $GLOBALS['customer_lookup_fields'] = array(); $GLOBALS['transactions'] = array(); $GLOBALS['transients'] = array(); $GLOBALS['cart_unavailable'] = false; $GLOBALS['order_meta'] = array(); $GLOBALS['completions'] = 0; $GLOBALS['coupon_used'] = false; $GLOBALS['coupon_percentage'] = 10; $GLOBALS['product_limits'] = array(); $GLOBALS['product_sales'] = array(); $GLOBALS['reserved_qty'] = 0;
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ), array( 'product_id' => 20, 'price_id' => 2, 'quantity' => 2, 'unit_price' => 2500, 'available' => true ) );
 	$controller = new \CH_Checkout_Controller( new FakeAuth(), new FakeCart() );
 	$headers = array( 'Idempotency-Key' => '01234567-89ab-cdef-0123-456789abcdef' );
@@ -137,5 +142,17 @@ namespace {
 	check( 400 === $controller->prepare( $no_key )->status, 'missing idempotency key is rejected' );
 	check( count( $GLOBALS['addresses'] ) === count( $GLOBALS['created_order_data'] ), 'billing address saved for each prepared order' );
 	check( ! isset( $GLOBALS['download_permissions'] ) && ! isset( $GLOBALS['license_keys'] ) && ! isset( $GLOBALS['receipts'] ), 'pending flow does not grant entitlements or issue receipts/licenses' );
+	$GLOBALS['product_limits'][77] = '1';
+	$GLOBALS['product_sales'][77] = 0;
+	$GLOBALS['reserved_qty'] = 0;
+	$GLOBALS['cart_items'] = array( array( 'product_id' => 77, 'price_id' => null, 'quantity' => 1, 'unit_price' => 100, 'available' => true ) );
+	$limit_key = array( 'Idempotency-Key' => 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' );
+	$limited_request = request_for( array( array( 'product_id' => 77, 'price_id' => null, 'quantity' => 1 ) ), $limit_key, $billing );
+	$limited_first = $controller->prepare( $limited_request );
+	check( 201 === $limited_first->status && 1 === $GLOBALS['reserved_qty'], 'limited product order persists its reservation atomically' );
+	$other_key = array( 'Idempotency-Key' => 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' );
+	check( 409 === $controller->prepare( request_for( array( array( 'product_id' => 77, 'price_id' => null, 'quantity' => 1 ) ), $other_key, $billing ) )->status, 'second checkout cannot reserve the final copy' );
+	$limited_replay = $controller->prepare( $limited_request );
+	check( 200 === $limited_replay->status && false === $limited_replay->data['data']['created'], 'identical retry returns its existing reservation without double-counting' );
 	echo "Checkout controller synthetic tests passed.\n";
 }

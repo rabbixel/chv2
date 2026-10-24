@@ -23,6 +23,8 @@
     transform var(--ch-duration-fast) var(--ch-ease-out);
 }
 
+.button:has(span) { width: auto; min-width: 5rem; padding: 0 var(--ch-space-3); border-radius: var(--ch-radius-md); font-size: var(--ch-text-xs); font-weight: var(--ch-weight-semibold); }
+
 .button:hover:not(:disabled) {
   color: var(--ch-color-brand);
   border-color: var(--ch-brand-600);

@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { requestDownloadAction } from "@/app/account/actions";
+import { requestCustomerDownloadAction, requestDownloadAction } from "@/app/account/actions";
 import { Button } from "@/components/ui";
 import type { ID } from "@/lib/types";
 import styles from "./DownloadButton.module.css";
 
 export interface DownloadButtonProps {
-  productId: ID;
-  orderId: ID;
+  productId?: ID;
+  orderId?: ID;
+  orderItemId?: ID;
+  fileKey?: string;
   label?: string;
 }
 
@@ -20,6 +22,8 @@ export interface DownloadButtonProps {
 export function DownloadButton({
   productId,
   orderId,
+  orderItemId,
+  fileKey,
   label = "Download",
 }: DownloadButtonProps) {
   const [preparing, setPreparing] = useState(false);
@@ -30,7 +34,11 @@ export function DownloadButton({
     setPreparing(true);
     setError(null);
     try {
-      const result = await requestDownloadAction(productId, orderId);
+      const result = orderItemId && fileKey
+        ? await requestCustomerDownloadAction(String(orderItemId), fileKey)
+        : productId && orderId
+          ? await requestDownloadAction(productId, orderId)
+          : { error: "This download is unavailable." };
       if ("url" in result) {
         window.location.href = result.url;
       } else {

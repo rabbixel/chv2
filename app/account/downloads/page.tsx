@@ -165,17 +165,32 @@ function WordPressDownloads({
                     </p>
                     <p className={styles.rowMeta}>
                       Qty {item.quantity}{item.priceId !== null ? ` · Price option ${item.priceId}` : ""}
-                      {item.availability === "delivery_disabled" && ` · ${item.entitledFileCount} entitled file${item.entitledFileCount === 1 ? "" : "s"} configured`}
+                      {item.availability === "available" && ` · ${item.entitledFileCount} file${item.entitledFileCount === 1 ? "" : "s"} available`}
                     </p>
                   </div>
                   <div className={styles.rowSide}>
-                    <span className={styles.rowMeta}>
-                      {item.availability === "delivery_disabled"
-                        ? "Secure download delivery is not enabled yet"
-                        : item.availability === "no_entitled_files"
-                          ? "No files available for this purchase option"
-                          : "Product no longer available"}
-                    </span>
+                    {item.downloadEnabled && item.files.length > 0 ? (
+                      <div className={styles.downloadFiles}>
+                        {item.files.map((file) => (
+                          <div className={styles.downloadFile} key={`${item.orderItemId}:${file.key}`}>
+                            <span className={styles.rowMeta}>{file.name}</span>
+                            <DownloadButton
+                              orderItemId={item.orderItemId}
+                              fileKey={file.key}
+                              label={/\.zip$/i.test(file.name) ? "Download ZIP" : "Download file"}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className={styles.rowMeta}>
+                        {item.availability === "no_entitled_files"
+                          ? "No files are available for this purchase option"
+                          : item.availability === "product_unavailable"
+                            ? "Product files are no longer available"
+                            : "Download access is currently unavailable"}
+                      </span>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -190,7 +205,7 @@ function WordPressDownloads({
           )}
         </>
       )}
-      <p className={styles.note}>Download delivery will be available after a secure file delivery flow is implemented.</p>
+      <p className={styles.note}>Each button requests a fresh EDD authorized download link. Download limits and access rules still apply.</p>
     </div>
   );
 }

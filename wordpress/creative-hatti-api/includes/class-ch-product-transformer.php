@@ -46,6 +46,7 @@ class CH_Product_Transformer {
 			'image'      => $this->media->featured_image( $post->ID ),
 			'categories' => $this->terms( $post->ID, 'download_category' ),
 			'featured'   => $this->is_featured( $post->ID ),
+			'availability' => $this->availability( $post->ID ),
 			'file_type'  => $this->nullable_meta( $post->ID, 'file_type' ),
 			'file_size'  => $this->nullable_meta( $post->ID, 'file_size' ),
 		);
@@ -81,7 +82,14 @@ class CH_Product_Transformer {
 			'compatible_with'   => $this->nullable_meta( $post->ID, 'compatible_with' ),
 			'documentation'     => $this->documentation( $post->ID ),
 			'featured'          => $this->is_featured( $post->ID ),
+			'availability'      => $this->availability( $post->ID ),
 		);
+	}
+
+	private function availability( $product_id ) {
+		$service = new CH_Purchase_Limit_Service();
+		$state = $service->availability( $product_id, 1 );
+		return array( 'available' => (bool) $state['available'], 'sold_out' => (bool) $state['sold_out'], 'remaining' => $state['remaining'] );
 	}
 
 	/**

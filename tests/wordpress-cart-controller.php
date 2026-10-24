@@ -6,6 +6,8 @@ namespace {
 	class WP_Error { public $code; public function __construct( $code ) { $this->code = $code; } }
 	class WP_REST_Response { public $data; public $status; public $headers = array(); public function __construct( $data, $status = 200 ) { $this->data = $data; $this->status = $status; } public function header( $key, $value ) { $this->headers[ $key ] = $value; } }
 	class CH_API { const NAMESPACE = 'ch/v1'; public static function success( $data, $status = 200 ) { return new WP_REST_Response( array( 'success' => true, 'data' => $data ), $status ); } public static function error( $code, $message, $status ) { return new WP_REST_Response( array( 'success' => false, 'error' => array( 'code' => $code ) ), $status ); } }
+	class FakeWpdb { public $prefix = 'wp_'; public function prepare( $query, ...$args ) { return array( $query, $args ); } public function get_var( $prepared ) { return false !== strpos( $prepared[0], 'GET_LOCK' ) ? '1' : '0'; } }
+	$GLOBALS['wpdb'] = new FakeWpdb();
 	class FakeAuth { public function bridge_permission( $request ) { return $GLOBALS['bridge_ok'] ? true : new WP_Error( 'bridge' ); } public function session_permission( $request ) { return $GLOBALS['session_ok'] ? true : new WP_Error( 'session' ); } }
 	class FakeDownload { public $id; public function __construct( $id ) { $this->id = $id; } public function can_purchase() { return 1 !== $this->id; } public function quantities_disabled() { return false; } }
 	class FakeRequest { private $params; private $headers; public function __construct( $params, $headers = array() ) { $this->params = $params; $this->headers = $headers; } public function get_param( $key ) { return $this->params[ $key ] ?? null; } public function get_header( $key ) { return $this->headers[ strtolower( $key ) ] ?? ''; } }
@@ -14,6 +16,8 @@ namespace {
 	function sanitize_text_field( $value ) { return strip_tags( (string) $value ); }
 	function wp_strip_all_tags( $value ) { return strip_tags( (string) $value ); }
 	function edd_item_quantities_enabled() { return $GLOBALS['quantities']; }
+	function get_post_meta( $id, $key, $single = true ) { if ( '_edd_purchase_limit' === $key ) { return $GLOBALS['limits'][ $id ] ?? ''; } if ( '_edd_download_sales' === $key ) { return (string) ( $GLOBALS['sales'][ $id ] ?? 0 ); } return ''; }
+	function edd_get_download_sales_stats( $id ) { return $GLOBALS['sales'][ $id ] ?? 0; }
 	function edd_get_currency() { return 'INR'; }
 	function edd_get_download( $id ) { return 99 === $id ? false : new FakeDownload( $id ); }
 	function get_post_status( $id ) { return 1 === $id ? 'draft' : 'publish'; }
@@ -27,9 +31,10 @@ namespace {
 	function get_the_title( $id ) { return 'Product ' . $id; }
 	function get_post_field( $field, $id ) { return 'product-' . $id; }
 	function get_the_post_thumbnail_url( $id, $size ) { return 'https://example.test/' . $id . '.jpg'; }
+	require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-purchase-limit-service.php';
 	require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-cart-controller.php';
 	function check( $ok, $message ) { if ( ! $ok ) { fwrite( STDERR, "FAIL: $message\n" ); exit( 1 ); } }
-	$GLOBALS['bridge_ok'] = true; $GLOBALS['session_ok'] = true; $GLOBALS['quantities'] = false;
+	$GLOBALS['bridge_ok'] = true; $GLOBALS['session_ok'] = true; $GLOBALS['quantities'] = false; $GLOBALS['limits'] = array( 6 => '1', 161470 => '-1', 162003 => '1', 167346 => '1', 168794 => '1' ); $GLOBALS['sales'] = array( 162003 => 1, 167346 => 1, 168794 => 1 );
 	$controller = new \CH_Cart_Controller( new FakeAuth() );
 	$guest = new FakeRequest( array( 'items' => array() ) );
 	check( true === $controller->bridge_permission( $guest ), 'trusted guest bridge is allowed' );
@@ -55,6 +60,10 @@ namespace {
 	$GLOBALS['quantities'] = true;
 	$over_limit = $controller->validate( new FakeRequest( array( 'items' => array( array( 'product_id' => 6, 'price_id' => null, 'quantity' => 2 ) ) ) ) );
 	check( false === $over_limit->data['data']['items'][0]['available'], 'requested quantity cannot exceed EDD purchase limit' );
+	foreach ( array( 161470, 162003, 167346, 168794 ) as $historical_id ) {
+		$historical_sold_out = $controller->validate( new FakeRequest( array( 'items' => array( array( 'product_id' => $historical_id, 'price_id' => null, 'quantity' => 1 ) ) ) ) );
+		check( false === $historical_sold_out->data['data']['items'][0]['available'], 'historical sold-out product ' . $historical_id . ' remains unavailable' );
+	}
 	$GLOBALS['quantities'] = false;
 	check( false !== strpos( $single->headers['Cache-Control'], 'no-store' ), 'cart responses are not cached' );
 	$too_many_items = array_fill( 0, 21, array( 'product_id' => 5, 'price_id' => null, 'quantity' => 1 ) );

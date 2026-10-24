@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { EmptyState, Pagination } from "@/components/ui";
 import type { Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CartStateProvider } from "@/components/cart/CartStateProvider";
+import { getWishlistService } from "@/lib/services";
 import { ProductCard } from "./ProductCard";
 import styles from "./ProductGrid.module.css";
 
@@ -36,7 +36,7 @@ const DEFAULT_EMPTY: ProductGridEmpty = {
   description: "Try a different search or browse the categories.",
 };
 
-export function ProductGrid({
+export async function ProductGrid({
   products,
   className,
   totalItems,
@@ -46,6 +46,15 @@ export function ProductGrid({
   artworkPreview = false,
   masonry = false,
 }: ProductGridProps) {
+  let wishlisted = new Set<string>();
+  if (products.length > 0) {
+    try {
+      wishlisted = await getWishlistService().getSavedProductIds(products.map((product) => product.id));
+    } catch {
+      // Wishlist state is personalization; catalogue rendering stays available
+      // during temporary account-service failures.
+    }
+  }
   return (
     <div className={cn(styles.wrapper, className)}>
       {totalItems !== undefined && (
@@ -60,15 +69,13 @@ export function ProductGrid({
           action={empty.action}
         />
       ) : (
-        <CartStateProvider>
-          <ul className={cn(styles.grid, masonry && styles.masonry)}>
-            {products.map((product) => (
-              <li key={product.id} className={styles.cell}>
-                <ProductCard product={product} titleAs={cardTitleAs} artworkPreview={artworkPreview} />
-              </li>
-            ))}
-          </ul>
-        </CartStateProvider>
+        <ul className={cn(styles.grid, masonry && styles.masonry)}>
+          {products.map((product) => (
+            <li key={product.id} className={styles.cell}>
+              <ProductCard product={product} wishlisted={wishlisted.has(product.id)} titleAs={cardTitleAs} artworkPreview={artworkPreview} />
+            </li>
+          ))}
+        </ul>
       )}
       {pagination && pagination.totalPages > 1 && (
         <div className={styles.pagination}>

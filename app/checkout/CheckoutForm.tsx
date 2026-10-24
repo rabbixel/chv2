@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { Button, Input } from "@/components/ui";
 import type { Cart, CheckoutQuote } from "@/lib/types";
@@ -10,7 +10,8 @@ import { getCheckoutParentNotice } from "@/lib/payments/checkoutParentNotice.mjs
 import { downloadFailureMessage, type DownloadFailureKind } from "@/lib/payments/downloadFailure.mjs";
 import { isValidPhoneNumber, PHONE_ERROR } from "@/lib/validation/phone";
 import { RazorpayCheckout, type RazorpayCheckoutHandle } from "./RazorpayCheckout";
-import { getCompletedOrderDownloadUrl, getCompletedOrderDownloads, preparePendingOrder, quoteCheckout, type CheckoutOrderDownloads, type CheckoutOrderStatus, type RazorpayVerificationResult } from "./actions";
+import { cleanupCompletedCheckoutCart, getCompletedOrderDownloadUrl, getCompletedOrderDownloads, preparePendingOrder, quoteCheckout, type CheckoutOrderDownloads, type CheckoutOrderStatus, type RazorpayVerificationResult } from "./actions";
+import { CART_UPDATED_EVENT } from "@/lib/constants";
 import styles from "./page.module.css";
 
 interface CheckoutFormProps {
@@ -66,6 +67,7 @@ export function CheckoutForm({
   const [emailTouched, setEmailTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const paymentRef = useRef<RazorpayCheckoutHandle>(null);
+  const cartCleanupRequests = useRef(new Set<string>());
 
   const downloadPurchasedFile = async (orderReference: string, orderItemId: number, fileKey: string) => {
     const actionKey = `${orderItemId}:${fileKey}`;
@@ -85,6 +87,37 @@ export function CheckoutForm({
 
   const currentPreparedNumber = activePreparedNumber;
   const currentCompletedNumber = activeCompletedNumber;
+  useEffect(() => {
+    const cleanupRequests = cartCleanupRequests.current;
+    if (!currentCompletedNumber || cleanupRequests.has(currentCompletedNumber)) return;
+    cleanupRequests.add(currentCompletedNumber);
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    const synchronizeCart = async () => {
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt += 1) {
+        try {
+          const result = await cleanupCompletedCheckoutCart(currentCompletedNumber);
+          if (result) {
+            window.dispatchEvent(new CustomEvent(CART_UPDATED_EVENT, {
+              detail: { count: result.itemCount, cartItems: result.cartItems },
+            }));
+            return;
+          }
+        } catch {
+          // A refresh can retry cleanup while the server-side capability lives.
+        }
+        if (attempt < 2 && !cancelled) await new Promise<void>((resolve) => {
+          retryTimer = window.setTimeout(resolve, 1_000 * (attempt + 1));
+        });
+      }
+    };
+    void synchronizeCart();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      cleanupRequests.delete(currentCompletedNumber);
+    };
+  }, [currentCompletedNumber]);
   const paymentNotice = getCheckoutParentNotice(verificationResult);
   const nameError = nameTouched && fullName.trim().length < 2 ? "Enter your full name." : undefined;
   const emailError = emailTouched && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) ? "Enter a valid email address." : undefined;

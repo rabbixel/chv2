@@ -228,6 +228,8 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
       isDefault: Boolean(option.default),
     })),
     status: detail.status === "publish" || !detail.status ? "active" : "draft",
+    soldOut: apiProduct.availability?.sold_out === true,
+    purchasable: apiProduct.availability?.available,
     productGroup: group,
     kind: productKind(apiProduct, group),
     categoryIds: (apiProduct.categories ?? []).map((category) => String(category.id)),

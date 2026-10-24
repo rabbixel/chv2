@@ -1,6 +1,7 @@
 import type { ID, ISODateString } from "./common";
 
 export type DownloadAvailability =
+  | "available"
   | "delivery_disabled"
   | "no_entitled_files"
   | "product_unavailable";
@@ -15,7 +16,13 @@ export interface CustomerDownloadItem {
   quantity: number;
   entitledFileCount: number;
   availability: DownloadAvailability;
-  downloadEnabled: false;
+  downloadEnabled: boolean;
+  files: CustomerDownloadFile[];
+}
+
+export interface CustomerDownloadFile {
+  key: string;
+  name: string;
 }
 
 export interface CustomerDownloadPurchase {

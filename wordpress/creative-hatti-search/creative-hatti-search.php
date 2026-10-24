@@ -392,8 +392,18 @@ final class CH_Indexed_Search {
 			}
 			$output_facets[] = array( 'key' => $kind, 'label' => $label, 'values' => $values );
 		}
+		$cards = array_map( function ( $row ) { return json_decode( $row->card, true ); }, $rows );
+		if ( class_exists( 'CH_Purchase_Limit_Service' ) ) {
+			$limits = new CH_Purchase_Limit_Service();
+			foreach ( $cards as &$card ) {
+				if ( ! is_array( $card ) || empty( $card['id'] ) ) { continue; }
+				$availability = $limits->availability( (int) $card['id'], 1 );
+				$card['availability'] = array( 'available' => (bool) $availability['available'], 'sold_out' => (bool) $availability['sold_out'], 'remaining' => $availability['remaining'] );
+			}
+			unset( $card );
+		}
 		return rest_ensure_response( array(
-			'success' => true, 'data' => array_map( function ( $row ) { return json_decode( $row->card, true ); }, $rows ),
+			'success' => true, 'data' => $cards,
 			'pagination' => array( 'page' => $page, 'per_page' => $size, 'total' => (int) $total, 'total_pages' => $pages ),
 			'facets' => $output_facets, 'took_ms' => (int) round( ( microtime( true ) - $started ) * 1000 ),
 		) );

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { ApiError } from "@/lib/api/client";
 import { assertSameOriginRequest, isSafeNextPath } from "@/lib/auth";
 import { routes } from "@/lib/routes";
 import {
@@ -10,6 +11,7 @@ import {
   getCartService,
   getCustomerService,
   getCustomerProfileService,
+  getCustomerDownloadService,
   getDownloadService,
   getWishlistService,
   toAuthError,
@@ -266,7 +268,7 @@ export async function removeWishlistItem(formData: FormData): Promise<void> {
 export async function setWishlistItemAction(
   productId: ID,
   saved: boolean,
-): Promise<{ saved: boolean; count: number } | { saved: boolean; count: number; error: string }> {
+): Promise<{ saved: boolean; count: number } | { saved: boolean; count: number; error: string; requiresAuth?: boolean }> {
   await assertSameOriginRequest();
   if (typeof productId !== "string" || productId.length < 1 || productId.length > 200) {
     return { saved: false, count: 0, error: "Could not update your wishlist." };
@@ -287,7 +289,10 @@ export async function setWishlistItemAction(
       saved: updated.items.some((item) => item.productId === productId),
       count: updated.items.length,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      return { saved: false, count: 0, error: "Sign in to save products to your wishlist.", requiresAuth: true };
+    }
     return { saved: false, count: 0, error: "Could not update your wishlist. Please try again." };
   }
 }
@@ -306,6 +311,21 @@ export async function requestDownloadAction(
     return { error: "That file is no longer available for this order." };
   }
   return { url: download.url };
+}
+
+export async function requestCustomerDownloadAction(
+  orderItemId: string,
+  fileKey: string,
+): Promise<{ url: string } | { error: string }> {
+  try {
+    const download = await getCustomerDownloadService().requestFileUrl(orderItemId, fileKey);
+    return { url: download.url };
+  } catch (error) {
+    if (error instanceof ApiError && [401, 403, 404].includes(error.status ?? 0)) {
+      return { error: "This download is no longer available for your account." };
+    }
+    return { error: "Your download could not be prepared. Please try again shortly." };
+  }
 }
 
 /* ------------------------- Settings actions ------------------------- */

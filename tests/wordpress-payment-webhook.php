@@ -23,6 +23,7 @@ function is_wp_error( $v ) { return $v instanceof WP_Error; }
 function wp_remote_get( $url, $args ) { $GLOBALS['requests'][] = $url; return $GLOBALS['provider']; }
 function wp_remote_retrieve_response_code( $r ) { return $r['code']; }
 function wp_remote_retrieve_body( $r ) { return $r['body']; }
+require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-purchase-limit-service.php';
 require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-payment-controller.php';
 
 $passed = 0; $failed = 0;
@@ -56,7 +57,7 @@ fixture(); $GLOBALS['wpdb']->busy = true; check( 503 === send_event( payload() )
 fixture(); $GLOBALS['wpdb']->busy = true; check( 503 === send_event( payload() )->status && 'ch_rzpv_10' === $GLOBALS['wpdb']->locks[0], 'webhook uses the browser verification lock namespace' );
 fixture(); for ( $i = 0; $i < 101; $i++ ) { provider_payment( 'authorized' ); send_event( payload( 'payment.authorized', 'evt_' . $i ) ); } check( 100 === count( $GLOBALS['meta'][10]['ch_razorpay_webhook_event_ids'] ), 'event history is bounded at 100 IDs' ); provider_payment( 'authorized' ); $lookup_count = count( $GLOBALS['requests'] ); check( 200 === send_event( payload( 'payment.authorized', 'evt_0' ) )->status && $lookup_count === count( $GLOBALS['requests'] ), 'truncated old event remains deduplicated by hashed EDD meta key' );
 fixture(); provider_payment( 'failed' ); send_event( payload( 'payment.failed', 'evt_failed' ) ); provider_payment( 'authorized' ); send_event( payload( 'payment.authorized', 'evt_late_auth' ) ); check( 'failed' === $GLOBALS['meta'][10]['ch_razorpay_verified_payment_status'], 'late authorization cannot overwrite failed state' );
-fixture(); ( new CH_Payment_Controller( new Auth() ) )->register_routes(); check( 'ch/v1' === $GLOBALS['routes'][3][0] && '/payment/razorpay/webhook' === $GLOBALS['routes'][3][1] && '/payment/razorpay/status' === $GLOBALS['routes'][2][1], 'webhook and capability-authorized order status routes registered' );
+fixture(); $controller = new CH_Payment_Controller( new Auth() ); $controller->register_routes(); $webhook_route = null; $status_route = null; foreach ( $GLOBALS['routes'] as $route ) { if ( 'ch/v1' === ( $route[0] ?? '' ) && '/payment/razorpay/webhook' === ( $route[1] ?? '' ) && array( $controller, 'receive_webhook' ) === ( $route[2]['callback'] ?? null ) ) { $webhook_route = $route; } if ( 'ch/v1' === ( $route[0] ?? '' ) && '/payment/razorpay/status' === ( $route[1] ?? '' ) && array( $controller, 'order_status' ) === ( $route[2]['callback'] ?? null ) ) { $status_route = $route; } } check( $webhook_route && $status_route && '__return_true' === $webhook_route[2]['permission_callback'] && array( $controller, 'bridge_permission' ) === $status_route[2]['permission_callback'], 'webhook and capability-authorized order status routes registered by identity' );
 
 echo "Webhook tests: {$passed} passed, {$failed} failed.\n";
 exit( $failed ? 1 : 0 );

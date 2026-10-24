@@ -4,14 +4,14 @@ import { useEffect, useId, useRef, useState, useTransition, type MouseEvent } fr
 import { createPortal } from "react-dom";
 import { quickAddToCart } from "@/app/cart/actions";
 import { CART_UPDATED_EVENT } from "@/lib/constants";
-import { useThumbnailCartState } from "@/components/cart/CartStateProvider";
+import { useCartState } from "@/components/cart/CartStateProvider";
 import type { Product, ProductPriceOption } from "@/lib/types";
 import { formatMoney } from "@/lib/utils";
 import { Icon } from "@/components/ui";
 import styles from "./QuickAddButton.module.css";
 
 interface QuickAddButtonProps {
-  product: Pick<Product, "id" | "slug" | "title" | "status">;
+  product: Pick<Product, "id" | "slug" | "title" | "status" | "soldOut" | "purchasable">;
 }
 
 export function QuickAddButton({ product }: QuickAddButtonProps) {
@@ -23,9 +23,9 @@ export function QuickAddButton({ product }: QuickAddButtonProps) {
   const [unavailablePriceIds, setUnavailablePriceIds] = useState<number[]>([]);
   const [message, setMessage] = useState("");
   const [hasError, setHasError] = useState(false);
-  const [isUnavailable, setIsUnavailable] = useState(product.status !== "active");
+  const [isUnavailable, setIsUnavailable] = useState(product.status !== "active" || product.soldOut === true || product.purchasable === false);
   const [pending, startTransition] = useTransition();
-  const cartState = useThumbnailCartState();
+  const cartState = useCartState();
   const cartItems = cartState?.items ?? null;
   const cartLoading = cartItems === null;
   const productCartItems = cartItems?.filter((item) => item.productId === product.id) ?? [];
@@ -122,7 +122,7 @@ export function QuickAddButton({ product }: QuickAddButtonProps) {
       : message;
   const stateMessage = visibleMessage ||
     (fixedInCart ? "Already in Cart" : added ? "An option is already in Cart" : "");
-  const triggerLabel = cartLoading ? `Checking cart for ${product.title}` : isUnavailable
+  const triggerLabel = product.soldOut ? `Sold Out: ${product.title}` : product.purchasable === false ? `Temporarily unavailable: ${product.title}` : cartLoading ? `Checking cart for ${product.title}` : isUnavailable
     ? `Quick add unavailable for ${product.title}`
     : fixedInCart
       ? `Already in Cart: ${product.title}`
@@ -144,7 +144,7 @@ export function QuickAddButton({ product }: QuickAddButtonProps) {
         disabled={pending || isUnavailable || fixedInCart || cartLoading}
         onClick={handleTrigger}
       >
-        {added ? <Icon name="check" size={19} /> : <Icon name="cart" size={19} />}
+        {product.soldOut ? <span>Sold Out</span> : product.purchasable === false ? <span>Unavailable</span> : added ? <Icon name="check" size={19} /> : <Icon name="cart" size={19} />}
       </button>
       {options && optionsPosition && createPortal(<div id={optionsId} style={optionsPosition} className={styles.options} role="group" aria-label={`Choose a price for ${product.title}`}>
         <div className={styles.optionsHeader}>
@@ -169,7 +169,7 @@ export function QuickAddButton({ product }: QuickAddButtonProps) {
         })}
       </div>, document.body)}
       {(stateMessage || isUnavailable) && <span role={isUnavailable || hasError ? "alert" : "status"} className={isUnavailable || hasError ? styles.error : styles.feedback}>
-        {isUnavailable ? stateMessage || "This product is unavailable." : stateMessage}
+        {product.soldOut ? "Sold Out" : product.purchasable === false ? "Temporarily unavailable" : isUnavailable ? stateMessage || "This product is unavailable." : stateMessage}
       </span>}
     </div>
   );

@@ -12,6 +12,7 @@ export const apiEndpoints = {
   },
   products: {
     list: "/products",
+    availability: "/products/availability",
     byId: (id: string) => `/products/${encodeURIComponent(id)}`,
     detail: (slug: string) => `/products/slug/${encodeURIComponent(slug)}`,
     related: (slug: string) =>
@@ -38,7 +39,7 @@ export const apiEndpoints = {
     verify: "/v1/payments/verify",
   },
   cart: "/cart/validate",
-  wishlist: "/v1/wishlist",
+  wishlist: "/wishlist",
   checkout: "/v1/checkout",
   checkoutQuote: "/checkout/quote",
   checkoutPrepare: "/checkout/prepare",
@@ -62,6 +63,7 @@ export const apiEndpoints = {
     order: (id: string) => `/customer/orders/${encodeURIComponent(id)}`,
     orderReceipt: (id: string) => `/customer/orders/${encodeURIComponent(id)}/receipt`,
     downloads: "/customer/downloads",
+    downloadFile: "/customer/downloads/file",
       licenses: "/customer/licenses",
       profile: "/customer/profile",
     claimRequest: "/customer/claim/request",

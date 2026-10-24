@@ -97,7 +97,9 @@ export function ProductCard({
             <PlaceholderArt product={product} />
           )}
         </Link>
-        <span className={styles.badges} aria-hidden="true">
+        <span className={styles.badges}>
+          {product.soldOut && <Badge variant="danger" size="sm">Sold Out</Badge>}
+          {product.purchasable === false && !product.soldOut && <Badge variant="danger" size="sm">Temporarily unavailable</Badge>}
           {product.isFree && (
             <Badge variant="success" size="sm">
               Free
@@ -121,9 +123,11 @@ export function ProductCard({
         </span>
         <div className={styles.actions}>
           <WishlistButton
+            key={product.id}
             productId={product.id}
             productTitle={product.title}
             initialWishlisted={wishlisted}
+            returnTo={href}
           />
           <QuickAddButton product={product} />
         </div>
@@ -166,7 +170,9 @@ export function ProductCard({
           )}
         <p className={styles.priceRow}>
           {product.isFree ? (
-            <span className={styles.free}>Free download</span>
+            <Link href={href} className={styles.free} aria-label={`View ${product.title} free download`}>
+              Free download
+            </Link>
           ) : (
             <>
               <span className={styles.price}>{formatMoney(product.price)}</span>

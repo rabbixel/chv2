@@ -2,7 +2,7 @@ import "server-only";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import type { CustomerDownloadPurchase } from "@/lib/types/customerDownload";
+import type { CustomerDownloadFile, CustomerDownloadPurchase } from "@/lib/types/customerDownload";
 import type { Paginated, PaginationParams } from "@/lib/types/pagination";
 import { normalizePaginationParams } from "@/lib/utils";
 import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
@@ -19,7 +19,8 @@ interface WordPressDownloadItem {
   quantity: number;
   entitled_file_count: number;
   availability: Availability;
-  download_enabled: false;
+  download_enabled: boolean;
+  files: CustomerDownloadFile[];
 }
 interface WordPressPurchase {
   order_id: number;
@@ -42,6 +43,7 @@ interface WordPressEnvelope<T> {
 
 export interface CustomerDownloadService {
   list(params?: PaginationParams): Promise<Paginated<CustomerDownloadPurchase>>;
+  requestFileUrl(orderItemId: string, fileKey: string): Promise<{ url: string }>;
 }
 
 class WordPressCustomerDownloadService implements CustomerDownloadService {
@@ -74,7 +76,8 @@ class WordPressCustomerDownloadService implements CustomerDownloadService {
           quantity: item.quantity,
           entitledFileCount: item.entitled_file_count,
           availability: item.availability,
-          downloadEnabled: false,
+          downloadEnabled: item.download_enabled,
+          files: item.files,
         })),
       })),
       pagination: {
@@ -86,6 +89,18 @@ class WordPressCustomerDownloadService implements CustomerDownloadService {
         hasPrevPage: pagination.has_prev_page,
       },
     };
+  }
+
+  async requestFileUrl(orderItemId: string, fileKey: string): Promise<{ url: string }> {
+    const result = await apiFetch<WordPressEnvelope<{ url: string }>>(apiEndpoints.customer.downloadFile, {
+      method: "POST",
+      body: { order_item_id: orderItemId, file_key: fileKey },
+      headers: await getWordPressSessionBridgeHeaders(),
+      cache: "no-store",
+      redirect: "error",
+      timeoutMs: 10_000,
+    });
+    return result.data;
   }
 }
 

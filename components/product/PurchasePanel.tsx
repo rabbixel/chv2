@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addToCart } from "@/app/cart/actions";
+import { addToCart, quickAddToCart } from "@/app/cart/actions";
+import { useCartState } from "@/components/cart/CartStateProvider";
 import { Badge, Button, Icon } from "@/components/ui";
 import { CART_UPDATED_EVENT } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { hasCartLine } from "@/lib/services/cartLine";
 import type { License, LicenseCode, Money, Product } from "@/lib/types";
 import { discountPercent, formatMoney } from "@/lib/utils";
 import styles from "./PurchasePanel.module.css";
@@ -40,13 +42,19 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     const selectedOption = product.priceOptions?.find((option) => option.isDefault) ?? product.priceOptions?.[0];
     return selectedOption?.id ?? null;
   });
-  const [added, setAdded] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const cartState = useCartState();
+  const cartItems = cartState?.items ?? null;
+  const cartLoading = cartState !== null && cartItems === null;
+  const alreadyInCart = cartItems !== null && hasCartLine(cartItems, product.id, priceId);
 
-  const announce = (count: number) => {
+  const syncCart = (result: { itemCount: number; cartItems: Array<{ productId: string; priceId: number | null }> }) => {
+    cartState?.setItems(result.cartItems);
     window.dispatchEvent(
-      new CustomEvent(CART_UPDATED_EVENT, { detail: { count } }),
+      new CustomEvent(CART_UPDATED_EVENT, {
+        detail: { count: result.itemCount, cartItems: result.cartItems },
+      }),
     );
   };
 
@@ -55,8 +63,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     startTransition(async () => {
       try {
         const result = await addToCart(product.id, licenseCode, priceId);
-        announce(result.itemCount);
-        setAdded(true);
+        syncCart(result);
       } catch {
         setActionError("Could not add to cart. Please try again.");
       }
@@ -68,10 +75,38 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     startTransition(async () => {
       try {
         const result = await addToCart(product.id, licenseCode, priceId);
-        announce(result.itemCount);
+        syncCart(result);
         router.push(routes.checkout());
       } catch {
         setActionError("Could not add to cart. Please try again.");
+      }
+    });
+  };
+
+  const handleFreeCheckout = () => {
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        const result = await quickAddToCart(
+          product.slug,
+          product.priceOptions?.length ? priceId ?? undefined : undefined,
+        );
+        if (result.status === "unavailable" || result.status === "error") {
+          setActionError(result.message);
+          return;
+        }
+        if (result.status === "needs-options") {
+          setActionError("Choose an available option before continuing.");
+          return;
+        }
+        if (result.status === "added" || result.status === "already") {
+          syncCart(result);
+          router.push(routes.checkout());
+          return;
+        }
+        setActionError("Could not prepare the free download. Please try again.");
+      } catch {
+        setActionError("Could not prepare the free download. Please try again.");
       }
     });
   };
@@ -86,13 +121,51 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     : undefined;
   const percent = discountPercent(compareAt, price);
 
-  if (product.isFree) {
+  if (product.soldOut) {
+    return <div className={styles.panel} data-product-id={product.id}>
+      <p className={styles.soldOut}>Sold Out</p>
+      <p className={styles.licenseNote}>This product has reached its purchase limit.</p>
+    </div>;
+  }
+
+  if (product.purchasable === false) {
+    return <div className={styles.panel} data-product-id={product.id}>
+      <p className={styles.soldOut}>Temporarily unavailable</p>
+      <p className={styles.licenseNote}>Please refresh shortly to check availability again.</p>
+    </div>;
+  }
+
+  const freePriceOptions = product.priceOptions ?? [];
+  const zeroValueOptions = freePriceOptions.length === 0 || freePriceOptions.every((option) => option.price.amount === 0);
+
+  if (product.isFree && zeroValueOptions) {
     return (
       <div className={styles.panel} data-product-id={product.id}>
         <p className={styles.free}>Free download</p>
-        <Button href={routes.accountDownloads()} size="lg" fullWidth>
-          Download free
+        {freePriceOptions.length > 1 && (
+          <fieldset className={styles.options}>
+            <legend className={styles.optionsLegend}>Choose your desired option</legend>
+            {freePriceOptions.map((option) => (
+              <label key={option.id} className={styles.option}>
+                <input
+                  type="radio"
+                  name={`price-${product.id}`}
+                  value={option.id}
+                  checked={option.id === priceId}
+                  onChange={() => setPriceId(option.id)}
+                  className={styles.radio}
+                />
+                <span className={styles.optionName}>{option.name}</span>
+                <span className={styles.optionPrice}>Free</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {actionError && <p role="alert" className={styles.error}>{actionError}</p>}
+        <Button onClick={handleFreeCheckout} size="lg" fullWidth loading={pending} disabled={pending || cartLoading}>
+          {alreadyInCart ? "Continue to free checkout" : "Get free download"}
         </Button>
+        <p className={styles.licenseNote}>Complete the zero-value checkout to receive an EDD-authorized download link. No payment or account creation is required.</p>
         {product.isCustomizable && (
           <Button variant="ghost" fullWidth href={routes.customize()}>
             Get Quote for Customization
@@ -131,7 +204,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
         product.priceOptions.length > 1 && <fieldset className={styles.options}>
           <legend className={styles.optionsLegend}>Choose your desired option</legend>
           {product.priceOptions.map((option) => <label key={option.id} className={styles.option}>
-            <input type="radio" name={`price-${product.id}`} value={option.id} checked={option.id === (selectedPriceOption?.id ?? null)} onChange={() => { setPriceId(option.id); setAdded(false); }} className={styles.radio} />
+            <input type="radio" name={`price-${product.id}`} value={option.id} checked={option.id === (selectedPriceOption?.id ?? null)} onChange={() => setPriceId(option.id)} className={styles.radio} />
             <span className={styles.optionName}>{option.name}</span><span className={styles.optionPrice}>{formatMoney(option.price)}</span>
           </label>)}
         </fieldset>
@@ -149,7 +222,6 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
                 checked={license.code === licenseCode}
                 onChange={() => {
                   setLicenseCode(license.code);
-                  setAdded(false);
                 }}
                 className={styles.radio}
               />
@@ -167,17 +239,17 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
           {actionError}
         </p>
       )}
-      {added ? (
+      {alreadyInCart ? (
         <>
           <p role="status" className={styles.added}>
             <Icon name="check" size={18} />
-            Added to your cart
+            Already in your cart
           </p>
-          <Button href={routes.checkout()} size="lg" fullWidth>
-            Proceed to checkout
+          <Button href={routes.cart()} size="lg" fullWidth>
+            View cart
           </Button>
-          <Button variant="ghost" fullWidth onClick={() => setAdded(false)}>
-            Continue shopping
+          <Button variant="secondary" href={routes.checkout()} fullWidth>
+            Proceed to checkout
           </Button>
         </>
       ) : (
@@ -187,7 +259,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
             fullWidth
             onClick={handleAdd}
             loading={pending}
-            disabled={pending}
+            disabled={pending || cartLoading}
           >
             Add to cart
           </Button>
@@ -197,7 +269,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
             fullWidth
             onClick={handleBuyNow}
             loading={pending}
-            disabled={pending}
+            disabled={pending || cartLoading}
           >
             Buy now
           </Button>

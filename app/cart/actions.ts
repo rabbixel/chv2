@@ -25,11 +25,14 @@ export async function addToCart(
   productId: ID,
   license: LicenseCode,
   priceId?: number | null,
-): Promise<{ itemCount: number }> {
+): Promise<{ itemCount: number; cartItems: CartLineIdentity[] }> {
   const cart = await getCartService().addItem(productId, license, priceId);
   revalidatePath(routes.cart());
   revalidatePath(routes.checkout());
-  return { itemCount: cart.itemCount };
+  return {
+    itemCount: cart.itemCount,
+    cartItems: cart.items.map((item) => ({ productId: item.productId, priceId: item.priceId ?? null })),
+  };
 }
 
 export type QuickAddResult =

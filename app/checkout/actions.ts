@@ -1,14 +1,18 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { guestSafeApiFetch } from "@/lib/services/guestSafeRequest";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { getAuthService, getCartService, getCheckoutService, isWordPressAuthEnabled } from "@/lib/services";
-import type { CheckoutBilling, CheckoutQuote } from "@/lib/types";
+import type { CheckoutBilling, CheckoutQuote, CartLineIdentity, CheckoutCartLine } from "@/lib/types";
+import { routes } from "@/lib/routes";
 import { isValidPhoneNumber, normalizePhoneNumber, PHONE_ERROR } from "@/lib/validation/phone";
 import { parseRazorpayVerificationResponse } from "@/lib/payments/razorpayVerificationResponse.mjs";
 import { downloadFailureKind, type DownloadFailureKind } from "@/lib/payments/downloadFailure.mjs";
 import { ApiError } from "@/lib/api/client";
+import { checkoutStatusAllowsCartCleanup } from "@/lib/services/checkoutCartCleanup.mjs";
 
 export interface CheckoutQuoteActionResult {
   quote?: CheckoutQuote;
@@ -19,6 +23,7 @@ export interface CheckoutDownloadsResult {
   error: DownloadFailureKind | null;
 }
 const PAYMENT_AUTH_COOKIE = "ch_payment_auth";
+const CHECKOUT_CART_COOKIE = "ch_checkout_cart";
 function value(input: unknown): string {
   return typeof input === "string" ? input.trim() : "";
 }
@@ -86,9 +91,15 @@ export async function preparePendingOrder(formData: FormData): Promise<CheckoutP
     const discountCode = value(formData.get("discountCode")).toUpperCase();
     const result = await getCheckoutService().prepare({ cart, billing, discountCode, idempotencyKey });
     if ((result.status === "pending" || result.status === "complete") && result.payment_authorization_token && /^[a-f0-9]{64}$/.test(result.payment_authorization_token)) {
-      (await cookies()).set(PAYMENT_AUTH_COOKIE, `${result.id}.${result.payment_authorization_token}.${encodeURIComponent(result.number)}`, {
-        httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/checkout", maxAge: 60 * 60 * 24 * 2,
-      });
+      const cookieJar = await cookies();
+      const cookieOptions = {
+        httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" as const, path: "/checkout", maxAge: 60 * 60 * 24 * 2,
+      };
+      cookieJar.set(PAYMENT_AUTH_COOKIE, `${result.id}.${result.payment_authorization_token}.${encodeURIComponent(result.number)}`, cookieOptions);
+      const lines: CheckoutCartLine[] = cart.items.map((item) => ({ productId: item.productId, priceId: item.priceId ?? null, quantity: item.quantity }));
+      const snapshotPayload = Buffer.from(JSON.stringify({ order: result.number, lines })).toString("base64url");
+      const snapshotSignature = createHmac("sha256", result.payment_authorization_token).update(snapshotPayload).digest("base64url");
+      cookieJar.set(CHECKOUT_CART_COOKIE, `${snapshotPayload}.${snapshotSignature}`, cookieOptions);
     }
     return { order: { number: result.number, status: result.status, total: result.total } };
   } catch (error) {
@@ -153,6 +164,54 @@ export async function getCheckoutOrderStatus(orderReference: string): Promise<Ch
       (status.fulfilled && (!(["complete", "partially_refunded"] as string[]).includes(String(status.order_status)) || status.payment_status !== "captured")) ||
       (status.free_completed && (status.order_status !== "complete" || status.payment_status !== "" || status.fulfilled))) return null;
     return status as CheckoutOrderStatus;
+  } catch {
+    return null;
+  }
+}
+
+/** Remove the checkout snapshot only after an authoritative completed-order read. */
+export async function cleanupCompletedCheckoutCart(orderReference: string): Promise<{
+  itemCount: number;
+  cartItems: CartLineIdentity[];
+} | null> {
+  try {
+    const reference = paymentCapability(orderReference);
+    const cookieJar = await cookies();
+    const encoded = cookieJar.get(CHECKOUT_CART_COOKIE)?.value ?? "";
+    if (!encoded || encoded.length > 12_000) return null;
+    const [snapshotPayload, suppliedSignature, extraPart] = encoded.split(".");
+    if (!snapshotPayload || !suppliedSignature || extraPart !== undefined || !/^[A-Za-z0-9_-]{43}$/.test(suppliedSignature)) return null;
+    const { token } = await getPaymentAuthorization(reference);
+    const expectedSignature = createHmac("sha256", token).update(snapshotPayload).digest();
+    const suppliedSignatureBytes = Buffer.from(suppliedSignature, "base64url");
+    if (suppliedSignatureBytes.length !== expectedSignature.length || !timingSafeEqual(suppliedSignatureBytes, expectedSignature)) return null;
+    const snapshot = JSON.parse(Buffer.from(snapshotPayload, "base64url").toString("utf8")) as { order?: unknown; lines?: unknown };
+    if (snapshot.order !== reference || !Array.isArray(snapshot.lines) || snapshot.lines.length < 1 || snapshot.lines.length > 20) return null;
+    const lines: CheckoutCartLine[] = [];
+    for (const candidate of snapshot.lines) {
+      if (!candidate || typeof candidate !== "object") return null;
+      const line = candidate as Record<string, unknown>;
+      const productId = String(line.productId ?? "");
+      const priceId = line.priceId === null ? null : Number(line.priceId);
+      const quantity = Number(line.quantity);
+      if (!/^[1-9][0-9]{0,9}$/.test(productId) ||
+        (priceId !== null && (!Number.isSafeInteger(priceId) || priceId < 0)) ||
+        !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10) return null;
+      lines.push({ productId, priceId, quantity });
+    }
+
+    // This read uses the same HttpOnly order capability as checkout status.
+    const status = await getCheckoutOrderStatus(reference);
+    if (!checkoutStatusAllowsCartCleanup(status)) return null;
+
+    const cart = await getCartService().removeCheckoutItems(lines);
+    cookieJar.set(CHECKOUT_CART_COOKIE, "", { path: "/checkout", maxAge: 0, httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" });
+    revalidatePath(routes.cart());
+    revalidatePath(routes.checkout());
+    return {
+      itemCount: cart.itemCount,
+      cartItems: cart.items.map((item) => ({ productId: item.productId, priceId: item.priceId ?? null })),
+    };
   } catch {
     return null;
   }

@@ -40,17 +40,73 @@
   .button { width: 2.75rem; height: 2.75rem; }
 }
 
-.error {
-  position: absolute;
-  top: calc(var(--ch-space-2) + 2.75rem);
-  right: var(--ch-space-2);
-  z-index: 2;
-  max-width: min(16rem, calc(100% - var(--ch-space-4)));
-  padding: var(--ch-space-2) var(--ch-space-3);
-  color: var(--ch-color-danger);
+.notice {
+  position: fixed;
+  z-index: 1000;
+  left: 50%;
+  bottom: calc(var(--ch-space-5) + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: var(--ch-space-3);
+  width: min(28rem, calc(100vw - 2 * var(--ch-space-5)));
+  box-sizing: border-box;
+  padding: var(--ch-space-3) var(--ch-space-4);
+  color: var(--ch-color-text);
   background: var(--ch-color-surface);
-  border: 1px solid var(--ch-color-danger-border);
-  border-radius: var(--ch-radius-sm);
-  box-shadow: var(--ch-shadow-sm);
-  font-size: var(--ch-text-xs);
+  border: 1px solid var(--ch-color-border-strong);
+  border-radius: var(--ch-radius-md);
+  box-shadow: var(--ch-shadow-md);
+  font-size: var(--ch-text-sm);
+  line-height: 1.4;
+  transform: translateX(-50%);
+}
+
+.message {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+.signIn {
+  flex: 0 0 auto;
+  color: var(--ch-color-brand-strong);
+  font-weight: var(--ch-weight-semibold);
+  white-space: nowrap;
+}
+
+.dismiss {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--ch-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ch-radius-full);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  color: var(--ch-color-text);
+  background: var(--ch-color-surface-muted);
+}
+
+.dismiss:focus-visible,
+.signIn:focus-visible {
+  outline: 2px solid var(--ch-focus-ring-color);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .notice {
+    left: var(--ch-space-3);
+    width: calc(100vw - 2 * var(--ch-space-3));
+    padding: var(--ch-space-3);
+    flex-wrap: wrap;
+    transform: none;
+  }
 }

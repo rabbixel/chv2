@@ -521,7 +521,7 @@ final class CH_Payment_Controller {
 	}
 
 	/** Validate only previously persisted, server-verified custom payment evidence; never contact the provider here. */
-	private function has_verified_custom_payment_association( $order_id, $order ) {
+	public function has_verified_custom_payment_association( $order_id, $order ) {
 		if ( ! $order || 'sale' !== (string) $order->type || 'INR' !== strtoupper( (string) $order->currency ) ) { return false; }
 		$razorpay_order_id = (string) edd_get_order_meta( $order_id, 'ch_razorpay_order_id', true );
 		$payment_id = (string) edd_get_order_meta( $order_id, 'ch_razorpay_verified_payment_id', true );
@@ -589,6 +589,15 @@ final class CH_Payment_Controller {
 			if ( ! $order || ! $locked_hash || ! hash_equals( $locked_hash, hash( 'sha256', $token ) ) || ( ! empty( $order->user_id ) && (int) $order->user_id !== (int) $locked_user_id ) || 'sale' !== $order->type || 'pending' !== $order->status || strtoupper( (string) $order->currency ) !== 'INR' || strtoupper( (string) edd_get_currency() ) !== 'INR' ) {
 				return $this->private_response( CH_API::error( 'payment_order_ineligible', 'This order is not eligible for payment.', 409 ) );
 			}
+			$limits = new CH_Purchase_Limit_Service();
+			$order_quantities = $limits->order_product_quantities( $order_id );
+			if ( false === $order_quantities || empty( $order_quantities ) ) { return $this->private_response( CH_API::error( 'payment_order_ineligible', 'This order has no eligible products.', 409 ) ); }
+			$product_lock = $limits->acquire_for_products( array_keys( $order_quantities ), 5 );
+			if ( is_wp_error( $product_lock ) ) { return $this->private_response( CH_API::error( 'purchase_limit_busy', 'Product availability is being updated. Please retry shortly.', 503 ) ); }
+			foreach ( $order_quantities as $product_id => $quantity ) {
+				$availability = $limits->availability( $product_id, $quantity, $order_id );
+				if ( empty( $availability['available'] ) ) { return $this->private_response( CH_API::error( 'payment_order_ineligible', 'A product in this order is no longer available.', 409 ) ); }
+			}
 			$amount = $this->to_paise( $order->total );
 			if ( false === $amount || $amount < 1 ) { return $this->private_response( CH_API::error( 'payment_order_ineligible', 'This order is not eligible for payment.', 409 ) ); }
 			$existing_id = (string) edd_get_order_meta( $order_id, 'ch_razorpay_order_id', true );
@@ -598,6 +607,10 @@ final class CH_Payment_Controller {
 				return $this->private_response( CH_API::success( $this->payload( $key_id, $existing_id, $amount, $order ) ) );
 			}
 			$state = (string) edd_get_order_meta( $order_id, 'ch_razorpay_creation_state', true );
+			$reservation_expires_at = (int) edd_get_order_meta( $order_id, 'ch_purchase_limit_reservation_expires_at', true );
+			if ( $reservation_expires_at > 0 && $reservation_expires_at <= time() ) {
+				return $this->private_response( CH_API::error( 'payment_reservation_expired', 'This checkout reservation expired. Return to checkout to prepare a new order.', 409 ) );
+			}
 			if ( in_array( $state, array( 'creating', 'uncertain' ), true ) ) {
 				return $this->private_response( CH_API::error( 'payment_creation_uncertain', 'Payment setup needs reconciliation before it can be retried.', 503 ) );
 			}
@@ -634,6 +647,7 @@ final class CH_Payment_Controller {
 			return $this->private_response( CH_API::success( $this->payload( $key_id, $body['id'], $amount, $order ) ) );
 		} finally {
 			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
+			CH_Purchase_Limit_Service::release_all_locks();
 		}
 	}
 
