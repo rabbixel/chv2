@@ -29,6 +29,7 @@ export interface ChApiSearchResult extends ChApiEnvelope<ChApiProductCard[]> {
 
 export interface ChApiMoney {
   type?: "single" | "variable";
+  class?: "paid" | "free" | "mixed" | "invalid";
   amount: number;
   formatted?: string;
   currency: string;
@@ -87,7 +88,7 @@ export interface ChApiProductCard {
 export interface ChApiVariablePrice {
   id?: number | string;
   name?: string;
-  amount?: number;
+  amount?: number | string | null;
   formatted?: string;
   currency?: string;
   default?: boolean;
@@ -191,4 +192,5 @@ export interface ChApiHomepageTile {
   hue?: number;
   icon?: string;
   image?: ChApiImage | null;
+  url?: string;
 }

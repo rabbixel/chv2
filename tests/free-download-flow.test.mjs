@@ -4,15 +4,17 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("free product action enters the idempotent cart and zero-value checkout flow", async () => {
+test("free product action starts independent checkout while regular cart actions remain available", async () => {
   const [panel, cartActions, checkoutForm] = await Promise.all([
     read("../components/product/PurchasePanel.tsx"),
     read("../app/cart/actions.ts"),
     read("../app/checkout/CheckoutForm.tsx"),
   ]);
 
-  assert.match(panel, /quickAddToCart\(\s*product\.slug/);
-  assert.match(panel, /syncCart\(result\);\s*router\.push\(routes\.checkout\(\)\)/);
+  assert.match(panel, /startFreeCheckout\(product\.slug/);
+  const freeHandler = panel.slice(panel.indexOf("const handleFreeCheckout"), panel.indexOf("const selected ="));
+  assert.doesNotMatch(freeHandler, /syncCart|addToCart|quickAddToCart/);
+  assert.match(panel, /variant="ghost" onClick=\{handleAdd\}/);
   assert.match(panel, /Continue to free checkout|Get free download/);
   assert.match(panel, /Download this design for free\. Simply complete the checkout to get your files\. No payment or account required\./);
   assert.doesNotMatch(panel, /href=\{routes\.accountDownloads\(\)\}/);

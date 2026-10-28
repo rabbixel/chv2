@@ -5,8 +5,8 @@ import { routes } from "@/lib/routes";
 
 export const revalidate = 1800;
 export const metadata: Metadata = {
-  title: "Popular designs",
-  description: "Explore Creative Hatti products ranked by recorded sales.",
+  title: "Popular Designs",
+  description: "Loved by creators. Explore our most popular designs.",
   alternates: { canonical: `${SITE.url}${routes.popular()}` },
 };
 
@@ -16,5 +16,5 @@ export default async function PopularPage({ searchParams }: Props) {
   const query = (await searchParams) ?? {};
   const rawPage = Array.isArray(query.page) ? query.page[0] : query.page;
   const page = rawPage && /^[1-9]\d{0,4}$/.test(rawPage) ? Number(rawPage) : 1;
-  return <CuratedProductListing title="Popular designs" description="Browse assets ranked by the site's recorded product sales." pathname={routes.popular()} sort="best-selling" page={page} />;
+  return <CuratedProductListing title="Popular Designs" description="Loved by creators. Explore our most popular designs." pathname={routes.popular()} sort="best-selling" paidOnly page={page} />;
 }

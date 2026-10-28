@@ -16,15 +16,15 @@ namespace {
 	function sanitize_text_field( $value ) { return strip_tags( (string) $value ); }
 	function wp_strip_all_tags( $value ) { return strip_tags( (string) $value ); }
 	function edd_item_quantities_enabled() { return $GLOBALS['quantities']; }
-	function get_post_meta( $id, $key, $single = true ) { if ( '_edd_purchase_limit' === $key ) { return $GLOBALS['limits'][ $id ] ?? ''; } if ( '_edd_download_sales' === $key ) { return (string) ( $GLOBALS['sales'][ $id ] ?? 0 ); } return ''; }
+	function get_post_meta( $id, $key, $single = true ) { if ( 'edd_price' === $key ) { return array_key_exists( 'raw_fixed_amount', $GLOBALS ) ? $GLOBALS['raw_fixed_amount'] : edd_get_download_price( $id ); } if ( '_edd_purchase_limit' === $key ) { return $GLOBALS['limits'][ $id ] ?? ''; } if ( '_edd_download_sales' === $key ) { return (string) ( $GLOBALS['sales'][ $id ] ?? 0 ); } return ''; }
 	function edd_get_download_sales_stats( $id ) { return $GLOBALS['sales'][ $id ] ?? 0; }
 	function edd_get_currency() { return 'INR'; }
 	function edd_get_download( $id ) { return 99 === $id ? false : new FakeDownload( $id ); }
 	function get_post_status( $id ) { return 1 === $id ? 'draft' : 'publish'; }
 	function edd_has_variable_prices( $id ) { return 20 === $id; }
-	function edd_get_variable_prices( $id ) { return array( 0 => array( 'name' => 'Standard', 'amount' => 10 ), 2 => array( 'name' => 'Bundle', 'amount' => 25 ) ); }
+	function edd_get_variable_prices( $id ) { return $GLOBALS['test_prices'] ?? array( 0 => array( 'name' => 'Standard', 'amount' => 10 ), 2 => array( 'name' => 'Bundle', 'amount' => 25 ) ); }
 	function edd_get_price_option_amount( $id, $price_id ) { return edd_get_variable_prices( $id )[ $price_id ]['amount']; }
-	function edd_get_download_price( $id ) { return 12.5; }
+	function edd_get_download_price( $id ) { return array_key_exists( 'fixed_amount', $GLOBALS ) ? $GLOBALS['fixed_amount'] : 12.5; }
 	function edd_pl_is_item_sold_out( $id, $price_id, $a = false, $b = false ) { return false; }
 	function edd_pl_get_file_purchase_limit( $id, $type = null, $price_id = null ) { return 6 === $id ? 1 : 0; }
 	function edd_pl_get_file_purchases( $id, $price_id = null ) { return 0; }
@@ -69,5 +69,26 @@ namespace {
 	$too_many_items = array_fill( 0, 21, array( 'product_id' => 5, 'price_id' => null, 'quantity' => 1 ) );
 	$too_many = $controller->validate( new FakeRequest( array( 'items' => $too_many_items ) ) );
 	check( 400 === $too_many->status, 'oversized cart rejected' );
+	foreach ( array( null, '', 'invalid', -1 ) as $invalid_amount ) {
+		$GLOBALS['fixed_amount'] = $invalid_amount;
+		$invalid_fixed = $controller->validate( new FakeRequest( array( 'items' => array( array( 'product_id' => 5, 'price_id' => null, 'quantity' => 1 ) ) ) ) );
+		check( false === $invalid_fixed->data['data']['items'][0]['available'], 'invalid fixed price cannot become a free purchase' );
+		$GLOBALS['test_prices'] = array( 0 => array( 'name' => 'Invalid', 'amount' => $invalid_amount ), 2 => array( 'name' => 'Paid', 'amount' => 25 ) );
+		$invalid_option = $controller->validate( new FakeRequest( array( 'items' => array( array( 'product_id' => 20, 'price_id' => 0, 'quantity' => 1 ) ) ) ) );
+		check( false === $invalid_option->data['data']['items'][0]['available'], 'invalid variable price cannot become a free purchase' );
+	}
+	$GLOBALS['fixed_amount'] = 0;
+	$GLOBALS['raw_fixed_amount'] = '';
+	$missing_price = $controller->validate( new FakeRequest( array( 'items' => array( array( 'product_id' => 5, 'price_id' => null, 'quantity' => 1 ) ) ) ) );
+	check( false === $missing_price->data['data']['items'][0]['available'], 'EDD-normalized zero from missing metadata cannot authorize free purchase' );
+	unset( $GLOBALS['raw_fixed_amount'] );
+	$free_fixed = $controller->validate( new FakeRequest( array( 'items' => array( array( 'product_id' => 5, 'price_id' => null, 'quantity' => 1 ) ) ) ) );
+	check( true === $free_fixed->data['data']['items'][0]['available'] && 0 === $free_fixed->data['data']['subtotal'], 'explicit fixed zero remains purchasable' );
+	$GLOBALS['test_prices'] = array( 0 => array( 'name' => 'Free', 'amount' => '0' ), 2 => array( 'name' => 'Paid', 'amount' => 25 ), 3 => array( 'name' => 'Broken' ) );
+	foreach ( array( 0 => 0, 2 => 2500 ) as $option_id => $expected ) {
+		$choice = $controller->validate( new FakeRequest( array( 'items' => array( array( 'product_id' => 20, 'price_id' => $option_id, 'quantity' => 1 ) ) ) ) );
+		check( true === $choice->data['data']['items'][0]['available'] && $expected === $choice->data['data']['subtotal'], 'mixed option uses selected authoritative amount' );
+		check( 2 === count( $choice->data['data']['items'][0]['price_options'] ), 'invalid options are omitted from cart choices' );
+	}
 	echo "Cart controller synthetic tests passed.\n";
 }

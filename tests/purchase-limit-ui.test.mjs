@@ -30,7 +30,7 @@ test("product cards and product pages suppress purchase actions when sold out", 
   assert.match(quickAdd, /Sold Out: \$\{product\.title\}/);
   assert.match(cardStyles, /\.button:has\(span\)/);
   assert.match(detail, /if \(product\.soldOut\)[\s\S]*?Sold Out[\s\S]*?return \(/);
-  assert.match(detail, /if \(product\.purchasable === false\)[\s\S]*?Temporarily unavailable/);
+  assert.match(detail, /if \(product\.purchasable === false[\s\S]*?Temporarily unavailable/);
   assert.ok(detail.indexOf("if (product.soldOut)") < detail.indexOf("if (product.isFree && zeroValueOptions)"));
 });
 
@@ -46,7 +46,7 @@ test("availability is refreshed independently from cached product content", asyn
   assert.match(endpoint, /availability: "\/products\/availability"/);
   assert.match(service, /cache: "no-store"/);
   assert.match(service, /await refreshProductAvailability\(paginated\.items\)/);
-  assert.match(service, /soldOut: state\.sold_out, purchasable: state\.available/);
+  assert.match(service, /soldOut: state\.sold_out, purchasable: product\.priceValid !== false && state\.available/);
   assert.match(service, /await refreshProductAvailability\(paginated\.items\)/);
   assert.match(controller, /Cache-Control.*private, no-store/);
   assert.match(controller, /count\( \$raw_ids \) > 48/);

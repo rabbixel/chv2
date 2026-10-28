@@ -54,7 +54,11 @@ final class CH_Cart_Controller {
 			$variable = function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $id );
 			$prices = $variable && function_exists( 'edd_get_variable_prices' ) ? (array) edd_get_variable_prices( $id ) : array();
 			if ( $variable && ( null === $price_id || ! array_key_exists( $price_id, $prices ) ) || ! $variable && null !== $price_id ) { $base['message'] = 'The selected price option is unavailable.'; $items[] = $base; continue; }
-			$amount = $variable ? (float) edd_get_price_option_amount( $id, $price_id ) : (float) edd_get_download_price( $id );
+			$raw_amount = $variable ? ( $prices[ $price_id ]['amount'] ?? null ) : get_post_meta( $id, 'edd_price', true );
+			if ( ! is_numeric( $raw_amount ) || ! is_finite( (float) $raw_amount ) || (float) $raw_amount < 0 ) { $items[] = $base; continue; }
+			$resolved_amount = $variable ? edd_get_price_option_amount( $id, $price_id ) : edd_get_download_price( $id );
+			if ( ! is_numeric( $resolved_amount ) ) { $items[] = $base; continue; }
+			$amount = (float) $resolved_amount;
 			if ( ! is_finite( $amount ) || $amount < 0 ) { $items[] = $base; continue; }
 			if ( ! $quantities_enabled || ( method_exists( $product, 'quantities_disabled' ) && $product->quantities_disabled() ) ) { $quantity = 1; }
 			if ( ! $skip_purchase_limits ) {
@@ -63,7 +67,10 @@ final class CH_Cart_Controller {
 			}
 			$title = get_the_title( $id );
 			$options = array();
-			foreach ( $prices as $option_id => $option ) { $options[] = array( 'id' => (int) $option_id, 'name' => sanitize_text_field( $option['name'] ?? '' ), 'amount' => (int) round( (float) ( $option['amount'] ?? 0 ) * 100 ) ); }
+			foreach ( $prices as $option_id => $option ) {
+				if ( ! is_numeric( $option['amount'] ?? null ) || ! is_finite( (float) $option['amount'] ) || (float) $option['amount'] < 0 ) { continue; }
+				$options[] = array( 'id' => (int) $option_id, 'name' => sanitize_text_field( $option['name'] ?? '' ), 'amount' => (int) round( (float) $option['amount'] * 100 ) );
+			}
 			$option_name = $variable ? sanitize_text_field( $prices[ $price_id ]['name'] ?? '' ) : '';
 			$unit = (int) round( $amount * 100 ); $line = $unit * $quantity;
 			$items[] = array( 'product_id' => $id, 'price_id' => $price_id, 'quantity' => $quantity, 'title' => wp_strip_all_tags( $title ), 'slug' => (string) get_post_field( 'post_name', $id ), 'thumbnail' => get_the_post_thumbnail_url( $id, 'medium' ) ?: null, 'option_name' => $option_name, 'price_options' => $options, 'unit_price' => $unit, 'line_total' => $line, 'available' => true, 'message' => '' );

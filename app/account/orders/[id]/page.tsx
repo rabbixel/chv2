@@ -103,6 +103,10 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             </Card>
           ))}
         </div>
+        <h2 className={styles.splitTitle}>License and usage information</h2>
+        <p className={styles.rowMeta}>Your purchase record preserves the product and selected option. Design usage rights follow the terms supplied with that product; software activation records are separate. If the applicable terms are unclear, contact us with your order number.</p>
+        <p><Link href={routes.licenseInformation()}>License information (under review)</Link> · <Link href={routes.accountLicenses()}>Software license records</Link> · <Link href={routes.contact()}>Contact us</Link></p>
+        {(["complete", "partially_refunded"] as string[]).includes(order.status) && <p><Link href={routes.accountDownloads()}>Access purchased downloads</Link></p>}
         {order.refunds.length > 0 && (
           <>
             <h2 className={styles.splitTitle}>Refunds and adjustments</h2>

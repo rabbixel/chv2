@@ -73,13 +73,13 @@ final class CH_Home_Sections {
 			'ch-home-sections-admin',
 			plugin_dir_url( __FILE__ ) . 'admin.css',
 			array(),
-			'1.1.0'
+			'1.2.0'
 		);
 		wp_enqueue_script(
 			'ch-home-sections-admin',
 			plugin_dir_url( __FILE__ ) . 'admin.js',
 			array( 'jquery' ),
-			'1.1.0',
+			'1.2.0',
 			true
 		);
 	}
@@ -207,16 +207,27 @@ final class CH_Home_Sections {
 		<div class="wrap ch-home-sections">
 			<h1><?php esc_html_e( 'Creative Hatti Homepage Sections', 'creative-hatti-home-sections' ); ?></h1>
 			<?php settings_errors( self::OPTION ); ?>
-			<p><?php esc_html_e( 'Choose EDD categories for the homepage cards. Uploaded thumbnails appear in the artwork area while card text remains below or over a solid title panel.', 'creative-hatti-home-sections' ); ?></p>
+			<p><?php esc_html_e( 'Manage the content and artwork shown across your Creative Hatti homepage.', 'creative-hatti-home-sections' ); ?></p>
 			<?php if ( is_wp_error( $terms ) ) : ?>
 				<div class="notice notice-error"><p><?php esc_html_e( 'EDD product categories are not available. Make sure Easy Digital Downloads is active.', 'creative-hatti-home-sections' ); ?></p></div>
 			<?php endif; ?>
 			<form method="post" action="options.php">
 				<?php settings_fields( 'ch_home_sections_group' ); ?>
-				<?php self::render_section( 'characters', __( 'Featured Character Categories', 'creative-hatti-home-sections' ), $settings, $terms ); ?>
-				<?php self::render_section( 'packs', __( 'Featured Graphics & Illustration Packs', 'creative-hatti-home-sections' ), $settings, $terms ); ?>
+			<nav class="ch-home-tabs" role="tablist" aria-label="Homepage sections">
+				<?php foreach ( array( 'characters' => 'Character Categories', 'packs' => 'Featured Packs', 'discovery' => 'Collections', 'celebrations' => 'Celebrations', 'keywords' => 'Popular Themes', 'trusted' => 'Trusted Clients' ) as $tab => $label ) : ?>
+					<button type="button" class="ch-home-tab" role="tab" id="ch-tab-<?php echo esc_attr( $tab ); ?>" aria-controls="ch-panel-<?php echo esc_attr( $tab ); ?>" data-tab="<?php echo esc_attr( $tab ); ?>"><?php echo esc_html( $label ); ?></button>
+				<?php endforeach; ?>
+			</nav>
+			<?php self::render_section( 'characters', __( 'Character Categories', 'creative-hatti-home-sections' ), $settings, $terms ); ?>
+			<?php self::render_section( 'packs', __( 'Featured Packs', 'creative-hatti-home-sections' ), $settings, $terms ); ?>
 				<?php CH_Home_Content::render( $settings, $terms ); ?>
-				<?php submit_button( __( 'Save Homepage Sections', 'creative-hatti-home-sections' ) ); ?>
+				<div class="ch-home-savebar" aria-live="polite"><span><?php esc_html_e( 'Unsaved homepage changes', 'creative-hatti-home-sections' ); ?></span><?php submit_button( __( 'Save Changes', 'creative-hatti-home-sections' ), 'primary', 'submit', false ); ?></div>
+			<div class="ch-home-drawer-backdrop" hidden></div>
+			<aside class="ch-home-drawer" role="dialog" aria-modal="true" aria-labelledby="ch-home-drawer-title" hidden>
+				<div class="ch-home-drawer-head"><h2 id="ch-home-drawer-title"><?php esc_html_e( 'Edit homepage item', 'creative-hatti-home-sections' ); ?></h2><button type="button" class="ch-home-drawer-close" aria-label="Close">&times;</button></div>
+				<div class="ch-home-drawer-content"></div>
+				<div class="ch-home-drawer-actions"><button type="button" class="button ch-home-drawer-cancel">Cancel</button><button type="button" class="button button-primary ch-home-drawer-apply">Apply</button></div>
+			</aside>
 			</form>
 		</div>
 		<?php
@@ -237,13 +248,8 @@ final class CH_Home_Sections {
 		}
 		$enabled = ! empty( $settings[ $key . '_enabled' ] );
 		?>
-		<div class="card">
-			<h2><?php echo esc_html( $title ); ?></h2>
-			<label>
-				<input type="checkbox" name="<?php echo esc_attr( self::OPTION . '[' . $key . '_enabled]' ); ?>" value="1" <?php checked( $enabled ); ?>>
-				<?php esc_html_e( 'Use these choices on the storefront', 'creative-hatti-home-sections' ); ?>
-			</label>
-			<p class="description"><?php esc_html_e( 'When unchecked, the storefront uses its built-in section. Add up to 8 cards; an empty saved list hides this section.', 'creative-hatti-home-sections' ); ?></p>
+		<section class="ch-home-panel" id="ch-panel-<?php echo esc_attr( $key ); ?>" role="tabpanel" aria-labelledby="ch-tab-<?php echo esc_attr( $key ); ?>" data-panel="<?php echo esc_attr( $key ); ?>" <?php echo 'characters' === $key ? '' : 'hidden'; ?>>
+			<header class="ch-home-panel-head"><div><h2><?php echo esc_html( $title ); ?></h2><p><?php esc_html_e( 'Choose the categories and artwork shown in this homepage section.', 'creative-hatti-home-sections' ); ?></p></div><label class="ch-home-enable"><input type="checkbox" name="<?php echo esc_attr( self::OPTION . '[' . $key . '_enabled]' ); ?>" value="1" <?php checked( $enabled ); ?>> <?php esc_html_e( 'Enabled', 'creative-hatti-home-sections' ); ?></label></header>
 			<div class="ch-home-rows" data-section="<?php echo esc_attr( $key ); ?>">
 				<?php foreach ( array_values( $rows ) as $index => $row ) : ?>
 					<?php self::render_row( $key, $index, $row, $terms ); ?>
@@ -255,7 +261,7 @@ final class CH_Home_Sections {
 			<script type="text/html" id="<?php echo esc_attr( 'ch-home-row-template-' . $key ); ?>">
 				<?php self::render_row( '__SECTION__', '__INDEX__', array(), $terms ); ?>
 			</script>
-		</div>
+		</section>
 		<?php
 	}
 
@@ -273,8 +279,16 @@ final class CH_Home_Sections {
 		$image_id = isset( $row['image_id'] ) ? absint( $row['image_id'] ) : 0;
 		$image = $image_id ? wp_get_attachment_image_src( $image_id, 'thumbnail' ) : false;
 		$artwork = isset( $row['artwork'] ) ? $row['artwork'] : 'festival';
+		$term = $term_id ? get_term( $term_id, self::TAXONOMY ) : false;
+		$display_title = ! empty( $row['title'] ) ? $row['title'] : ( $term && ! is_wp_error( $term ) ? $term->name : __( 'New category', 'creative-hatti-home-sections' ) );
 		?>
-		<div class="postbox ch-home-row">
+		<div class="ch-home-row">
+			<div class="ch-home-row-summary">
+				<img class="ch-home-row-thumb" src="<?php echo esc_url( $image ? $image[0] : '' ); ?>" alt="" <?php echo $image ? '' : 'hidden'; ?>>
+				<div class="ch-home-row-copy"><strong class="ch-home-row-title"><?php echo esc_html( $display_title ); ?></strong><span class="ch-home-row-subtitle"><?php echo esc_html( $term && ! is_wp_error( $term ) ? $term->name : ( $row['blurb'] ?? '' ) ); ?></span></div>
+				<div class="ch-home-row-actions"><button type="button" class="button ch-home-edit-row"><?php esc_html_e( 'Edit', 'creative-hatti-home-sections' ); ?></button><button type="button" class="button-link ch-home-move-up" aria-label="Move up">↑</button><button type="button" class="button-link ch-home-move-down" aria-label="Move down">↓</button><button type="button" class="button-link-delete ch-home-remove-row"><?php esc_html_e( 'Remove', 'creative-hatti-home-sections' ); ?></button></div>
+			</div>
+			<div class="ch-home-row-editor" hidden>
 			<div class="inside">
 				<p>
 					<label><?php esc_html_e( 'Category', 'creative-hatti-home-sections' ); ?><br>
@@ -298,6 +312,7 @@ final class CH_Home_Sections {
 						<textarea class="widefat" rows="2" name="<?php echo esc_attr( $prefix . '[blurb]' ); ?>"><?php echo esc_textarea( isset( $row['blurb'] ) ? $row['blurb'] : '' ); ?></textarea>
 					</label>
 				</p>
+				<details class="ch-home-advanced"><summary><?php esc_html_e( 'Advanced appearance', 'creative-hatti-home-sections' ); ?></summary>
 				<p>
 					<label><?php esc_html_e( 'Accent hue (0–360)', 'creative-hatti-home-sections' ); ?>
 						<input type="number" min="0" max="360" name="<?php echo esc_attr( $prefix . '[hue]' ); ?>" value="<?php echo esc_attr( isset( $row['hue'] ) ? $row['hue'] : 150 ); ?>">
@@ -310,15 +325,14 @@ final class CH_Home_Sections {
 						</select>
 					</label>
 				</p>
+				</details>
 				<p class="ch-home-image">
 					<input type="hidden" class="ch-home-image-id" name="<?php echo esc_attr( $prefix . '[image_id]' ); ?>" value="<?php echo esc_attr( $image_id ); ?>">
 					<img class="ch-home-image-preview" src="<?php echo esc_url( $image ? $image[0] : '' ); ?>" alt="" <?php echo $image ? '' : 'hidden'; ?>>
 					<button type="button" class="button ch-home-select-image"><?php esc_html_e( 'Choose thumbnail', 'creative-hatti-home-sections' ); ?></button>
 					<button type="button" class="button ch-home-remove-image" <?php echo $image ? '' : 'hidden'; ?>><?php esc_html_e( 'Remove image', 'creative-hatti-home-sections' ); ?></button>
 				</p>
-				<button type="button" class="button-link ch-home-move-up"><?php esc_html_e( 'Move up', 'creative-hatti-home-sections' ); ?></button>
-				<button type="button" class="button-link ch-home-move-down"><?php esc_html_e( 'Move down', 'creative-hatti-home-sections' ); ?></button>
-				<button type="button" class="button-link-delete ch-home-remove-row"><?php esc_html_e( 'Remove this card', 'creative-hatti-home-sections' ); ?></button>
+			</div>
 			</div>
 		</div>
 		<?php

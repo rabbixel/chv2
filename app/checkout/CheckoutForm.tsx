@@ -26,6 +26,7 @@ interface CheckoutFormProps {
   initialOrderStatus: CheckoutOrderStatus | null;
   initialOrderDownloads: CheckoutOrderDownloads | null;
   initialDownloadsError: DownloadFailureKind | null;
+  freeSessionId?: string;
 }
 
 function sameQuote(left: CheckoutQuote | null, right: CheckoutQuote): boolean {
@@ -39,7 +40,7 @@ function sameQuote(left: CheckoutQuote | null, right: CheckoutQuote): boolean {
 
 export function CheckoutForm({
   cart, initialQuote, initialQuoteError, initialName, initialEmail, initialPhone,
-  signedIn, idempotencyKey, initialOrderStatus, initialOrderDownloads, initialDownloadsError,
+  signedIn, idempotencyKey, initialOrderStatus, initialOrderDownloads, initialDownloadsError, freeSessionId,
 }: CheckoutFormProps) {
   const [quote, setQuote] = useState(initialQuote);
   const [quoteError, setQuoteError] = useState(initialQuoteError ?? "");
@@ -75,7 +76,7 @@ export function CheckoutForm({
     setDownloadingFile(actionKey);
     setDownloadError("");
     try {
-      const result = await getCompletedOrderDownloadUrl(orderReference, orderItemId, fileKey);
+      const result = await getCompletedOrderDownloadUrl(orderReference, orderItemId, fileKey, freeSessionId);
       if (!result.url) { setDownloadError(downloadFailureMessage(result.error ?? "temporary")); return; }
       window.location.assign(result.url);
     } catch {
@@ -89,7 +90,7 @@ export function CheckoutForm({
   const currentCompletedNumber = activeCompletedNumber;
   useEffect(() => {
     const cleanupRequests = cartCleanupRequests.current;
-    if (!currentCompletedNumber || cleanupRequests.has(currentCompletedNumber)) return;
+    if (freeSessionId || !currentCompletedNumber || cleanupRequests.has(currentCompletedNumber)) return;
     cleanupRequests.add(currentCompletedNumber);
     let cancelled = false;
     let retryTimer: number | undefined;
@@ -117,7 +118,7 @@ export function CheckoutForm({
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       cleanupRequests.delete(currentCompletedNumber);
     };
-  }, [currentCompletedNumber]);
+  }, [currentCompletedNumber, freeSessionId]);
   const paymentNotice = getCheckoutParentNotice(verificationResult);
   const nameError = nameTouched && fullName.trim().length < 2 ? "Enter your full name." : undefined;
   const emailError = emailTouched && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) ? "Enter a valid email address." : undefined;
@@ -129,7 +130,7 @@ export function CheckoutForm({
     setPhoneTouched(true);
     if (!isValidPhoneNumber(phone)) { setQuoteError(PHONE_ERROR); return; }
     startTransition(async () => {
-      const result = await quoteCheckout({ country, region, phone, discountCode });
+      const result = await quoteCheckout({ country, region, phone, discountCode, freeSessionId });
       if (result.quote) setQuote(result.quote);
       else setQuoteError(result.error ?? "Could not calculate totals.");
     });
@@ -148,9 +149,11 @@ export function CheckoutForm({
     const formData = new FormData(form);
     setSubmitting(true);
     try {
-      // Recheck EDD pricing immediately before preparation so changed coupon or
-      // billing details cannot silently use an older displayed total.
-      const latest = await quoteCheckout({ country, region, phone, discountCode });
+      // Regular checkout re-quotes changed totals. Independent preparation
+      // itself revalidates the single zero-cost item under EDD's locks, which
+      // also permits retries after this order consumed its final available unit.
+      const latest = freeSessionId ? { quote: quote ?? undefined, error: undefined }
+        : await quoteCheckout({ country, region, phone, discountCode });
       if (!latest.quote) {
         setQuoteError(latest.error ?? "Could not calculate checkout totals.");
         return;
@@ -161,18 +164,18 @@ export function CheckoutForm({
         return;
       }
 
-      const prepared = await preparePendingOrder(formData);
+      const prepared = await preparePendingOrder(formData, freeSessionId);
       if (!prepared.order) {
         setCheckoutError(prepared.error ?? "Could not prepare checkout. Please try again.");
         return;
       }
       if (prepared.order.status === "complete") {
         setActiveCompletedNumber(prepared.order.number);
-        const downloads = await getCompletedOrderDownloads(prepared.order.number);
+        const downloads = await getCompletedOrderDownloads(prepared.order.number, freeSessionId);
         setCompletedDownloads(downloads.downloads);
         setDownloadsError(downloads.error);
         setVerificationResult(null);
-        window.history.replaceState(null, "", `${routes.checkout()}?completed=${encodeURIComponent(prepared.order.number)}`);
+        window.history.replaceState(null, "", `${freeSessionId ? routes.freeCheckout(freeSessionId) : routes.checkout()}?completed=${encodeURIComponent(prepared.order.number)}`);
         return;
       }
       if (prepared.order.total.currency !== latest.quote.total.currency || prepared.order.total.amount !== latest.quote.total.amount) {
@@ -193,7 +196,7 @@ export function CheckoutForm({
   return (
     <div className={styles.layout}>
       <div className={styles.form}>
-        {!currentPreparedNumber && !currentCompletedNumber && <p className={styles.progress} aria-label="Checkout progress"><strong>1. Billing details</strong><span>2. Secure payment</span></p>}
+        {!currentPreparedNumber && !currentCompletedNumber && <p className={styles.progress} aria-label="Checkout progress"><strong>1. Billing details</strong><span>{freeSessionId ? "2. Download" : "2. Secure payment"}</span></p>}
         {currentCompletedNumber ? (
           <section className={styles.pendingNotice} role="status">
             <h2 className={styles.sectionHeading}>{paymentNotice?.kind === "complete" ? paymentNotice.title : "Free order complete"}</h2>
@@ -245,12 +248,12 @@ export function CheckoutForm({
                   <input type="hidden" name="country" value={country} />
                   <input type="hidden" name="region" value={region} />
                 </>}
-                <Input label="Discount code" name="discountCode" autoComplete="off" maxLength={64} value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} hint="Optional. We’ll check whether this code applies to your order." />
+                {!freeSessionId && <Input label="Discount code" name="discountCode" autoComplete="off" maxLength={64} value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} hint="Optional. We’ll check whether this code applies to your order." />}
                 <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
               </div>
-              <div className={styles.quoteActions}>
+              {!freeSessionId && <div className={styles.quoteActions}>
                 <Button type="button" variant="secondary" onClick={updateTotals} loading={busy} disabled={busy || submitting}>Update totals</Button>
-              </div>
+              </div>}
               {quoteError && <p role="alert" className={styles.error}>{quoteError}</p>}
               {quoteNotice && <p role="status" className={styles.notice}>{quoteNotice}</p>}
               {checkoutError && <p role="alert" className={styles.error}>{checkoutError}</p>}
@@ -268,7 +271,7 @@ export function CheckoutForm({
               : "Your payment is processed securely by Razorpay. Downloads become available after payment is confirmed and your order is complete."}</p>
           </form>
         )}
-        {!currentCompletedNumber && <RazorpayCheckout ref={paymentRef} orderReference={currentPreparedNumber} name={fullName || initialName} email={email || initialEmail} phone={phone || initialPhone} initialVerification={initialOrderStatus && ["authorized", "captured"].includes(initialOrderStatus.payment_status) ? verificationResult : null} onVerified={(result) => {
+        {!freeSessionId && !currentCompletedNumber && <RazorpayCheckout ref={paymentRef} orderReference={currentPreparedNumber} name={fullName || initialName} email={email || initialEmail} phone={phone || initialPhone} initialVerification={initialOrderStatus && ["authorized", "captured"].includes(initialOrderStatus.payment_status) ? verificationResult : null} onVerified={(result) => {
           setVerificationResult(result);
           if (result.fulfilled) {
             setActiveCompletedNumber(result.edd_order_reference);
@@ -297,7 +300,7 @@ export function CheckoutForm({
             <div className={styles.totalRow}><dt>Tax</dt><dd>{formatMoney(quote.tax)}</dd></div>
             <div className={`${styles.totalRow} ${styles.grandTotal}`}><dt>Total</dt><dd>{formatMoney(quote.total)}</dd></div>
           </dl> : <p role="status">{quoteError || "Your checkout total is being calculated."}</p>}
-          <p className={styles.methodHint}>Prices, discounts, and totals are confirmed before payment.</p>
+          <p className={styles.methodHint}>{freeSessionId ? "This free order is separate from your cart. Your cart will stay unchanged." : "Prices, discounts, and totals are confirmed before payment."}</p>
         </section>
       </aside>
     </div>

@@ -149,8 +149,12 @@ class CH_Product_Transformer {
 			return $include_type ? $data : $this->minimum_variable_price( $data );
 		}
 
-		$amount = function_exists( 'edd_get_download_price' ) ? edd_get_download_price( $post_id ) : get_post_meta( $post_id, 'edd_price', true );
-		$amount = is_numeric( $amount ) ? (float) $amount : null;
+		// EDD normalizes absent/malformed fixed metadata to zero. Only an
+		// explicitly valid stored price may be presented as a free purchase.
+		$stored = get_post_meta( $post_id, 'edd_price', true );
+		$amount = is_numeric( $stored ) && is_finite( (float) $stored ) && (float) $stored >= 0
+			? ( function_exists( 'edd_get_download_price' ) ? edd_get_download_price( $post_id ) : $stored ) : null;
+		$amount = is_numeric( $amount ) && is_finite( (float) $amount ) && (float) $amount >= 0 ? (float) $amount : null;
 
 		$data = array(
 			'amount'    => $amount,
@@ -253,10 +257,11 @@ class CH_Product_Transformer {
 	 */
 	private function minimum_variable_price( array $price ) {
 		$amounts = wp_list_pluck( $price['options'], 'amount' );
-		$amounts = array_filter( $amounts, 'is_numeric' );
+		$amounts = array_filter( $amounts, static function ( $amount ) { return is_numeric( $amount ) && is_finite( (float) $amount ) && (float) $amount >= 0; } );
 		$amount  = $amounts ? min( $amounts ) : null;
 
 		return array(
+			'class'     => ! $amounts ? 'invalid' : ( max( $amounts ) == 0 ? 'free' : ( min( $amounts ) == 0 ? 'mixed' : 'paid' ) ),
 			'amount'    => $amount,
 			'formatted' => $this->format_amount( $amount, $price['currency'] ),
 			'currency'  => $price['currency'],

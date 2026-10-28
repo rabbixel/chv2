@@ -136,7 +136,9 @@ export default async function ReceiptPage({ params }: ReceiptPageProps) {
           </section>
         )}
 
-        <footer className={styles.footer}>Thank you for choosing {SITE.name}.</footer>
+        {(["complete", "partially_refunded"] as string[]).includes(receipt.status) && <p><Link href={routes.accountDownloads()}>Access purchased downloads</Link></p>}
+        <p>Design usage rights follow the terms supplied with the product and purchased option. <Link href={routes.licenseInformation()}>License information (under review)</Link>.</p>
+        <footer className={styles.footer}>Thank you for choosing {SITE.name}. {isReceipt ? "This is a purchase receipt, not a GST tax invoice." : "This order summary is not proof of payment."}</footer>
       </main>
     </div>
   );

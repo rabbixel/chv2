@@ -88,8 +88,16 @@ function applyFilters(
     ) {
       return false;
     }
-    if (filters.availability === "free" && !product.isFree) return false;
-    if (filters.availability === "paid" && product.isFree) return false;
+    const hasOptions = product.priceOptions !== undefined;
+    const validOptions = product.priceOptions?.filter((option) => Number.isFinite(option.price.amount) && option.price.amount >= 0) ?? [];
+    const hasPaidOption = hasOptions
+      ? validOptions.some((option) => option.price.amount > 0)
+      : !product.isFree;
+    const isFreeOnly = hasOptions
+      ? validOptions.length > 0 && validOptions.every((option) => option.price.amount === 0)
+      : product.isFree;
+    if (filters.availability === "free" && !isFreeOnly) return false;
+    if (filters.availability === "paid" && !hasPaidOption) return false;
     if (
       filters.ratingMin !== undefined &&
       product.ratingAverage < filters.ratingMin

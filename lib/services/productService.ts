@@ -331,7 +331,7 @@ export async function refreshProductAvailability(products: Product[]): Promise<P
     return products.map((product) => {
       const state = states.get(String(product.id));
       return state
-        ? { ...product, soldOut: state.sold_out, purchasable: state.available }
+        ? { ...product, soldOut: state.sold_out, purchasable: product.priceValid !== false && state.available }
         : { ...product, soldOut: false, purchasable: false };
     });
   } catch {

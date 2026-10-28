@@ -73,6 +73,8 @@ export interface Product {
   price: Money;
   /** Authoritative EDD variable price choices, when present. */
   priceOptions?: ProductPriceOption[];
+  /** False when the API has no valid EDD price; availability refresh must preserve this guard. */
+  priceValid?: boolean;
   /** Original price when on sale; absent otherwise. */
   compareAtPrice?: Money;
 
@@ -114,7 +116,7 @@ export interface Product {
   featured: boolean;
   bestseller: boolean;
   isNew: boolean;
-  /** Free product (`price.amount === 0`). */
+  /** All valid purchasable options are free; mixed-price products are not free. */
   isFree: boolean;
   /** Alias of `featured` for the product-page contract. */
   isFeatured: boolean;

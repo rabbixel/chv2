@@ -28,6 +28,9 @@ final class CH_Checkout_Controller {
 	}
 
 	public function quote( $request ) {
+		$rate_limit = $this->enforce_rate_limit( $request, 'quote' );
+		if ( $rate_limit ) { return $rate_limit; }
+
 		try {
 			$calculation = $this->calculate( $request, false );
 			return $this->private_response( CH_API::success( $this->quote_payload( $calculation ) ) );
@@ -48,6 +51,9 @@ final class CH_Checkout_Controller {
 		$billing_input = is_array( $billing_input ) ? $billing_input : array();
 		$scope_email = strtolower( sanitize_email( (string) ( $billing_input['email'] ?? '' ) ) );
 		$scope = $user_id ? 'user:' . $user_id : 'guest:' . hash( 'sha256', $scope_email );
+		// The private free-session key stays bound to one payload even if the
+		// visitor edits their email or signs in before retrying.
+		if ( true === $request->get_param( 'independent_free' ) ) { $scope = 'independent_free'; }
 		$digest = hash_hmac( 'sha256', $scope . '|' . strtolower( $key ), wp_salt( 'auth' ) );
 		$transient = 'ch_checkout_' . substr( $digest, 0, 40 );
 		$lock_name = 'ch_checkout_' . substr( $digest, 0, 48 );
@@ -70,6 +76,9 @@ final class CH_Checkout_Controller {
 			if ( $existing_id ) {
 				$existing = function_exists( 'edd_get_order' ) ? edd_get_order( $existing_id ) : false;
 				if ( $existing ) {
+					if ( true === $request->get_param( 'independent_free' ) && ! empty( $existing->user_id ) && (int) $existing->user_id !== $user_id ) {
+						return $this->private_response( CH_API::error( 'checkout_owner_mismatch', 'This free checkout belongs to another signed-in customer.', 403 ) );
+					}
 					if ( ! is_array( $stored ) ) { return $this->private_response( CH_API::error( 'idempotency_payload_unverifiable', 'This checkout key predates payload verification. Refresh checkout and try again.', 409 ) ); }
 					if ( is_array( $stored ) && ! hash_equals( (string) ( $stored['payload_digest'] ?? '' ), $payload_digest ) ) {
 						return $this->private_response( CH_API::error( 'idempotency_payload_mismatch', 'This checkout key was already used with different checkout details.', 409 ) );
@@ -84,6 +93,11 @@ final class CH_Checkout_Controller {
 				}
 				delete_transient( $transient );
 			}
+
+			// Count only new orders. Idempotent replays returned above remain safe
+			// even when the customer has reached the new-order limit.
+			$rate_limit = $this->enforce_rate_limit( $request, 'prepare', strtolower( $key ) . '|' . $payload_digest );
+			if ( $rate_limit ) { return $rate_limit; }
 
 			$locked_products = $this->limits->acquire_for_products( array_column( $calculation['items'], 'id' ), 5 );
 			if ( is_wp_error( $locked_products ) ) { return $this->private_response( CH_API::error( 'purchase_limit_busy', 'Product availability is being updated. Please retry shortly.', 503 ) ); }
@@ -195,6 +209,15 @@ final class CH_Checkout_Controller {
 		foreach ( $validated as $item ) {
 			if ( empty( $item['available'] ) ) { throw new RuntimeException( 'Your cart contains an unavailable product or price option.' ); }
 		}
+		$independent_free = true === $request->get_param( 'independent_free' );
+		if ( $independent_free ) {
+			$submitted = $request->get_param( 'items' );
+			if ( ! is_array( $submitted ) || 1 !== count( $submitted ) || 1 !== count( $validated ) ||
+				1 !== (int) $validated[0]['quantity'] || 0.0 !== (float) $validated[0]['unit_price'] ||
+				'' !== trim( (string) $request->get_param( 'discount_code' ) ) ) {
+				throw new RuntimeException( 'Independent free checkout requires one free item without a discount.' );
+			}
+		}
 
 		$billing_input = $request->get_param( 'billing' );
 		$billing_input = is_array( $billing_input ) ? $billing_input : array();
@@ -275,6 +298,9 @@ final class CH_Checkout_Controller {
 			);
 		}
 		if ( '' !== $discount_code && $discount_total <= 0 ) { throw new RuntimeException( 'The discount code does not apply to these products.' ); }
+		if ( $independent_free && ( 0.0 !== $total || 0.0 !== $subtotal || 0.0 !== $tax_total ) ) {
+			throw new RuntimeException( 'This product is no longer free.' );
+		}
 		return array(
 			'items' => $items, 'subtotal' => $subtotal, 'discount' => $discount_total,
 			'tax' => $tax_total, 'total' => $total, 'tax_rate_id' => $tax_rate_id,
@@ -405,5 +431,80 @@ final class CH_Checkout_Controller {
 		$response->header( 'Cache-Control', 'private, no-store, no-cache, max-age=0, must-revalidate' );
 		$response->header( 'Pragma', 'no-cache' );
 		return $response;
+	}
+
+	/**
+	 * Enforce a per-account or signed guest-browser fixed-window limit.
+	 * The bridge keeps the identity server-to-server; REMOTE_ADDR belongs to the
+	 * Next.js host here and must not be treated as the visitor address.
+	 */
+	private function enforce_rate_limit( $request, $type, $idempotency_key = '' ) {
+		$identity = $this->rate_limit_identity( $request );
+		if ( false === $identity ) {
+			return $this->private_response( CH_API::error( 'checkout_session_invalid', 'Your checkout session is invalid. Refresh the page and try again.', 400 ) );
+		}
+
+		$policy = $this->rate_limit_policy( $type );
+		$identity_hash = hash_hmac( 'sha256', $identity, wp_salt( 'auth' ) );
+		$rate_key = 'ch_rate_checkout_' . $type . '_' . $identity_hash;
+		$attempt_hash = '' !== $idempotency_key ? hash_hmac( 'sha256', strtolower( $idempotency_key ), wp_salt( 'auth' ) ) : '';
+		$lock_name = 'ch_rate_checkout_' . substr( hash( 'sha256', $type . '|' . $identity_hash ), 0, 40 );
+		global $wpdb;
+		$locked = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 3)', $lock_name ) );
+		if ( '1' !== (string) $locked ) {
+			return $this->private_response( CH_API::error( 'checkout_busy', 'Checkout is busy. Please retry shortly.', 503 ) );
+		}
+
+		try {
+			$now = time();
+			$record = get_transient( $rate_key );
+			if ( ! is_array( $record ) || ! isset( $record['count'], $record['reset_at'] ) || (int) $record['reset_at'] <= $now ) {
+				$record = array( 'count' => 0, 'reset_at' => $now + $policy['window'] );
+			}
+			$record['count'] = max( 0, (int) $record['count'] );
+			$record['reset_at'] = (int) $record['reset_at'];
+			$attempts = isset( $record['attempts'] ) && is_array( $record['attempts'] ) ? $record['attempts'] : array();
+			if ( '' !== $attempt_hash && in_array( $attempt_hash, $attempts, true ) ) { return null; }
+			if ( $record['count'] >= $policy['limit'] ) {
+				$response = CH_API::error( 'checkout_rate_limited', 'You have tried checkout too many times. Please wait a little and try again.', 429 );
+				$response->header( 'Retry-After', (string) max( 1, $record['reset_at'] - $now ) );
+				return $this->private_response( $response );
+			}
+
+			++$record['count'];
+			if ( '' !== $attempt_hash ) {
+				$attempts[] = $attempt_hash;
+				$record['attempts'] = $attempts;
+			}
+			if ( ! set_transient( $rate_key, $record, max( 1, $record['reset_at'] - $now ) ) ) {
+				return $this->private_response( CH_API::error( 'checkout_rate_limit_unavailable', 'Checkout is temporarily unavailable. Please retry shortly.', 503 ) );
+			}
+			return null;
+		} finally {
+			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
+		}
+	}
+
+	private function rate_limit_identity( $request ) {
+		$user_id = function_exists( 'get_current_user_id' ) ? absint( get_current_user_id() ) : 0;
+		if ( $user_id > 0 ) { return 'user:' . $user_id; }
+
+		$token = (string) $request->get_header( 'x-ch-checkout-rate-token' );
+		if ( ! preg_match( '/^([a-f0-9]{64})\.([a-f0-9]{64})$/D', $token, $match ) ) { return false; }
+		$secret = defined( 'CH_LOCAL_AUTH_BRIDGE_SECRET' ) ? (string) constant( 'CH_LOCAL_AUTH_BRIDGE_SECRET' ) : (string) getenv( 'CH_AUTH_BRIDGE_SECRET' );
+		if ( strlen( $secret ) < 32 ) { return false; }
+		$expected = hash_hmac( 'sha256', 'ch-checkout-rate-v1:' . $match[1], $secret );
+		return hash_equals( $expected, $match[2] ) ? 'guest:' . $match[1] : false;
+	}
+
+	private function rate_limit_policy( $type ) {
+		// Site-specific tuning is supported with ch_checkout_{quote|prepare}_rate_limit
+		// and ch_checkout_{quote|prepare}_rate_window filters.
+		$defaults = 'quote' === $type
+			? array( 'limit' => 60, 'window' => defined( 'MINUTE_IN_SECONDS' ) ? MINUTE_IN_SECONDS : 60 )
+			: array( 'limit' => 10, 'window' => defined( 'HOUR_IN_SECONDS' ) ? HOUR_IN_SECONDS : 3600 );
+		$limit = function_exists( 'apply_filters' ) ? apply_filters( 'ch_checkout_' . $type . '_rate_limit', $defaults['limit'] ) : $defaults['limit'];
+		$window = function_exists( 'apply_filters' ) ? apply_filters( 'ch_checkout_' . $type . '_rate_window', $defaults['window'] ) : $defaults['window'];
+		return array( 'limit' => max( 1, min( 10000, (int) $limit ) ), 'window' => max( 1, min( DAY_IN_SECONDS, (int) $window ) ) );
 	}
 }

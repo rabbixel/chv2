@@ -12,8 +12,10 @@ async function loadSource(path, replacements = []) {
   return `data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`;
 }
 const media = await loadSource("../lib/creative-hatti/media.ts");
-const adapters = await loadSource("../lib/creative-hatti/adapters.ts", [['"./media"', JSON.stringify(media)]]);
+const html = await loadSource("../lib/creative-hatti/html.ts");
+const adapters = await loadSource("../lib/creative-hatti/adapters.ts", [['"./media"', JSON.stringify(media)], ['"./html"', JSON.stringify(html)]]);
 const search = await import(await loadSource("../lib/creative-hatti/search.ts", [['"./adapters"', JSON.stringify(adapters)]]));
+const { productFromApi } = await import(adapters);
 const { apiFetch, ApiError } = await import(await loadSource("../lib/api/client.ts"));
 
 test("indexed search forwards the query, every filter and sort without losing multiselect values", () => {
@@ -38,6 +40,51 @@ test("browse mode has no accidental filters and category facets preserve server 
   assert.equal(search.searchFacetsFromApi(facets)[0].values[0].value, "character-bundle");
   assert.equal(search.searchFacetsFromApi(facets)[0].values[0].count, 123);
   assert.equal(facets[0].values[0].value, "character-bundles");
+});
+
+test("curated collection availability is sent to the indexed server query", () => {
+  for (const availability of ["paid", "free"]) {
+    const request = search.searchRequestParams({ query: "", page: 3, pageSize: 24, sort: "best-selling", filters: { availability } });
+    assert.equal(request.avail, availability);
+    assert.equal(request.page, 3);
+    assert.equal(request.sort, "best-selling");
+  }
+});
+
+test("product cards classify mixed-price details as paid rather than free", () => {
+  const product = (price, variable_prices) => productFromApi({
+    id: 1, title: "Fixture", slug: "fixture", price: { amount: price, currency: "INR" }, categories: [], variable_prices,
+  });
+  assert.equal(product(0, [{ amount: 0 }, { amount: 250 }]).isFree, false);
+  assert.equal(product(0, [{ amount: 0 }, { amount: "invalid" }]).isFree, true);
+  assert.equal(product(0, [{ amount: "invalid" }]).isFree, false);
+  assert.equal(product(0, undefined).isFree, true);
+});
+
+test("EDD detail price types distinguish fixed free, variable, mixed and invalid prices", () => {
+  const product = (price, variable_prices = []) => productFromApi({
+    id: 1, title: "Fixture", slug: "fixture", price: { currency: "INR", ...price }, categories: [], variable_prices,
+  });
+  assert.equal(product({ type: "single", amount: 0 }).isFree, true);
+  assert.equal(product({ type: "single", amount: "0" }).isFree, true);
+  assert.equal(product({ type: "single", amount: 99 }).isFree, false);
+  assert.equal(product({ type: "single", amount: 0 }, [{ id: 2, amount: 99 }]).priceOptions, undefined);
+  const free = product({ type: "variable" }, [{ id: 0, amount: "0" }, { id: 2, amount: 0 }]);
+  assert.equal(free.isFree, true);
+  assert.deepEqual(free.priceOptions.map((option) => option.id), [0, 2]);
+  const mixed = product({ type: "variable", class: "free" }, [{ id: 0, amount: 0 }, { id: 2, amount: 100 }]);
+  assert.equal(mixed.isFree, false);
+  assert.deepEqual(mixed.priceOptions.map((option) => option.price.amount), [0, 10000]);
+  const filtered = product({ type: "variable" }, [{ id: 0, amount: null }, { id: 2, amount: 100 }]);
+  assert.equal(filtered.isFree, false);
+  assert.deepEqual(filtered.priceOptions.map((option) => option.id), [2]);
+  for (const amount of [null, undefined, "", "bad", -1, Infinity, false]) {
+    const invalid = product({ type: "single", amount });
+    assert.equal(invalid.isFree, false);
+    assert.equal(invalid.purchasable, false);
+  }
+  assert.equal(product({ type: "variable", amount: 0 }).purchasable, false);
+  assert.equal(product({ amount: 0, class: "mixed" }).isFree, false);
 });
 
 test("API client safely encodes query punctuation and propagates index failures", async () => {

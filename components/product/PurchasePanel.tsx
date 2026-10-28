@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addToCart, quickAddToCart } from "@/app/cart/actions";
+import { addToCart } from "@/app/cart/actions";
+import { startFreeCheckout } from "@/app/checkout/free/actions";
 import { useCartState } from "@/components/cart/CartStateProvider";
 import { Badge, Button, Icon } from "@/components/ui";
 import { CART_UPDATED_EVENT } from "@/lib/constants";
@@ -87,24 +88,9 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     setActionError(null);
     startTransition(async () => {
       try {
-        const result = await quickAddToCart(
-          product.slug,
-          product.priceOptions?.length ? priceId ?? undefined : undefined,
-        );
-        if (result.status === "unavailable" || result.status === "error") {
-          setActionError(result.message);
-          return;
-        }
-        if (result.status === "needs-options") {
-          setActionError("Choose an available option before continuing.");
-          return;
-        }
-        if (result.status === "added" || result.status === "already") {
-          syncCart(result);
-          router.push(routes.checkout());
-          return;
-        }
-        setActionError("Could not prepare the free download. Please try again.");
+        const result = await startFreeCheckout(product.slug, product.priceOptions?.length ? priceId : null);
+        if (result.url) router.push(result.url);
+        else setActionError(result.error ?? "Could not prepare the free download. Please try again.");
       } catch {
         setActionError("Could not prepare the free download. Please try again.");
       }
@@ -128,7 +114,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     </div>;
   }
 
-  if (product.purchasable === false) {
+  if (product.purchasable === false || !Number.isFinite(price.amount) || price.amount < 0) {
     return <div className={styles.panel} data-product-id={product.id}>
       <p className={styles.soldOut}>Temporarily unavailable</p>
       <p className={styles.licenseNote}>Please refresh shortly to check availability again.</p>
@@ -142,6 +128,9 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     return (
       <div className={styles.panel} data-product-id={product.id}>
         <p className={styles.free}>Free download</p>
+        <p className={styles.licenseNote}>
+          {selectedPriceOption?.name ?? (selected ? `${selected.name} license · ${selected.description}` : "")}
+        </p>
         {freePriceOptions.length > 1 && (
           <fieldset className={styles.options}>
             <legend className={styles.optionsLegend}>Choose your desired option</legend>
@@ -162,8 +151,11 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
           </fieldset>
         )}
         {actionError && <p role="alert" className={styles.error}>{actionError}</p>}
-        <Button onClick={handleFreeCheckout} size="lg" fullWidth loading={pending} disabled={pending || cartLoading}>
-          {alreadyInCart ? "Continue to free checkout" : "Get free download"}
+        <Button onClick={handleFreeCheckout} size="lg" fullWidth loading={pending} disabled={pending}>
+          Get free download
+        </Button>
+        <Button variant="ghost" onClick={handleAdd} fullWidth loading={pending} disabled={pending || cartLoading || alreadyInCart}>
+          {alreadyInCart ? "Already in your cart" : "Add to cart"}
         </Button>
         <p className={styles.licenseNote}>Download this design for free. Simply complete the checkout to get your files. No payment or account required.</p>
         {product.isCustomizable && (
@@ -239,7 +231,16 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
           {actionError}
         </p>
       )}
-      {alreadyInCart ? (
+      {price.amount === 0 ? (
+        <>
+          <Button onClick={handleFreeCheckout} size="lg" fullWidth loading={pending} disabled={pending}>
+            Get free download
+          </Button>
+          <Button variant="ghost" onClick={handleAdd} fullWidth loading={pending} disabled={pending || cartLoading || alreadyInCart}>
+            {alreadyInCart ? "Already in your cart" : "Add to cart"}
+          </Button>
+        </>
+      ) : alreadyInCart ? (
         <>
           <p role="status" className={styles.added}>
             <Icon name="check" size={18} />

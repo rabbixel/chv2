@@ -205,7 +205,35 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
   const tags = (detail.tags ?? []).map((tag) => tag.name);
   const createdAt = detail.date ?? new Date(0).toISOString();
   const updatedAt = detail.modified ?? createdAt;
-  const isFree = apiProduct.price.amount === 0;
+  // Fixed-price detail responses also contain variable_prices: []. EDD's
+  // price type takes precedence over stale option metadata and index labels.
+  const variable = apiProduct.price.type === "variable" ||
+    (apiProduct.price.type !== "single" && Boolean(detail.variable_prices?.length));
+  const parseAmount = (value: unknown): number | null => {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    if (typeof value === "string" && !value.trim()) return null;
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount >= 0 ? amount : null;
+  };
+  const rawOptions = variable ? detail.variable_prices ?? [] : [];
+  const priceOptions = rawOptions.flatMap((option, index) => {
+    const amount = parseAmount(option.amount);
+    const id = Number(option.id ?? index);
+    if (amount === null || !Number.isSafeInteger(id) || id < 0) return [];
+    return [{
+      id,
+      name: decodeHtmlEntities(option.name ?? `Option ${index + 1}`),
+      price: { amount: moneyAmount(amount), currency: option.currency ?? apiProduct.price.currency },
+      isDefault: Boolean(option.default),
+    }];
+  });
+  const fixedAmount = parseAmount(apiProduct.price.amount);
+  const validPrice = variable ? priceOptions.length > 0 : fixedAmount !== null;
+  const isFree = variable
+    ? validPrice && priceOptions.every((option) => option.price.amount === 0)
+    : fixedAmount === null
+      ? false
+      : fixedAmount === 0 && apiProduct.price.class !== "mixed" && apiProduct.price.class !== "invalid";
 
   return {
     id: String(apiProduct.id),
@@ -215,21 +243,16 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
     description: stripHtml(detail.description),
     seo: seoFromApi(apiProduct),
     price: {
-      amount: moneyAmount(apiProduct.price.amount),
+      amount: variable && priceOptions.length
+        ? Math.min(...priceOptions.map((option) => option.price.amount))
+        : fixedAmount === null ? Number.NaN : moneyAmount(fixedAmount),
       currency: apiProduct.price.currency,
     },
-    priceOptions: detail.variable_prices?.map((option, index) => ({
-      id: Number(option.id ?? index),
-      name: decodeHtmlEntities(option.name ?? `Option ${index + 1}`),
-      price: {
-        amount: moneyAmount(Number(option.amount ?? apiProduct.price.amount)),
-        currency: option.currency ?? apiProduct.price.currency,
-      },
-      isDefault: Boolean(option.default),
-    })),
+    priceOptions: variable ? priceOptions : undefined,
+    priceValid: validPrice,
     status: detail.status === "publish" || !detail.status ? "active" : "draft",
     soldOut: apiProduct.availability?.sold_out === true,
-    purchasable: apiProduct.availability?.available,
+    purchasable: validPrice ? apiProduct.availability?.available : false,
     productGroup: group,
     kind: productKind(apiProduct, group),
     categoryIds: (apiProduct.categories ?? []).map((category) => String(category.id)),

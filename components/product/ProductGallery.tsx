@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, TouchEvent } from "react";
 import { Icon } from "@/components/ui";
 import type { ProductImage } from "@/lib/types";
-import { largestGalleryImageIndex } from "@/lib/creative-hatti/gallery-display.mjs";
+import {
+  largestGalleryImageIndex,
+  selectDetailGalleryImages,
+} from "@/lib/creative-hatti/gallery-display.mjs";
 import { ProductImage as ProductImageView } from "./ProductImage";
 import { cn } from "@/lib/utils";
 import styles from "./ProductGallery.module.css";
@@ -68,8 +71,9 @@ function GalleryArt({
 }
 
 export function ProductGallery({ images, title }: ProductGalleryProps) {
-  const count = images.length;
-  const [index, setIndex] = useState(() => largestGalleryImageIndex(images));
+  const galleryImages = selectDetailGalleryImages(images);
+  const count = galleryImages.length;
+  const [index, setIndex] = useState(() => largestGalleryImageIndex(galleryImages));
   const [lightbox, setLightbox] = useState(false);
   const touchX = useRef<number | null>(null);
   const stageRef = useRef<HTMLButtonElement>(null);
@@ -135,7 +139,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   }, [lightbox, move]);
 
   if (count === 0) return null;
-  const current = images[index] ?? images[0];
+  const current = galleryImages[index] ?? galleryImages[0];
   if (!current) return null;
 
   return (
@@ -166,7 +170,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
             image={current}
             title={title}
             decorative={false}
-            eager={index === largestGalleryImageIndex(images)}
+            eager={index === largestGalleryImageIndex(galleryImages)}
           />
         </button>
         {count > 1 && (
@@ -202,7 +206,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
 
       {count > 1 && (
         <ul className={styles.thumbs} aria-label="Product previews">
-          {images.map((image, position) => (
+          {galleryImages.map((image, position) => (
             <li key={image.id}>
               <button
                 type="button"

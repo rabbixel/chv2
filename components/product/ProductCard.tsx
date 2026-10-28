@@ -175,7 +175,7 @@ export function ProductCard({
             </Link>
           ) : (
             <>
-              <span className={styles.price}>{formatMoney(product.price)}</span>
+              <span className={styles.price}>{Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
               {product.compareAtPrice && (
                 <s className={cn(styles.compareAt)}>
                   {formatMoney(product.compareAtPrice)}

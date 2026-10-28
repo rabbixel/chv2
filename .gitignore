@@ -33,3 +33,4 @@ yarn-error.log*
 coverage/
 .next-types/
 tsconfig.tsbuildinfo
+backups/ch-search-*/

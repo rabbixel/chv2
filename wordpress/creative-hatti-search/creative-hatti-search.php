@@ -3,6 +3,8 @@
  * Plugin Name: Creative Hatti Indexed Search
  * Description: Paginated public EDD catalogue search with a dedicated inverted index.
  * Version: 1.0.0
+ * Author: Rajesh Kamboj
+ * Author URI: https://pixldot.com
  * Requires PHP: 7.4
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -33,6 +35,9 @@ final class CH_Indexed_Search {
 			product_id bigint(20) unsigned NOT NULL,
 			title varchar(255) NOT NULL,
 			price bigint(20) unsigned NOT NULL,
+			price_valid tinyint(1) NOT NULL DEFAULT 0,
+			has_free_option tinyint(1) NOT NULL DEFAULT 0,
+			has_paid_option tinyint(1) NOT NULL DEFAULT 0,
 			published datetime NOT NULL,
 			sales bigint(20) unsigned NOT NULL DEFAULT 0,
 			rating decimal(3,2) NOT NULL DEFAULT 0,
@@ -40,6 +45,7 @@ final class CH_Indexed_Search {
 			card longtext NOT NULL,
 			PRIMARY KEY  (product_id),
 			KEY price (price,product_id),
+			KEY price_class (price_valid,has_paid_option,has_free_option,product_id),
 			KEY published (published,product_id),
 			KEY sales (sales,product_id),
 			KEY title (title,product_id)
@@ -60,6 +66,54 @@ final class CH_Indexed_Search {
 			KEY product (product_id,kind),
 			KEY product_facets (product_id,kind,value,label)
 		) ENGINE=InnoDB $charset;" );
+	}
+
+	/** Classify actual EDD option amounts without treating absent/invalid values as free. */
+	public static function classify_prices( $values ) {
+		$valid = array();
+		foreach ( (array) $values as $entry ) {
+			$value = is_array( $entry ) ? ( $entry['amount'] ?? null ) : $entry;
+			if ( is_string( $value ) && '' === trim( $value ) ) { continue; }
+			if ( ! is_numeric( $value ) ) { continue; }
+			$amount = (float) $value;
+			if ( ! is_finite( $amount ) || $amount < 0 || ! is_finite( $amount * 100 ) || $amount * 100 > PHP_INT_MAX ) { continue; }
+			$valid[] = $amount;
+		}
+		$has_free = in_array( 0.0, $valid, true );
+		$paid = array_values( array_filter( $valid, static function( $amount ) { return $amount > 0; } ) );
+		$has_paid = (bool) $paid;
+		$minimum = $valid ? min( $valid ) : 0.0;
+		$display = $has_paid ? min( $paid ) : $minimum;
+		return array(
+			'valid' => (bool) $valid,
+			'minimum' => $minimum,
+			'minor' => (int) round( $minimum * 100 ),
+			'display' => $display,
+			'has_free' => $has_free,
+			'has_paid' => $has_paid,
+			'class' => ! $valid ? 'invalid' : ( $has_free && $has_paid ? 'mixed' : ( $has_paid ? 'paid' : 'free' ) ),
+		);
+	}
+
+	/** Server-side collection predicates; used before counts, ranking, and pagination. */
+	public static function availability_condition( $availability ) {
+		if ( 'paid' === $availability ) { return 'd.price_valid=1 AND d.has_paid_option=1'; }
+		if ( 'free' === $availability ) { return 'd.price_valid=1 AND d.has_free_option=1 AND d.has_paid_option=0'; }
+		return '';
+	}
+
+	/** Read EDD's fixed or variable purchasable prices, keeping missing metadata invalid. */
+	public static function product_price_classification( $id ) {
+		if ( function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $id ) ) {
+			$prices = function_exists( 'edd_get_variable_prices' ) ? edd_get_variable_prices( $id ) : array();
+			return self::classify_prices( is_array( $prices ) ? $prices : array() );
+		}
+		$stored_price = get_post_meta( $id, 'edd_price', true );
+		$price_exists = function_exists( 'metadata_exists' ) && metadata_exists( 'post', $id, 'edd_price' );
+		$stored = $price_exists ? self::classify_prices( array( $stored_price ) ) : self::classify_prices( array() );
+		if ( ! $stored['valid'] || ! function_exists( 'edd_get_download_price' ) ) { return self::classify_prices( array() ); }
+		$price = self::classify_prices( array( edd_get_download_price( $id ) ) );
+		return $price['valid'] ? $price : self::classify_prices( array() );
 	}
 
 	/** No stopword/minimum-word-length dependency; prefix lookups use the word index. */
@@ -146,10 +200,8 @@ final class CH_Indexed_Search {
 			self::transaction( 'ROLLBACK' );
 			return new WP_Error( 'edd_required', 'Easy Digital Downloads must be active.' );
 		}
-		$price = edd_get_download_price( $id );
-		if ( function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $id ) ) {
-			$price = edd_get_lowest_price_option( $id );
-		}
+		$is_variable = function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $id );
+		$classification = self::product_price_classification( $id );
 		$categories = get_the_terms( $id, 'download_category' );
 		$tags = get_the_terms( $id, 'download_tag' );
 		if ( is_wp_error( $categories ) || is_wp_error( $tags ) ) {
@@ -166,7 +218,7 @@ final class CH_Indexed_Search {
 		$image = $image_id ? wp_get_attachment_image_src( $image_id, 'medium' ) : false;
 		$card = array(
 			'id' => (int) $id, 'slug' => $post->post_name, 'title' => $post->post_title,
-			'price' => array( 'amount' => (float) $price, 'currency' => edd_get_currency() ),
+			'price' => array( 'type' => $is_variable ? 'variable' : 'single', 'class' => $classification['class'], 'amount' => (float) $classification['display'], 'currency' => edd_get_currency() ),
 			'categories' => array(), 'featured' => '1' === get_post_meta( $id, 'edd_feature_download', true ),
 			'file_type' => implode( ', ', $files ), 'file_size' => get_post_meta( $id, 'file_size', true ),
 			'image' => $image ? array( 'id' => $image_id, 'url' => $image[0], 'width' => $image[1], 'height' => $image[2], 'alt' => get_post_meta( $image_id, '_wp_attachment_image_alt', true ) ) : null,
@@ -199,7 +251,8 @@ final class CH_Indexed_Search {
 			foreach ( self::tokens( $text ) as $word ) { $weights[ $word ] = max( $weight, $weights[ $word ] ?? 0 ); }
 		}
 		$ok = $wpdb->insert( self::table( 'documents' ), array(
-			'product_id' => $id, 'title' => $post->post_title, 'price' => max( 0, round( $price * 100 ) ),
+			'product_id' => $id, 'title' => $post->post_title, 'price' => max( 0, $classification['minor'] ),
+			'price_valid' => (int) $classification['valid'], 'has_free_option' => (int) $classification['has_free'], 'has_paid_option' => (int) $classification['has_paid'],
 			'published' => $post->post_date_gmt, 'sales' => max( 0, (int) get_post_meta( $id, '_edd_download_sales', true ) ),
 			'rating' => max( 0, min( 5, (float) $extra['rating'] ) ), 'on_sale' => (int) (bool) $extra['on_sale'], 'card' => wp_json_encode( $card ),
 		) );
@@ -243,9 +296,12 @@ final class CH_Indexed_Search {
 		global $wpdb;
 		$lock = $wpdb->prefix . 'ch_search_build';
 		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s,0)', $lock ) ) ) { WP_CLI::error( 'Another search build is running.' ); }
+		$was_ready = (bool) get_option( 'ch_search_ready' );
+		// Hide partially rebuilt rows until every document has the new classification.
+		update_option( 'ch_search_ready', false, false );
 		self::install();
 		$cursor = (int) get_option( 'ch_search_build_cursor', 0 );
-		if ( get_option( 'ch_search_ready' ) || isset( $assoc_args['restart'] ) ) { $cursor = 0; }
+		if ( $was_ready || isset( $assoc_args['restart'] ) ) { $cursor = 0; }
 		$count = 0;
 		while ( $ids = self::batch( $cursor ) ) {
 			_prime_post_caches( $ids, true, true );
@@ -281,7 +337,9 @@ final class CH_Indexed_Search {
 
 	public static function status() {
 		global $wpdb;
-		WP_CLI::log( wp_json_encode( array( 'ready' => (bool) get_option( 'ch_search_ready' ), 'indexed_at' => get_option( 'ch_search_indexed_at' ), 'documents' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::table( 'documents' ) ), 'tokens' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::table( 'tokens' ) ) ) ) );
+		$documents = self::table( 'documents' );
+		$pricing = $wpdb->get_row( "SELECT SUM(price_valid=1) AS valid, SUM(price_valid=1 AND has_paid_option=1) AS paid, SUM(price_valid=1 AND has_free_option=1 AND has_paid_option=0) AS free_only, SUM(price_valid=1 AND has_free_option=1 AND has_paid_option=1) AS mixed, SUM(price_valid=0) AS invalid FROM $documents", ARRAY_A );
+		WP_CLI::log( wp_json_encode( array( 'ready' => (bool) get_option( 'ch_search_ready' ), 'indexed_at' => get_option( 'ch_search_indexed_at' ), 'documents' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM $documents" ), 'tokens' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::table( 'tokens' ) ), 'pricing' => array_map( 'intval', $pricing ?: array() ) ) ) );
 	}
 
 	public static function valid_list( $value ) {
@@ -356,8 +414,8 @@ final class CH_Indexed_Search {
 			if ( null !== $request[ $key ] ) { $where[] = $wpdb->prepare( "d.price $operator %d", $request[ $key ] ); }
 		}
 		if ( null !== $request['min'] && null !== $request['max'] && $request['min'] > $request['max'] ) { return new WP_Error( 'invalid_price_range', 'Minimum price exceeds maximum price.', array( 'status' => 400 ) ); }
-		if ( 'free' === $request['avail'] ) { $where[] = 'd.price=0'; }
-		if ( 'paid' === $request['avail'] ) { $where[] = 'd.price>0'; }
+		$availability = self::availability_condition( $request['avail'] );
+		if ( $availability ) { $where[] = $availability; }
 		if ( $request['rating'] ) { $where[] = $wpdb->prepare( 'd.rating >= %f', $request['rating'] ); }
 		if ( $request['sale'] ) { $where[] = 'd.on_sale=1'; }
 		$where_sql = ' WHERE ' . implode( ' AND ', $where );
