@@ -61,6 +61,32 @@ test("product cards classify mixed-price details as paid rather than free", () =
   assert.equal(product(0, undefined).isFree, true);
 });
 
+test("EDD detail price types distinguish fixed free, variable, mixed and invalid prices", () => {
+  const product = (price, variable_prices = []) => productFromApi({
+    id: 1, title: "Fixture", slug: "fixture", price: { currency: "INR", ...price }, categories: [], variable_prices,
+  });
+  assert.equal(product({ type: "single", amount: 0 }).isFree, true);
+  assert.equal(product({ type: "single", amount: "0" }).isFree, true);
+  assert.equal(product({ type: "single", amount: 99 }).isFree, false);
+  assert.equal(product({ type: "single", amount: 0 }, [{ id: 2, amount: 99 }]).priceOptions, undefined);
+  const free = product({ type: "variable" }, [{ id: 0, amount: "0" }, { id: 2, amount: 0 }]);
+  assert.equal(free.isFree, true);
+  assert.deepEqual(free.priceOptions.map((option) => option.id), [0, 2]);
+  const mixed = product({ type: "variable", class: "free" }, [{ id: 0, amount: 0 }, { id: 2, amount: 100 }]);
+  assert.equal(mixed.isFree, false);
+  assert.deepEqual(mixed.priceOptions.map((option) => option.price.amount), [0, 10000]);
+  const filtered = product({ type: "variable" }, [{ id: 0, amount: null }, { id: 2, amount: 100 }]);
+  assert.equal(filtered.isFree, false);
+  assert.deepEqual(filtered.priceOptions.map((option) => option.id), [2]);
+  for (const amount of [null, undefined, "", "bad", -1, Infinity, false]) {
+    const invalid = product({ type: "single", amount });
+    assert.equal(invalid.isFree, false);
+    assert.equal(invalid.purchasable, false);
+  }
+  assert.equal(product({ type: "variable", amount: 0 }).purchasable, false);
+  assert.equal(product({ amount: 0, class: "mixed" }).isFree, false);
+});
+
 test("API client safely encodes query punctuation and propagates index failures", async () => {
   const originalFetch = globalThis.fetch;
   const originalUrl = process.env.CH_API_URL;

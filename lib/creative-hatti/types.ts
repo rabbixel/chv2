@@ -192,4 +192,5 @@ export interface ChApiHomepageTile {
   hue?: number;
   icon?: string;
   image?: ChApiImage | null;
+  url?: string;
 }

@@ -73,6 +73,8 @@ export interface Product {
   price: Money;
   /** Authoritative EDD variable price choices, when present. */
   priceOptions?: ProductPriceOption[];
+  /** False when the API has no valid EDD price; availability refresh must preserve this guard. */
+  priceValid?: boolean;
   /** Original price when on sale; absent otherwise. */
   compareAtPrice?: Money;
 

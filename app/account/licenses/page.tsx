@@ -105,10 +105,10 @@ export default async function AccountLicensesPage({ searchParams }: AccountLicen
 function WordPressLicenses({ licenses }: { licenses: Paginated<CustomerLicense> }) {
   return (
     <div>
-      <h1 className={styles.title}>Licenses</h1>
-      <p className={styles.lede}>License records associated with your purchases.</p>
+      <h1 className={styles.title}>Software license records</h1>
+      <p className={styles.lede}>Software activation records are separate from design usage rights. Check the purchased product and option in your order details for the applicable agreement.</p>
       {licenses.items.length === 0 ? (
-        <EmptyState title="No licenses yet" description="No software licenses are associated with your account." action={<Button href={routes.accountOrders()}>View orders</Button>} />
+        <EmptyState title="No software license records" description="No software activation records are associated with your account. Design usage rights follow the terms supplied with your purchased product and option." action={<Button href={routes.accountOrders()}>View orders</Button>} />
       ) : (
         <>
           <div className={styles.list}>

@@ -240,6 +240,7 @@ export async function signOutForGuestClaimAction(): Promise<void> {
 export async function addWishlistItemToCart(
   formData: FormData,
 ): Promise<void> {
+  await assertSameOriginRequest();
   const productId = field(formData, "productId");
   const license = field(formData, "license") as LicenseCode;
   try {
@@ -305,6 +306,7 @@ export async function requestDownloadAction(
   productId: ID,
   orderId: ID,
 ): Promise<{ url: string } | { error: string }> {
+  await assertSameOriginRequest();
   const download = await getDownloadService().requestDownloadUrl(
     productId,
     orderId,
@@ -319,6 +321,7 @@ export async function requestCustomerDownloadAction(
   orderItemId: string,
   fileKey: string,
 ): Promise<{ url: string } | { error: string }> {
+  await assertSameOriginRequest();
   try {
     const download = await getCustomerDownloadService().requestFileUrl(orderItemId, fileKey);
     return { url: download.url };
@@ -373,6 +376,7 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
 export async function updatePreferencesAction(
   formData: FormData,
 ): Promise<void> {
+  await assertSameOriginRequest();
   await getCustomerService().updateNotificationPreferences({
     orderUpdates: formData.get("orderUpdates") === "on",
     newProducts: formData.get("newProducts") === "on",

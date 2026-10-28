@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { routes } from "@/lib/routes";
+import { assertSameOriginRequest } from "@/lib/auth";
 import { getCartService, getProductService } from "@/lib/services";
 import type { Cart, CartLineIdentity, ID, LicenseCode, ProductPriceOption } from "@/lib/types";
 
@@ -26,6 +27,7 @@ export async function addToCart(
   license: LicenseCode,
   priceId?: number | null,
 ): Promise<{ itemCount: number; cartItems: CartLineIdentity[] }> {
+  await assertSameOriginRequest();
   const cart = await getCartService().addItem(productId, license, priceId);
   revalidatePath(routes.cart());
   revalidatePath(routes.checkout());
@@ -42,9 +44,10 @@ export type QuickAddResult =
 
 /** Resolve the product and current EDD options on the server before writing the existing session cart. */
 export async function quickAddToCart(slug: string, selectedPriceId?: number): Promise<QuickAddResult> {
+  await assertSameOriginRequest();
   try {
     const product = await getProductService().getProductForQuickAdd(slug);
-    if (!product || product.status !== "active") {
+    if (!product || product.status !== "active" || product.purchasable === false) {
       return { status: "unavailable", message: "This product is not currently available." };
     }
 
@@ -89,6 +92,7 @@ function cartError(message: string): never {
 }
 
 export async function removeFromCart(key: string): Promise<{ itemCount: number; cartItems: CartLineIdentity[] }> {
+  await assertSameOriginRequest();
   try {
     const cart = await getCartService().removeItem(key);
     revalidatePath(routes.cart());
@@ -103,6 +107,7 @@ export async function removeFromCart(key: string): Promise<{ itemCount: number; 
 }
 
 export async function updateCart(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   const key = String(formData.get("key") ?? "");
   const license = String(formData.get("license") ?? "");
   const rawPriceId = formData.get("price_id");
@@ -118,6 +123,7 @@ export async function updateCart(formData: FormData): Promise<void> {
 }
 
 export async function applyCoupon(formData: FormData): Promise<void> {
+  await assertSameOriginRequest();
   const code = String(formData.get("coupon") ?? "");
   try {
     await getCartService().applyCoupon(code);
@@ -134,6 +140,7 @@ export async function applyCoupon(formData: FormData): Promise<void> {
 }
 
 export async function removeCoupon(): Promise<void> {
+  await assertSameOriginRequest();
   await getCartService().removeCoupon();
   revalidatePath(routes.cart());
   revalidatePath(routes.checkout());
@@ -141,6 +148,7 @@ export async function removeCoupon(): Promise<void> {
 }
 
 export async function clearCart(): Promise<void> {
+  await assertSameOriginRequest();
   await getCartService().clearCart();
   revalidatePath(routes.cart());
   revalidatePath(routes.checkout());

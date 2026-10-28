@@ -15,7 +15,7 @@ final class CH_Home_Content {
     array( 'Websites', 'Heroes & web graphics', 'website', 'website' ),
     array( 'Flyers', 'Local business flyers', 'flyer', 'flyers' ),
     array( 'Freebies', 'Free creative assets', 'freebie', 'freebies' ),
-    array( 'Cards', 'Greetings & invites', 'greeting card', '' ),
+    array( 'Browse All Collections', 'Festival, seasonal & themed graphics', 'collections', '' ),
    );
    return array_map( function ( $item ) {
     $term = $item[3] ? get_term_by( 'slug', $item[3], CH_Home_Sections::TAXONOMY ) : false;
@@ -86,6 +86,7 @@ final class CH_Home_Content {
     $output[ $section ][] = array(
      'title' => $title, 'caption' => sanitize_text_field( $row['caption'] ?? '' ),
      'query' => sanitize_text_field( $row['query'] ?? '' ) ?: $title,
+     'link_url' => esc_url_raw( $row['link_url'] ?? '' ),
      'category_id' => $term && ! is_wp_error( $term ) ? $term_id : 0,
      'image_id' => CH_Home_Sections::image_dto( $image_id ) ? $image_id : 0,
      'product_id' => 'download' === get_post_type( $product_id ) && 'publish' === get_post_status( $product_id ) ? $product_id : 0,
@@ -99,6 +100,7 @@ final class CH_Home_Content {
   $raw = is_string( $input['keywords'] ?? null ) ? $input['keywords'] : '';
   $output['keywords'] = implode( "\n", array_slice( array_values( array_unique( array_filter( array_map( 'sanitize_text_field', preg_split( '/[\r\n,]+/', $raw ) ) ) ) ), 0, 100 ) );
   $output['keywords_rotate'] = ! empty( $input['keywords_rotate'] );
+  $output['browse_collections_enabled'] = ! isset( $input['browse_collections_enabled'] ) || ! empty( $input['browse_collections_enabled'] );
   $output['trusted_enabled'] = ! empty( $input['trusted_enabled'] );
   $page_id = absint( $input['trusted_page_id'] ?? 0 );
   $output['trusted_page_id'] = 'page' === get_post_type( $page_id ) && 'publish' === get_post_status( $page_id ) ? $page_id : 0;
@@ -161,7 +163,7 @@ final class CH_Home_Content {
    $tiles[] = array( 'id' => 'home-' . sanitize_title( $row['title'] ) . '-' . $index,
     'title' => $row['title'], 'caption' => $row['caption'], 'query' => $row['query'],
     'category_slug' => $term && ! is_wp_error( $term ) ? $term->slug : '',
-    'image' => $image, 'icon' => $row['icon'], 'hue' => 150 );
+    'image' => $image, 'icon' => $row['icon'], 'hue' => 150, 'url' => $row['link_url'] ?? '' );
   }
   return $tiles;
  }
@@ -208,7 +210,9 @@ final class CH_Home_Content {
    $keywords = array_merge( array_slice( $keywords, $offset ), array_slice( $keywords, 0, $offset ) );
   }
   return array(
-   'discovery_tiles' => self::tiles( self::rows( $settings, 'discovery' ), empty( $settings['discovery_enabled'] ) ),
+   'discovery_tiles' => array_values( array_filter( self::tiles( self::rows( $settings, 'discovery' ), empty( $settings['discovery_enabled'] ) ), function ( $tile ) use ( $settings ) {
+    return 'cards' !== $tile['icon'] || ! isset( $settings['browse_collections_enabled'] ) || ! empty( $settings['browse_collections_enabled'] );
+   } ) ),
    'seasonal_collections' => self::tiles( self::active( self::rows( $settings, 'celebrations' ), $today->format( 'Y-m-d' ) ), empty( $settings['celebrations_enabled'] ) ),
    'keywords' => array_slice( $keywords, 0, 30 ), 'trusted_brands' => self::trusted( $settings ),
   );
@@ -228,8 +232,9 @@ final class CH_Home_Content {
    }
    if ( ! $rows ) { $rows = array( array() ); }
    ?>
-   <div class="card"><h2><?php echo esc_html( $title ); ?></h2>
-    <label><input type="checkbox" name="ch_home_sections[<?php echo esc_attr( $section ); ?>_enabled]" value="1" <?php checked( ! empty( $settings[ $section . '_enabled' ] ) ); ?>>Use these choices on the storefront</label>
+  <section class="ch-home-panel" id="ch-panel-<?php echo esc_attr( $section ); ?>" role="tabpanel" aria-labelledby="ch-tab-<?php echo esc_attr( $section ); ?>" data-panel="<?php echo esc_attr( $section ); ?>" <?php echo 'discovery' === $section ? '' : 'hidden'; ?>>
+    <header class="ch-home-panel-head"><div><h2><?php echo esc_html( 'discovery' === $section ? 'Collections' : 'Celebrations' ); ?></h2><p><?php echo esc_html( 'discovery' === $section ? 'Manage the homepage discovery cards, including Browse All Collections.' : 'Manage seasonal and scheduled homepage collections.' ); ?></p></div><label class="ch-home-enable"><input type="checkbox" name="ch_home_sections[<?php echo esc_attr( $section ); ?>_enabled]" value="1" <?php checked( ! empty( $settings[ $section . '_enabled' ] ) ); ?>> Enabled</label></header>
+    <?php if ( 'discovery' === $section ) : ?><input type="hidden" name="ch_home_sections[browse_collections_enabled]" value="0"><label class="ch-inline-toggle"><input type="checkbox" name="ch_home_sections[browse_collections_enabled]" value="1" <?php checked( ! isset( $settings['browse_collections_enabled'] ) || ! empty( $settings['browse_collections_enabled'] ) ); ?>>Show Browse All Collections card</label><?php endif; ?>
     <p class="description">Unchecked uses curated defaults with product previews. Choose an image or a published product ID to use its featured image. Row order controls discovery tiles. An enabled empty section is hidden.</p>
     <?php if ( 'celebrations' === $section ) : ?><p>Dates use Asia/Kolkata. Without explicit visibility dates, events appear 60 days before and expire 2 days after. Undated cards are evergreen. Pinned cards come first, then events, priority and date. Only 10 active cards appear. Add lunar festival dates for each year.</p><?php endif; ?>
     <div class="ch-home-rows" data-section="<?php echo esc_attr( $section ); ?>" data-limit="<?php echo 'discovery' === $section ? 12 : 40; ?>">
@@ -237,22 +242,22 @@ final class CH_Home_Content {
     </div>
     <button type="button" class="button ch-home-add-row" data-section="<?php echo esc_attr( $section ); ?>">Add card</button>
     <script type="text/html" id="ch-home-row-template-<?php echo esc_attr( $section ); ?>"><?php self::render_row( $section, '__INDEX__', array(), $terms ); ?></script>
-   </div>
+   </section>
    <?php
   }
   ?>
-  <div class="card"><h2>Explore popular themes</h2>
-   <label><input type="checkbox" name="ch_home_sections[keywords_enabled]" value="1" <?php checked( ! empty( $settings['keywords_enabled'] ) ); ?>>Use this keyword list</label>
+  <section class="ch-home-panel" id="ch-panel-keywords" role="tabpanel" aria-labelledby="ch-tab-keywords" data-panel="keywords" hidden>
+   <header class="ch-home-panel-head"><div><h2>Popular Themes</h2><p>Control the search keywords displayed on the homepage.</p></div><label class="ch-home-enable"><input type="checkbox" name="ch_home_sections[keywords_enabled]" value="1" <?php checked( ! empty( $settings['keywords_enabled'] ) ); ?>> Enabled</label></header>
    <p>One keyword per line. Keep at least 20–30 useful terms. Up to 100 are stored; 30 appear on the homepage.</p>
    <textarea class="widefat" rows="10" name="ch_home_sections[keywords]"><?php echo esc_textarea( ! empty( $settings['keywords_enabled'] ) ? ( $settings['keywords'] ?? '' ) : implode( "\n", self::keywords() ) ); ?></textarea>
    <label><input type="checkbox" name="ch_home_sections[keywords_rotate]" value="1" <?php checked( ! empty( $settings['keywords_rotate'] ) ); ?>>Rotate 30 keywords weekly when the pool contains more than 30</label>
-  </div>
-  <div class="card"><h2>Trusted clients</h2>
-   <label><input type="checkbox" name="ch_home_sections[trusted_enabled]" value="1" <?php checked( ! isset( $settings['trusted_enabled'] ) || $settings['trusted_enabled'] ); ?>>Sync logos from the trusted-by page</label>
+  </section>
+  <section class="ch-home-panel" id="ch-panel-trusted" role="tabpanel" aria-labelledby="ch-tab-trusted" data-panel="trusted" hidden>
+   <header class="ch-home-panel-head"><div><h2>Trusted Clients</h2><p>Sync client logos from a published WordPress page.</p></div><label class="ch-home-enable"><input type="checkbox" name="ch_home_sections[trusted_enabled]" value="1" <?php checked( ! isset( $settings['trusted_enabled'] ) || $settings['trusted_enabled'] ); ?>> Enabled</label></header>
    <p>Leave the page ID blank to use the published page at trusted-by. WPBakery image/gallery shortcodes and Gutenberg images are supported. Logos retain page order; duplicates and missing images are skipped. Image alt text or attachment title supplies the brand name.</p>
    <label>Source page ID (optional) <input type="number" min="1" name="ch_home_sections[trusted_page_id]" value="<?php echo esc_attr( ! empty( $settings['trusted_page_id'] ) ? $settings['trusted_page_id'] : '' ); ?>"></label>
    <p><?php echo esc_html( count( self::trusted( $settings ) ) . ' valid client images found.' ); ?></p>
-  </div>
+  </section>
   <?php
  }
 
@@ -260,8 +265,19 @@ final class CH_Home_Content {
   $prefix = 'ch_home_sections[' . $section . '][' . $index . ']';
   $image = CH_Home_Sections::image_dto( $row['image_id'] ?? 0 );
   ?>
-  <div class="postbox ch-home-row"><div class="inside">
-   <?php foreach ( array( 'title' => 'Title', 'caption' => 'Caption', 'query' => 'Search query', 'icon' => 'Vector fallback (logos, banners, characters, bundles, websites, flyers, freebies, cards, dussehra, dhanteras, diwali, wedding)' ) as $field => $label ) : ?>
+  <?php $title = $row['title'] ?? 'New card'; $description = $row['caption'] ?? ''; ?>
+  <div class="ch-home-row">
+   <div class="ch-home-row-summary"><img class="ch-home-row-thumb" src="<?php echo esc_url( $image['url'] ?? '' ); ?>" alt="" <?php echo $image ? '' : 'hidden'; ?>><div class="ch-home-row-copy"><strong class="ch-home-row-title"><?php echo esc_html( $title ); ?></strong><span class="ch-home-row-subtitle"><?php echo esc_html( $description ); ?></span></div><div class="ch-home-row-actions"><button type="button" class="button ch-home-edit-row">Edit</button><button type="button" class="button-link ch-home-move-up" aria-label="Move up">↑</button><button type="button" class="button-link ch-home-move-down" aria-label="Move down">↓</button><button type="button" class="button-link-delete ch-home-remove-row">Remove</button></div></div>
+   <div class="ch-home-row-editor" hidden><div class="inside">
+   <?php foreach ( array( 'title' => 'Title', 'caption' => 'Description', 'link_url' => 'Link / URL' ) as $field => $label ) : ?>
+    <p><label><?php echo esc_html( $label ); ?><input class="widefat" type="text" name="<?php echo esc_attr( $prefix . '[' . $field . ']' ); ?>" value="<?php echo esc_attr( $row[ $field ] ?? '' ); ?>"></label></p>
+   <?php endforeach; ?>
+   <p class="ch-home-image"><input type="hidden" class="ch-home-image-id" name="<?php echo esc_attr( $prefix . '[image_id]' ); ?>" value="<?php echo esc_attr( $row['image_id'] ?? 0 ); ?>">
+    <img class="ch-home-image-preview" src="<?php echo esc_url( $image['url'] ?? '' ); ?>" alt="" <?php echo $image ? '' : 'hidden'; ?>>
+    <button type="button" class="button ch-home-select-image">Choose artwork</button><button type="button" class="button ch-home-remove-image" <?php echo $image ? '' : 'hidden'; ?>>Remove image</button>
+   </p>
+   <details class="ch-home-advanced"><summary>Advanced</summary>
+   <?php foreach ( array( 'query' => 'Search query', 'icon' => 'Vector fallback' ) as $field => $label ) : ?>
     <p><label><?php echo esc_html( $label ); ?><input class="widefat" type="text" name="<?php echo esc_attr( $prefix . '[' . $field . ']' ); ?>" value="<?php echo esc_attr( $row[ $field ] ?? '' ); ?>"></label></p>
    <?php endforeach; ?>
    <p><label>Category destination (optional)<select class="widefat" name="<?php echo esc_attr( $prefix . '[category_id]' ); ?>"><option value="0">Use search query</option>
@@ -269,11 +285,7 @@ final class CH_Home_Content {
      <option value="<?php echo esc_attr( $term->term_id ); ?>" <?php selected( $row['category_id'] ?? 0, $term->term_id ); ?>><?php echo esc_html( $term->name ); ?></option>
     <?php } } ?></select></label></p>
    <p><label>Product ID for featured image (optional) <input type="number" min="0" name="<?php echo esc_attr( $prefix . '[product_id]' ); ?>" value="<?php echo esc_attr( ! empty( $row['product_id'] ) ? $row['product_id'] : '' ); ?>"></label></p>
-   <p class="description">Leave blank when choosing artwork below. A selected image takes priority over the product's featured image.</p>
-   <p class="ch-home-image"><input type="hidden" class="ch-home-image-id" name="<?php echo esc_attr( $prefix . '[image_id]' ); ?>" value="<?php echo esc_attr( $row['image_id'] ?? 0 ); ?>">
-    <img class="ch-home-image-preview" src="<?php echo esc_url( $image['url'] ?? '' ); ?>" alt="" <?php echo $image ? '' : 'hidden'; ?>>
-    <button type="button" class="button ch-home-select-image">Choose artwork</button><button type="button" class="button ch-home-remove-image" <?php echo $image ? '' : 'hidden'; ?>>Remove image</button>
-   </p>
+   <p class="description">A selected image takes priority over the product's featured image.</p>
    <?php if ( 'celebrations' === $section ) : ?>
     <?php foreach ( array( 'event_date' => 'Event date', 'show_from' => 'Show from', 'hide_after' => 'Hide after' ) as $field => $label ) : ?>
      <p><label><?php echo esc_html( $label ); ?> <input type="date" name="<?php echo esc_attr( $prefix . '[' . $field . ']' ); ?>" value="<?php echo esc_attr( $row[ $field ] ?? '' ); ?>"></label></p>
@@ -281,10 +293,8 @@ final class CH_Home_Content {
     <p><label>Priority <input type="number" min="0" max="100" name="<?php echo esc_attr( $prefix . '[priority]' ); ?>" value="<?php echo esc_attr( $row['priority'] ?? 0 ); ?>"></label>
      <label><input type="checkbox" name="<?php echo esc_attr( $prefix . '[pinned]' ); ?>" value="1" <?php checked( ! empty( $row['pinned'] ) ); ?>>Pin within its visibility window</label></p>
    <?php endif; ?>
-   <button type="button" class="button-link ch-home-move-up">Move up</button>
-   <button type="button" class="button-link ch-home-move-down">Move down</button>
-   <button type="button" class="button-link-delete ch-home-remove-row">Remove card</button>
-  </div></div>
+   </details>
+  </div></div></div>
   <?php
  }
 }

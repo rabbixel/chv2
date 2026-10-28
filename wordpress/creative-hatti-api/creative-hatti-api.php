@@ -26,6 +26,7 @@ require_once CH_API_DIR . 'includes/class-ch-categories-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-auth-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-claim-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-orders-controller.php';
+require_once CH_API_DIR . 'includes/class-ch-communications.php';
 require_once CH_API_DIR . 'includes/class-ch-downloads-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-customer-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-cart-controller.php';
@@ -36,6 +37,7 @@ require_once CH_API_DIR . 'includes/class-ch-api.php';
 add_action(
 	'plugins_loaded',
 	static function () {
+		( new CH_Communications() )->register_hooks();
 		$limits = new CH_Purchase_Limit_Service();
 		$limits->register_hooks();
 		CH_API::instance();

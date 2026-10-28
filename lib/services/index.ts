@@ -14,6 +14,7 @@ export type { CartService } from "./cartService";
 export { isLiveApiEnabled } from "./apiMode";
 export { getCheckoutService } from "./checkoutService";
 export type { CheckoutService } from "./checkoutService";
+export { createFreeCheckoutSession, getFreeCheckoutSelection, resolveFreeCheckoutCart } from "./freeCheckoutService";
 export { getCategoryService } from "./categoryService";
 export { getHomepageService } from "./homepageService";
 export type { HomepageSections, HomepageService } from "./homepageService";

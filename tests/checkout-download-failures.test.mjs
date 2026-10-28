@@ -8,7 +8,8 @@ test("classifies authorization and capability failures separately from outages",
 });
 
 test("uses customer-safe messages without exposing backend details", () => {
-  assert.match(downloadFailureMessage("authorization"), /original checkout browser/);
+  assert.match(downloadFailureMessage("authorization"), /browser where you placed the order/);
+  assert.match(downloadFailureMessage("authorization"), /purchase recovery page/);
   assert.match(downloadFailureMessage("temporary"), /temporarily unavailable/);
   assert.doesNotMatch(downloadFailureMessage("authorization"), /capability|token|payment|order id/i);
 });

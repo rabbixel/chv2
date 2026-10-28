@@ -22,6 +22,7 @@ export const routes = {
   freeDownloads: () => "/free-downloads",
   cart: () => "/cart",
   checkout: () => "/checkout",
+  freeCheckout: (sessionId: string) => `/checkout/free/${encodeURIComponent(sessionId)}`,
   checkoutPay: (orderId: string) => `/checkout/pay/${orderId}`,
   checkoutSuccess: (orderId: string) => `/checkout/success/${orderId}`,
   checkoutFailed: (orderId: string) => `/checkout/failed/${orderId}`,

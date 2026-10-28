@@ -51,11 +51,11 @@ async function updateDiscoveryDestinations(sections: HomepageSections): Promise<
   }
   return { ...sections, discoveryTiles: sections.discoveryTiles.map((tile) => {
     if (tile.icon === "characters" || tile.label === "Characters") {
-      return { ...tile, href: routes.illustrations(), image: characterImage };
+      return { ...tile, href: routes.illustrations(), image: tile.image ?? characterImage };
     }
     if (tile.icon === "cards" || tile.label === "Cards" || tile.label === "Browse all Collections") {
-      return { ...tile, label: "Browse all Collections", caption: "Festival, seasonal & themed graphics", href: routes.collections(),
-        image: collectionImage };
+      return { ...tile, label: tile.label || "Browse all Collections", caption: tile.caption || "Festival, seasonal & themed graphics",
+        href: tile.href ?? routes.collections(), image: tile.image ?? collectionImage };
     }
     return tile;
   }) };
@@ -110,7 +110,12 @@ class ApiHomepageService implements HomepageService {
     let response: ChApiEnvelope<ChApiHomepageSections>;
     try {
       response = await apiFetch(apiEndpoints.homepageSections, {
-        revalidate: REVALIDATE_SECONDS.homepage,
+        // WordPress editors expect saved homepage image changes to show up
+        // immediately while running the storefront locally. Keep production
+        // ISR caching, but bypass the Next.js data cache in development.
+        ...(process.env.NODE_ENV === "development"
+          ? { cache: "no-store" as const }
+          : { revalidate: REVALIDATE_SECONDS.homepage }),
         tags: [cacheTags.homepage],
       });
     } catch (error) {
@@ -119,8 +124,9 @@ class ApiHomepageService implements HomepageService {
     }
 
     const defaults = defaultHomepageContent();
-    const destination = (item: { category_slug?: string; query: string }) => item.category_slug
-      ? routes.category(frontendCategorySlug(item.category_slug)) : routes.search(item.query);
+    const destination = (item: { category_slug?: string; query: string; url?: string; icon?: string }) => item.url || (item.icon === "cards"
+      ? routes.collections() : item.category_slug
+      ? routes.category(frontendCategorySlug(item.category_slug)) : routes.search(item.query));
     return updateDiscoveryDestinations({
       discoveryTiles: response.data.discovery_tiles?.slice(0, 12).map((item) => ({
         label: item.title, caption: item.caption ?? "", query: item.query,

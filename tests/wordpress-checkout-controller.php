@@ -3,6 +3,8 @@
 namespace {
 	define( 'ABSPATH', __DIR__ );
 	define( 'DAY_IN_SECONDS', 86400 );
+	define( 'HOUR_IN_SECONDS', 3600 );
+	define( 'MINUTE_IN_SECONDS', 60 );
 	class WP_REST_Server { const CREATABLE = 'POST'; }
 	class WP_Error { public $code; public function __construct( $code ) { $this->code = $code; } }
 	class WP_REST_Response { public $data; public $status; public $headers = array(); public function __construct( $data, $status = 200 ) { $this->data = $data; $this->status = $status; } public function get_status() { return $this->status; } public function get_data() { return $this->data; } public function header( $key, $value ) { $this->headers[ $key ] = $value; } }
@@ -11,7 +13,7 @@ namespace {
 	class FakeAuth { public function bridge_permission( $request ) { return $GLOBALS['bridge_ok'] ? true : new WP_Error( 'bridge' ); } public function session_permission( $request ) { return $GLOBALS['session_ok'] ? true : new WP_Error( 'session' ); } }
 	class FakeCart { public function validate( $request ) { if ( $GLOBALS['cart_unavailable'] ) { return new WP_REST_Response( array( 'success' => false ), 422 ); } return new WP_REST_Response( array( 'success' => true, 'data' => array( 'items' => $GLOBALS['cart_items'] ) ) ); } }
 	class FakeCustomer { public $id; public $user_id; public function __construct( $id, $user_id = 0 ) { $this->id = $id; $this->user_id = $user_id; } public function attach_payment( $id, $update = false ) { $GLOBALS['customer_orders'][] = array( $this->id, $id, $update ); return true; } }
-	class FakeOrder { public $id; public $type = 'sale'; public $status = 'pending'; public $total; public $currency = 'INR'; public $gateway; public function __construct( $id, $data ) { $this->id = $id; $this->total = $data['total']; $this->gateway = $data['gateway']; } public function get_number() { return 'T' . $this->id; } }
+	class FakeOrder { public $id; public $type = 'sale'; public $status = 'pending'; public $total; public $currency = 'INR'; public $gateway; public $user_id; public function __construct( $id, $data ) { $this->id = $id; $this->total = $data['total']; $this->gateway = $data['gateway']; $this->user_id = $data['user_id']; } public function get_number() { return 'T' . $this->id; } }
 	class FakeWpdb { public $prefix = 'wp_'; public function prepare( $query, ...$args ) { return array( $query, $args ); } public function get_var( $prepared ) { if ( false !== strpos( $prepared[0], 'GET_LOCK' ) ) { return '1'; } if ( false !== strpos( $prepared[0], 'COALESCE(SUM' ) ) { return $GLOBALS['reserved_qty'] ?? 0; } return '1'; } public function query( $sql ) { $GLOBALS['transactions'][] = $sql; return false === strpos( $sql, 'FAIL' ); } }
 	$GLOBALS['wpdb'] = new FakeWpdb();
 	function register_rest_route( $ns, $route, $args ) { $GLOBALS['routes'][ $route ] = $args; }
@@ -21,6 +23,7 @@ namespace {
 	function sanitize_email( $value ) { return filter_var( (string) $value, FILTER_SANITIZE_EMAIL ); }
 	function is_email( $value ) { return (bool) filter_var( $value, FILTER_VALIDATE_EMAIL ); }
 	function wp_salt( $scheme = '' ) { return 'synthetic-test-salt'; }
+	function apply_filters( $tag, $value ) { return $GLOBALS['rate_filter_overrides'][ $tag ] ?? $value; }
 	function wp_json_encode( $value ) { return json_encode( $value ); }
 	function get_current_user_id() { return $GLOBALS['current_user']; }
 	function is_wp_error( $value ) { return $value instanceof WP_Error; }
@@ -56,12 +59,26 @@ namespace {
 	function delete_transient( $key ) { unset( $GLOBALS['transients'][ $key ] ); return true; }
 	require __DIR__ . '/../wordpress/creative-hatti-api/includes/class-ch-checkout-controller.php';
 	function check( $ok, $message ) { if ( ! $ok ) { fwrite( STDERR, "FAIL: $message\n" ); exit( 1 ); } }
-	function request_for( $items, $headers = array(), $billing = array(), $discount = '' ) { return new FakeRequest( array( 'items' => $items, 'billing' => $billing, 'discount_code' => $discount ), $headers ); }
+	function checkout_rate_token( $nonce ) { return $nonce . '.' . hash_hmac( 'sha256', 'ch-checkout-rate-v1:' . $nonce, getenv( 'CH_AUTH_BRIDGE_SECRET' ) ); }
+	function request_for( $items, $headers = array(), $billing = array(), $discount = '' ) { if ( ! isset( $headers['X-CH-Checkout-Rate-Token'] ) ) { $headers['X-CH-Checkout-Rate-Token'] = checkout_rate_token( str_repeat( 'a', 64 ) ); } return new FakeRequest( array( 'items' => $items, 'billing' => $billing, 'discount_code' => $discount ), $headers ); }
+	putenv( 'CH_AUTH_BRIDGE_SECRET=' . str_repeat( 's', 40 ) );
+	$GLOBALS['rate_filter_overrides'] = array( 'ch_checkout_quote_rate_limit' => 1000, 'ch_checkout_prepare_rate_limit' => 1000 );
 	$GLOBALS['bridge_ok'] = true; $GLOBALS['session_ok'] = true; $GLOBALS['current_user'] = 0; $GLOBALS['order_id'] = 1000;
 	$GLOBALS['orders'] = array(); $GLOBALS['order_items'] = array(); $GLOBALS['addresses'] = array(); $GLOBALS['adjustments'] = array(); $GLOBALS['created_order_data'] = array(); $GLOBALS['created_customers'] = array();
 	$GLOBALS['customer_orders'] = array(); $GLOBALS['customer_lookup_fields'] = array(); $GLOBALS['transactions'] = array(); $GLOBALS['transients'] = array(); $GLOBALS['cart_unavailable'] = false; $GLOBALS['order_meta'] = array(); $GLOBALS['completions'] = 0; $GLOBALS['coupon_used'] = false; $GLOBALS['coupon_percentage'] = 10; $GLOBALS['product_limits'] = array(); $GLOBALS['product_sales'] = array(); $GLOBALS['reserved_qty'] = 0;
 	$GLOBALS['cart_items'] = array( array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 1250, 'available' => true ), array( 'product_id' => 20, 'price_id' => 2, 'quantity' => 2, 'unit_price' => 2500, 'available' => true ) );
 	$controller = new \CH_Checkout_Controller( new FakeAuth(), new FakeCart() );
+	$controller->register_routes();
+	$GLOBALS['bridge_ok'] = false;
+	foreach ( array( 'http://localhost:3000', 'https://attacker.example', '' ) as $origin ) {
+		$browser_request = new FakeRequest( array(), array( 'Origin' => $origin ) );
+		check( $GLOBALS['routes']['/checkout/quote']['permission_callback']( $browser_request ) instanceof WP_Error, 'checkout REST rejects browser-origin requests without the trusted bridge' );
+	}
+	$GLOBALS['bridge_ok'] = true;
+	check( true === $GLOBALS['routes']['/checkout/quote']['permission_callback']( new FakeRequest( array(), array() ) ), 'legitimate originless server-to-server guest request passes the bridge' );
+	$GLOBALS['session_ok'] = false;
+	check( $GLOBALS['routes']['/checkout/prepare']['permission_callback']( new FakeRequest( array(), array( 'Authorization' => 'Bearer expired', 'Origin' => 'http://localhost:3000' ) ) ) instanceof WP_Error, 'expired authenticated checkout session is rejected despite a same-origin header' );
+	$GLOBALS['session_ok'] = true;
 	$headers = array( 'Idempotency-Key' => '01234567-89ab-cdef-0123-456789abcdef' );
 	// This address is also used by a synthetic WordPress account below. Guest
 	// checkout must remain unlinked and must not look up customers by email.
@@ -154,5 +171,93 @@ namespace {
 	check( 409 === $controller->prepare( request_for( array( array( 'product_id' => 77, 'price_id' => null, 'quantity' => 1 ) ), $other_key, $billing ) )->status, 'second checkout cannot reserve the final copy' );
 	$limited_replay = $controller->prepare( $limited_request );
 	check( 200 === $limited_replay->status && false === $limited_replay->data['data']['created'], 'identical retry returns its existing reservation without double-counting' );
-	echo "Checkout controller synthetic tests passed.\n";
+	// Independent checkout uses the same order pipeline with a strict item guard.
+	function independent_request( $key, $billing, $items, $discount = '' ) {
+		return new FakeRequest( array( 'items' => $items, 'billing' => $billing, 'discount_code' => $discount, 'independent_free' => true ), array( 'Idempotency-Key' => $key, 'X-CH-Checkout-Rate-Token' => checkout_rate_token( str_repeat( 'a', 64 ) ) ) );
+	}
+	$GLOBALS['current_user'] = 0;
+	$single_free = array( array( 'product_id' => 7, 'price_id' => null, 'quantity' => 1, 'unit_price' => 0, 'available' => true ) );
+	$GLOBALS['cart_items'] = $single_free;
+	$independent_key = '11111111-1111-4111-8111-111111111111';
+	$independent = independent_request( $independent_key, $billing, $single_free );
+	$before = count( $GLOBALS['created_order_data'] );
+	$done = $controller->prepare( $independent );
+	check( 201 === $done->status && 'complete' === $done->data['data']['status'], 'independent guest free order completes natively' );
+	check( $before + 1 === count( $GLOBALS['created_order_data'] ) && 0 === end( $GLOBALS['created_order_data'] )['user_id'], 'independent order retains guest identification' );
+	check( 200 === $controller->prepare( $independent )->status && $before + 1 === count( $GLOBALS['created_order_data'] ), 'independent duplicate submission reuses completed order' );
+	$changed_billing = array_merge( $billing, array( 'email' => 'different@example.test' ) );
+	check( 409 === $controller->prepare( independent_request( $independent_key, $changed_billing, $single_free ) )->status, 'editing email cannot create a duplicate free order with the same session key' );
+	$GLOBALS['current_user'] = 42;
+	$member_key = '22222222-2222-4222-8222-222222222222';
+	$member_done = $controller->prepare( independent_request( $member_key, $billing, $single_free ) );
+	check( 201 === $member_done->status && 42 === end( $GLOBALS['created_order_data'] )['user_id'] && 900 === end( $GLOBALS['created_order_data'] )['customer_id'], 'independent member order uses authenticated EDD customer' );
+	$GLOBALS['current_user'] = 0;
+	check( 403 === $controller->prepare( independent_request( $member_key, $billing, $single_free ) )->status, 'independent signed-in order cannot replay as guest' );
+	$before = count( $GLOBALS['created_order_data'] );
+	$blocked_key = '33333333-3333-4333-8333-333333333333';
+	$GLOBALS['cart_items'][0]['unit_price'] = 200000;
+	check( 422 === $controller->prepare( independent_request( $blocked_key, $billing, $single_free ) )->status, 'paid item rejected despite client zero price' );
+	$GLOBALS['coupon_percentage'] = 100;
+	check( 422 === $controller->prepare( independent_request( $blocked_key, $billing, $single_free, 'SAVE' ) )->status, 'coupon cannot turn a paid item into an independent free download' );
+	$GLOBALS['cart_items'] = array_merge( $single_free, $single_free );
+	check( 422 === $controller->prepare( independent_request( $blocked_key, $billing, $GLOBALS['cart_items'] ) )->status, 'independent checkout rejects multiple products' );
+	$GLOBALS['cart_items'] = $single_free;
+	$GLOBALS['cart_unavailable'] = true;
+	check( 422 === $controller->prepare( independent_request( $blocked_key, $billing, $single_free ) )->status, 'unavailable independent product rejected' );
+	$GLOBALS['cart_unavailable'] = false;
+	check( $before === count( $GLOBALS['created_order_data'] ), 'rejected independent requests never create an order' );
+	$GLOBALS['cart_items'] = array( array( 'product_id' => 78, 'price_id' => 0, 'quantity' => 1, 'unit_price' => 0, 'available' => true ) );
+	$GLOBALS['product_limits'][78] = '1'; $GLOBALS['product_sales'][78] = 0; $GLOBALS['reserved_qty'] = 0;
+	$limited_free_key = '44444444-4444-4444-8444-444444444444';
+	$limited_free = independent_request( $limited_free_key, $billing, $GLOBALS['cart_items'] );
+	check( 201 === $controller->prepare( $limited_free )->status, 'limited free option grants its final purchase once' );
+	check( 200 === $controller->prepare( $limited_free )->status, 'limited free order replay works after consuming its final unit' );
+	check( 409 === $controller->prepare( independent_request( $blocked_key, $billing, $GLOBALS['cart_items'] ) )->status, 'new free order cannot exceed existing purchase limit' );
+	$GLOBALS['cart_items'] = array(
+		array( 'product_id' => 7, 'price_id' => null, 'quantity' => 1, 'unit_price' => 0, 'available' => true ),
+		array( 'product_id' => 8, 'price_id' => null, 'quantity' => 1, 'unit_price' => 0, 'available' => true ),
+		array( 'product_id' => 9, 'price_id' => null, 'quantity' => 1, 'unit_price' => 0, 'available' => true ),
+	);
+	$regular_free = $controller->prepare( request_for( $GLOBALS['cart_items'], array( 'Idempotency-Key' => '55555555-5555-4555-8555-555555555555' ), $billing ) );
+	check( 201 === $regular_free->status && 'complete' === $regular_free->data['data']['status'], 'regular three-free-item checkout completes as one EDD order' );
+	$GLOBALS['cart_items'][1]['unit_price'] = 200000;
+	$regular_mixed = $controller->prepare( request_for( $GLOBALS['cart_items'], array( 'Idempotency-Key' => '66666666-6666-4666-8666-666666666666' ), $billing ) );
+	check( 201 === $regular_mixed->status && 'pending' === $regular_mixed->data['data']['status'] && 'ch_razorpay' === end( $GLOBALS['created_order_data'] )['gateway'], 'regular mixed cart retains paid Razorpay preparation' );
+
+	$missing_token = new FakeRequest( array( 'items' => $GLOBALS['cart_items'], 'billing' => $billing ), array() );
+	check( 400 === $controller->quote( $missing_token )->status, 'guest quote rejects missing trusted checkout identity' );
+	$bad_token = new FakeRequest( array( 'items' => $GLOBALS['cart_items'], 'billing' => $billing ), array( 'X-CH-Checkout-Rate-Token' => str_repeat( 'a', 64 ) . '.' . str_repeat( 'b', 64 ) ) );
+	check( 400 === $controller->quote( $bad_token )->status, 'guest quote rejects an unsigned checkout identity' );
+	$GLOBALS['rate_filter_overrides']['ch_checkout_quote_rate_limit'] = 2;
+	$quote_request = static function () use ( $controller, $billing ) { return $controller->quote( new FakeRequest( array( 'items' => $GLOBALS['cart_items'], 'billing' => $billing ), array( 'X-CH-Checkout-Rate-Token' => checkout_rate_token( str_repeat( 'c', 64 ) ) ) ) ); };
+	check( 200 === $quote_request()->status && 200 === $quote_request()->status, 'guest quote allows requests up to its configurable limit' );
+	$limited_quote = $quote_request();
+	check( 429 === $limited_quote->status && isset( $limited_quote->headers['Retry-After'] ) && false !== strpos( $limited_quote->data['error']['message'], 'wait' ), 'quote limit returns a friendly retry response with Retry-After' );
+	$GLOBALS['rate_filter_overrides']['ch_checkout_prepare_rate_limit'] = 1;
+	foreach ( array_keys( $GLOBALS['transients'] ) as $transient_name ) { if ( 0 === strpos( $transient_name, 'ch_rate_checkout_' ) ) { delete_transient( $transient_name ); } }
+	$prepare_headers = static function ( $key, $nonce ) { return array( 'Idempotency-Key' => $key, 'X-CH-Checkout-Rate-Token' => checkout_rate_token( str_repeat( $nonce, 64 ) ) ); };
+	$rate_key_one = '77777777-7777-4777-8777-777777777777';
+	$rate_first_request = request_for( $GLOBALS['cart_items'], $prepare_headers( $rate_key_one, 'd' ), $billing );
+	$before_limited_orders = count( $GLOBALS['created_order_data'] );
+	$rate_first = $controller->prepare( $rate_first_request );
+	check( 201 === $rate_first->status && count( $GLOBALS['created_order_data'] ) === $before_limited_orders + 1, 'prepare limit permits the first new order for a guest identity' );
+	check( 200 === $controller->prepare( $rate_first_request )->status && count( $GLOBALS['created_order_data'] ) === $before_limited_orders + 1, 'idempotent replay remains available at the new-order limit' );
+	$changed_guest_billing = array_merge( $billing, array( 'email' => 'changed@example.test' ) );
+	check( 429 === $controller->prepare( request_for( $GLOBALS['cart_items'], $prepare_headers( $rate_key_one, 'd' ), $changed_guest_billing ) )->status && count( $GLOBALS['created_order_data'] ) === $before_limited_orders + 1, 'changing checkout payload cannot reuse an idempotency key to bypass the limiter' );
+	$rate_key_two = '88888888-8888-4888-8888-888888888888';
+	$blocked = $controller->prepare( request_for( $GLOBALS['cart_items'], $prepare_headers( $rate_key_two, 'd' ), $billing ) );
+	check( 429 === $blocked->status && count( $GLOBALS['created_order_data'] ) === $before_limited_orders + 1, 'rate-limited prepare creates no additional pending order' );
+	check( 201 === $controller->prepare( request_for( $GLOBALS['cart_items'], $prepare_headers( $rate_key_two, 'e' ), $billing ) )->status, 'a separate signed guest token has an independent checkout bucket' );
+	foreach ( array_keys( $GLOBALS['transients'] ) as $transient_name ) { if ( 0 === strpos( $transient_name, 'ch_rate_checkout_' ) ) { delete_transient( $transient_name ); } }
+	$GLOBALS['current_user'] = 42;
+	$member_rate_key = '99999999-9999-4999-8999-999999999999';
+	$member_rate_request = request_for( $GLOBALS['cart_items'], $prepare_headers( $member_rate_key, 'f' ), $billing );
+	$before_member_orders = count( $GLOBALS['created_order_data'] );
+	check( 201 === $controller->prepare( $member_rate_request )->status, 'authenticated customer gets a user-scoped new-order allowance' );
+	$member_rate_replay = request_for( $GLOBALS['cart_items'], $prepare_headers( $member_rate_key, 'g' ), $billing );
+	check( 200 === $controller->prepare( $member_rate_replay )->status, 'authenticated retry remains independent of rotating guest-token values' );
+	$member_blocked = request_for( $GLOBALS['cart_items'], $prepare_headers( 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'g' ), $billing );
+	check( 429 === $controller->prepare( $member_blocked )->status && count( $GLOBALS['created_order_data'] ) === $before_member_orders + 1, 'authenticated user limit applies across guest-token values' );
+	$GLOBALS['current_user'] = 0;
+	echo "Checkout controller synthetic tests passed (including independent free checkout).\n";
 }

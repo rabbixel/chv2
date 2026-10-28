@@ -1,11 +1,13 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { assertSameOriginRequest } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { guestSafeApiFetch } from "@/lib/services/guestSafeRequest";
 import { apiEndpoints } from "@/lib/api/endpoints";
-import { getAuthService, getCartService, getCheckoutService, isWordPressAuthEnabled } from "@/lib/services";
+import { getAuthService, getCartService, getCheckoutService, getFreeCheckoutSelection, resolveFreeCheckoutCart, isWordPressAuthEnabled } from "@/lib/services";
+import { freeCheckoutCookieOptions, validateFreeCheckoutSession } from "@/lib/services/freeCheckoutService";
 import type { CheckoutBilling, CheckoutQuote, CartLineIdentity, CheckoutCartLine } from "@/lib/types";
 import { routes } from "@/lib/routes";
 import { isValidPhoneNumber, normalizePhoneNumber, PHONE_ERROR } from "@/lib/validation/phone";
@@ -24,6 +26,9 @@ export interface CheckoutDownloadsResult {
 }
 const PAYMENT_AUTH_COOKIE = "ch_payment_auth";
 const CHECKOUT_CART_COOKIE = "ch_checkout_cart";
+function authorizationCookie(freeSessionId?: string) {
+  return freeSessionId === undefined ? PAYMENT_AUTH_COOKIE : `ch_free_payment_${validateFreeCheckoutSession(freeSessionId)}`;
+}
 function value(input: unknown): string {
   return typeof input === "string" ? input.trim() : "";
 }
@@ -53,16 +58,19 @@ async function billingFromInput(input: {
 }
 
 export async function quoteCheckout(input: {
-  country?: unknown; region?: unknown; phone?: unknown; discountCode?: unknown;
+  country?: unknown; region?: unknown; phone?: unknown; discountCode?: unknown; freeSessionId?: string;
 }): Promise<CheckoutQuoteActionResult> {
+  await assertSameOriginRequest();
   try {
-    const cart = await getCartService().getSessionCart();
+    const cart = input.freeSessionId === undefined ? await getCartService().getSessionCart()
+      : await resolveFreeCheckoutCart(await getFreeCheckoutSelection(input.freeSessionId));
     const country = value(input.country).toUpperCase();
     const region = value(input.region);
     const phone = normalizePhoneNumber(value(input.phone));
     if (country.length > 2 || !/^[A-Z]{0,2}$/.test(country) || region.length > 100) throw new Error("Check your billing country or region.");
     if (!phone || !isValidPhoneNumber(phone)) throw new Error(PHONE_ERROR);
-    const quote = await getCheckoutService().quote({ cart, billing: { country, region, phone }, discountCode: value(input.discountCode).toUpperCase() });
+    const quote = await getCheckoutService().quote({ cart, billing: { country, region, phone }, discountCode: input.freeSessionId === undefined ? value(input.discountCode).toUpperCase() : "", independentFree: input.freeSessionId !== undefined });
+    if (input.freeSessionId !== undefined && quote.total.amount !== 0) throw new Error("This product is no longer free.");
     return { quote };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not calculate checkout totals." };
@@ -74,32 +82,40 @@ export interface CheckoutPreparationResult {
   error?: string;
 }
 
-export async function preparePendingOrder(formData: FormData): Promise<CheckoutPreparationResult> {
+export async function preparePendingOrder(formData: FormData, freeSessionId?: string): Promise<CheckoutPreparationResult> {
+  await assertSameOriginRequest();
   const terms = value(formData.get("terms"));
   if (terms !== "accepted") return { error: "Accept the Terms and Privacy Policy to continue." };
   const idempotencyKey = value(formData.get("idempotencyKey"));
   if (!/^[a-f0-9-]{36}$/i.test(idempotencyKey)) return { error: "Your checkout session expired. Refresh checkout and try again." };
 
   try {
-    const cart = await getCartService().getSessionCart();
+    const selection = freeSessionId === undefined ? null : await getFreeCheckoutSelection(freeSessionId);
+    if (selection && idempotencyKey !== selection.idempotencyKey) throw new Error("Your free checkout session expired. Refresh and try again.");
+    // EDD replays this session's order even after it consumed the final unit.
+    // New orders still undergo authoritative purchase-limit validation.
+    const cart = selection ? await resolveFreeCheckoutCart(selection, true) : await getCartService().getSessionCart();
     if (!cart.items.length || cart.items.some((item) => item.available === false)) return { error: "Your cart has unavailable items. Return to your cart and remove them." };
     const billing = await billingFromInput({
       fullName: formData.get("fullName"), email: formData.get("email"),
       phone: formData.get("phone"),
       country: formData.get("country"), region: formData.get("region"),
     });
-    const discountCode = value(formData.get("discountCode")).toUpperCase();
-    const result = await getCheckoutService().prepare({ cart, billing, discountCode, idempotencyKey });
+    const discountCode = selection ? "" : value(formData.get("discountCode")).toUpperCase();
+    const result = await getCheckoutService().prepare({ cart, billing, discountCode, idempotencyKey, independentFree: Boolean(selection) });
+    if (selection && (result.status !== "complete" || result.total.amount !== 0)) throw new Error("The free order could not be completed. Retry with the same checkout session.");
     if ((result.status === "pending" || result.status === "complete") && result.payment_authorization_token && /^[a-f0-9]{64}$/.test(result.payment_authorization_token)) {
       const cookieJar = await cookies();
-      const cookieOptions = {
+      const cookieOptions = freeSessionId !== undefined ? freeCheckoutCookieOptions(freeSessionId) : {
         httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" as const, path: "/checkout", maxAge: 60 * 60 * 24 * 2,
       };
-      cookieJar.set(PAYMENT_AUTH_COOKIE, `${result.id}.${result.payment_authorization_token}.${encodeURIComponent(result.number)}`, cookieOptions);
-      const lines: CheckoutCartLine[] = cart.items.map((item) => ({ productId: item.productId, priceId: item.priceId ?? null, quantity: item.quantity }));
-      const snapshotPayload = Buffer.from(JSON.stringify({ order: result.number, lines })).toString("base64url");
-      const snapshotSignature = createHmac("sha256", result.payment_authorization_token).update(snapshotPayload).digest("base64url");
-      cookieJar.set(CHECKOUT_CART_COOKIE, `${snapshotPayload}.${snapshotSignature}`, cookieOptions);
+      cookieJar.set(authorizationCookie(freeSessionId), `${result.id}.${result.payment_authorization_token}.${encodeURIComponent(result.number)}`, cookieOptions);
+      if (!selection) {
+        const lines: CheckoutCartLine[] = cart.items.map((item) => ({ productId: item.productId, priceId: item.priceId ?? null, quantity: item.quantity }));
+        const snapshotPayload = Buffer.from(JSON.stringify({ order: result.number, lines })).toString("base64url");
+        const snapshotSignature = createHmac("sha256", result.payment_authorization_token).update(snapshotPayload).digest("base64url");
+        cookieJar.set(CHECKOUT_CART_COOKIE, `${snapshotPayload}.${snapshotSignature}`, cookieOptions);
+      }
     }
     return { order: { number: result.number, status: result.status, total: result.total } };
   } catch (error) {
@@ -142,18 +158,18 @@ function paymentCapability(orderReference: string) {
   return cleanReference;
 }
 
-async function getPaymentAuthorization(orderReference: string) {
+async function getPaymentAuthorization(orderReference: string, freeSessionId?: string) {
   const cleanReference = paymentCapability(orderReference);
-  const cookie = (await cookies()).get(PAYMENT_AUTH_COOKIE)?.value ?? "";
+  const cookie = (await cookies()).get(authorizationCookie(freeSessionId))?.value ?? "";
   const match = cookie.match(/^([1-9][0-9]*)\.([a-f0-9]{64})\.([A-Za-z0-9-]{1,40})$/);
   if (!match || match[3] !== cleanReference || !Number.isSafeInteger(Number(match[1]))) throw new Error("This order is not eligible for payment.");
   return { orderId: Number(match[1]), token: match[2] };
 }
 
 /** Read minimal order state on the server using the HttpOnly order capability. */
-export async function getCheckoutOrderStatus(orderReference: string): Promise<CheckoutOrderStatus | null> {
+export async function getCheckoutOrderStatus(orderReference: string, freeSessionId?: string): Promise<CheckoutOrderStatus | null> {
   try {
-    const { orderId, token } = await getPaymentAuthorization(orderReference);
+    const { orderId, token } = await getPaymentAuthorization(orderReference, freeSessionId);
     const response = await paymentBridgeRequest<unknown>(apiEndpoints.razorpayOrderStatus, { order_id: orderId, authorization_token: token });
     if (typeof response !== "object" || response === null) return null;
     const envelope = response as { success?: unknown; data?: Partial<CheckoutOrderStatus> };
@@ -170,10 +186,12 @@ export async function getCheckoutOrderStatus(orderReference: string): Promise<Ch
 }
 
 /** Remove the checkout snapshot only after an authoritative completed-order read. */
-export async function cleanupCompletedCheckoutCart(orderReference: string): Promise<{
+export async function cleanupCompletedCheckoutCart(orderReference: string, freeSessionId?: string): Promise<{
   itemCount: number;
   cartItems: CartLineIdentity[];
 } | null> {
+  await assertSameOriginRequest();
+  if (freeSessionId !== undefined) return null;
   try {
     const reference = paymentCapability(orderReference);
     const cookieJar = await cookies();
@@ -218,9 +236,9 @@ export async function cleanupCompletedCheckoutCart(orderReference: string): Prom
 }
 
 /** File names are read through the order capability; no storage URLs are returned here. */
-export async function getCompletedOrderDownloads(orderReference: string): Promise<CheckoutDownloadsResult> {
+export async function getCompletedOrderDownloads(orderReference: string, freeSessionId?: string): Promise<CheckoutDownloadsResult> {
   try {
-    const { orderId, token } = await getPaymentAuthorization(orderReference);
+    const { orderId, token } = await getPaymentAuthorization(orderReference, freeSessionId);
     const response = await paymentBridgeRequest<unknown>(apiEndpoints.razorpayOrderDownloads, { order_id: orderId, authorization_token: token });
     if (typeof response !== "object" || response === null) return { downloads: null, error: "temporary" };
     const envelope = response as { success?: unknown; data?: { order?: unknown; items?: unknown } };
@@ -243,10 +261,12 @@ export async function getCompletedOrderDownloadUrl(
   orderReference: string,
   orderItemId: number,
   fileKey: string,
+  freeSessionId?: string,
 ): Promise<{ url?: string; error?: DownloadFailureKind }> {
+  await assertSameOriginRequest();
   try {
     if (!Number.isSafeInteger(orderItemId) || orderItemId < 1 || !/^[A-Za-z0-9_-]{1,80}$/.test(fileKey)) return { error: "authorization" };
-    const { orderId, token } = await getPaymentAuthorization(orderReference);
+    const { orderId, token } = await getPaymentAuthorization(orderReference, freeSessionId);
     const response = await paymentBridgeRequest<unknown>(apiEndpoints.razorpayOrderDownload, {
       order_id: orderId, authorization_token: token, order_item_id: orderItemId, file_key: fileKey,
     });
@@ -266,6 +286,7 @@ export async function getCompletedOrderDownloadUrl(
 
 /** Creates/reuses a server-authoritative Razorpay order; no EDD status is changed here. */
 export async function createRazorpayOrder(orderReference: string): Promise<RazorpayOrderDetails> {
+  await assertSameOriginRequest();
   const { orderId, token } = await getPaymentAuthorization(orderReference);
   const response = await paymentBridgeRequest<{ success: boolean; data: RazorpayOrderDetails }>(apiEndpoints.razorpayOrderCreate, { order_id: orderId, authorization_token: token });
   if (!response.success || response.data.currency !== "INR" || !/^order_[A-Za-z0-9]+$/.test(response.data.razorpay_order_id) || !Number.isSafeInteger(response.data.amount)) {
@@ -278,6 +299,7 @@ export async function verifyRazorpayPayment(
   orderReference: string,
   details: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string },
 ): Promise<RazorpayVerificationResult> {
+  await assertSameOriginRequest();
   const { orderId, token } = await getPaymentAuthorization(orderReference);
   if (!/^pay_[A-Za-z0-9]+$/.test(details.razorpay_payment_id) || !/^order_[A-Za-z0-9]+$/.test(details.razorpay_order_id) || !/^[a-f0-9]{64}$/.test(details.razorpay_signature)) {
     throw new Error("Payment verification details are invalid.");

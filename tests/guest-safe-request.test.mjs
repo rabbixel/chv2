@@ -21,8 +21,10 @@ const guestSafeUrl = await moduleUrl("../lib/services/guestSafeRequest.ts", [
 const guestSafe = await import(guestSafeUrl);
 const endpointStub = `data:text/javascript,export const apiEndpoints={checkoutQuote:"/checkout/quote",checkoutPrepare:"/checkout/prepare"};`;
 const modeStub = `data:text/javascript,export const isLiveApiEnabled=()=>true;`;
+const headersStub = `data:text/javascript,export const headers=async()=>new Headers({"x-ch-checkout-rate-token":"${"a".repeat(64)}.${"b".repeat(64)}"});`;
 const checkoutServiceUrl = await moduleUrl("../lib/services/checkoutService.ts", [
   ['import "server-only";', ""],
+  ['"next/headers"', JSON.stringify(headersStub)],
   ['"@/lib/api/endpoints"', JSON.stringify(endpointStub)],
   ['"./guestSafeRequest"', JSON.stringify(guestSafeUrl)],
   ['"./apiMode"', JSON.stringify(modeStub)],
@@ -57,6 +59,7 @@ test("checkout preparation service retries stale-session guest order preparation
   let calls = 0;
   globalThis.fetch = async (_url, options) => {
     calls++;
+    assert.match(options.headers["X-CH-Checkout-Rate-Token"], /^[a-f0-9]{64}\.[a-f0-9]{64}$/);
     if (calls === 1) return new Response(JSON.stringify({ success: false, error: { code: "invalid_session", message: "Authentication required." } }), { status: 401 });
     assert.equal(options.headers.Authorization, undefined);
     assert.equal(options.headers["Idempotency-Key"], "12345678-abcd-1234-abcd-123456789012");
