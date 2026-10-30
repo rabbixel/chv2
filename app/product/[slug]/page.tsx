@@ -23,6 +23,7 @@ import {
 } from "@/lib/seo";
 import {
   getCollectionService,
+  getCachedProductBySlug,
   getLicenseService,
   getProductService,
   getWishlistService,
@@ -67,7 +68,7 @@ export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProductService().getProductBySlug(slug);
+  const product = await getCachedProductBySlug(slug);
   if (!product) return { title: "Product not found" };
   const url = productSeoCanonical(product);
   const description = productMetaDescription(product);
@@ -131,7 +132,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // product/media fetches remain cached for fast SEO-friendly page output.
   await connection();
   const { slug } = await params;
-  const product = await getProductService().getProductBySlug(slug);
+  const product = await getCachedProductBySlug(slug);
   // No loading.tsx in this segment on purpose: a Suspense fallback would
   // absorb this notFound() and serve HTTP 200 with the skeleton forever
   // (vercel/next.js#98954).

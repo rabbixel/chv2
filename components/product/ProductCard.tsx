@@ -73,11 +73,6 @@ export function ProductCard({
         <Link
           href={href}
           className={styles.media}
-          style={
-            !artworkPreview && cover?.width && cover.height
-              ? { aspectRatio: `${cover.width} / ${cover.height}` }
-              : undefined
-          }
           aria-label={product.title}
           tabIndex={-1}
         >

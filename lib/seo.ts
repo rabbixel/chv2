@@ -1,5 +1,6 @@
 import { SITE } from "./constants";
 import { routes } from "./routes";
+import { canonicalUrlForPath } from "./seo-canonical";
 import type { Category, Collection, Product } from "./types";
 
 /**
@@ -20,7 +21,11 @@ export function productCanonical(product: Pick<Product, "slug">): string {
 export function productSeoCanonical(
   product: Pick<Product, "slug" | "seo">,
 ): string {
-  return product.seo?.canonicalUrl || productCanonical(product);
+  return canonicalUrlForPath(
+    product.seo?.canonicalUrl,
+    SITE.url,
+    routes.product(product.slug),
+  );
 }
 
 /**
@@ -60,7 +65,11 @@ export function categoryMetaDescription(category: Category): string {
 }
 
 export function categoryCanonical(category: Pick<Category, "slug" | "seo">): string {
-  return category.seo?.canonicalUrl || absoluteUrl(routes.category(category.slug));
+  return canonicalUrlForPath(
+    category.seo?.canonicalUrl,
+    SITE.url,
+    routes.category(category.slug),
+  );
 }
 
 /** Breadcrumb trail items for JSON-LD (paths resolve via `absoluteUrl`). */

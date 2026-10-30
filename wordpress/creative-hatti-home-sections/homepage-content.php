@@ -52,7 +52,7 @@ final class CH_Home_Content {
    'Greeting Card', 'Background Pattern' );
  }
 
- private static function date( $value ) {
+ public static function date_value( $value ) {
   if ( ! is_string( $value ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) { return ''; }
   $date = DateTimeImmutable::createFromFormat( '!Y-m-d', $value );
   return $date && $date->format( 'Y-m-d' ) === $value ? $value : '';
@@ -73,11 +73,11 @@ final class CH_Home_Content {
     $term = $term_id ? get_term( $term_id, CH_Home_Sections::TAXONOMY ) : false;
     $image_id = absint( $row['image_id'] ?? 0 );
     $product_id = absint( $row['product_id'] ?? 0 );
-    $from = self::date( $row['show_from'] ?? '' );
-    $until = self::date( $row['hide_after'] ?? '' );
+    $from = self::date_value( $row['show_from'] ?? '' );
+    $until = self::date_value( $row['hide_after'] ?? '' );
     $invalid = false;
     foreach ( array( 'event_date', 'show_from', 'hide_after' ) as $field ) {
-     if ( ! empty( $row[ $field ] ) && ! self::date( $row[ $field ] ) ) { $invalid = true; }
+     if ( ! empty( $row[ $field ] ) && ! self::date_value( $row[ $field ] ) ) { $invalid = true; }
     }
     if ( $invalid || ( $from && $until && $from > $until ) ) {
      add_settings_error( CH_Home_Sections::OPTION, 'invalid_schedule', 'A card was skipped because its dates are invalid or its visibility window is reversed.' );
@@ -91,7 +91,7 @@ final class CH_Home_Content {
      'image_id' => CH_Home_Sections::image_dto( $image_id ) ? $image_id : 0,
      'product_id' => 'download' === get_post_type( $product_id ) && 'publish' === get_post_status( $product_id ) ? $product_id : 0,
      'icon' => sanitize_key( $row['icon'] ?? '' ),
-     'event_date' => self::date( $row['event_date'] ?? '' ), 'show_from' => $from, 'hide_after' => $until,
+     'event_date' => self::date_value( $row['event_date'] ?? '' ), 'show_from' => $from, 'hide_after' => $until,
      'priority' => min( 100, max( 0, (int) ( $row['priority'] ?? 0 ) ) ), 'pinned' => ! empty( $row['pinned'] ),
     );
    }

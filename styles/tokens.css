@@ -166,7 +166,8 @@
   --ch-hero-copy-width: 40rem;
   --ch-hero-art-width: 30rem;
   --ch-category-preview-size: 7rem;
-  --ch-pack-preview-height: 18rem;
+  --ch-pack-preview-height: 7.25rem;
+  --ch-pack-featured-preview-height: 9.625rem;
 
   /* ---------- Elevation ---------- */
   --ch-z-header: 50;

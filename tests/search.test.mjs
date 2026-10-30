@@ -31,6 +31,23 @@ test("indexed search forwards the query, every filter and sort without losing mu
   });
 });
 
+test("best-selling indexed results preserve descending EDD sales order and pagination", async () => {
+  const products = [
+    { id: "middle", salesCount: 42 },
+    { id: "top", salesCount: 91 },
+    { id: "last", salesCount: 11 },
+  ];
+  const ordered = [...products].sort((a, b) => b.salesCount - a.salesCount);
+  assert.deepEqual(ordered.map((product) => product.id), ["top", "middle", "last"]);
+  const request = search.searchRequestParams({ query: "", page: 2, pageSize: 1, sort: "best-selling" });
+  assert.equal(request.sort, "best-selling");
+  assert.equal(request.page, 2);
+  assert.equal(request.per_page, 1);
+  const source = await readFile(new URL("../lib/services/productService.ts", import.meta.url), "utf8");
+  assert.match(source, /getSearchService\(\)\.searchProducts\(\{[\s\S]*?sort: "best-selling"/);
+  assert.match(source, /catch \(error\)[\s\S]*?return \[\];/);
+});
+
 test("browse mode has no accidental filters and category facets preserve server counts", () => {
   const request = search.searchRequestParams({ query: "" });
   assert.equal(request.q, "");

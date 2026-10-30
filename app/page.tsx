@@ -8,6 +8,7 @@ import {
   FeaturedPacks,
   HattiChoice,
   Hero,
+  PopularFreebies,
   PopularSearches,
   SeasonalCollections,
   TrendingKeywords,
@@ -49,8 +50,9 @@ export default async function HomePage() {
     getCollectionService().listFeaturedPacks(),
     getHomepageService().getSections(),
     getHomepageService().getPopularSearches(),
+    getProductService().listPopularFreeCharacters(8),
   ]);
-  const [choice, categories, packs, homepageSections, popularSearches] = await mainPromise;
+  const [choice, categories, packs, homepageSections, popularSearches, popularFreeCharacters] = await mainPromise;
   const content = homepageSections;
 
   const categoryCount = (slug: string) =>
@@ -73,7 +75,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero categories={navCategories} popularSearches={popularSearches.map((item) => item.searchQuery)} products={choice} />
+      <Hero categories={navCategories} popularSearches={popularSearches.map((item) => item.searchQuery)} products={choice} config={homepageSections.hero} />
       <PopularSearches searches={popularSearches} />
 
       <Container>
@@ -93,6 +95,12 @@ export default async function HomePage() {
       <Container>
         <div className={styles.section}>
           <CharacterCategories categories={characters} />
+        </div>
+      </Container>
+
+      <Container>
+        <div className={styles.section}>
+          <PopularFreebies products={popularFreeCharacters} />
         </div>
       </Container>
 

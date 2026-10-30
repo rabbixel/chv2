@@ -20,10 +20,12 @@ import { defaultHomepageContent } from "@/lib/homepageContent";
 import { getSeasonalSearches, type SearchChip } from "@/lib/seasonal-searches";
 import { getProductService } from "./productService";
 import { getCollectionDirectoryService } from "./collectionDirectoryService";
+import { resolveHomepageHero, type HomepageHeroConfig, type HomepageHeroOverride } from "@/lib/homepage-config";
 
 export interface TrustedBrand { id: string; name: string; image: ProductImage }
 
 export interface HomepageSections {
+  hero: HomepageHeroConfig<ProductImage>;
   characterCategories: HomepageCharacterCategory[] | null;
   featuredPacks: Collection[] | null;
   discoveryTiles: DiscoveryTile[];
@@ -96,7 +98,7 @@ class MockHomepageService implements HomepageService {
     return getSeasonalSearches(now);
   }
   async getSections(): Promise<HomepageSections> {
-    return updateDiscoveryDestinations({ characterCategories: null, featuredPacks: null, ...defaultHomepageContent() });
+    return updateDiscoveryDestinations({ hero: resolveHomepageHero<ProductImage>(), characterCategories: null, featuredPacks: null, ...defaultHomepageContent() });
   }
 }
 
@@ -124,10 +126,16 @@ class ApiHomepageService implements HomepageService {
     }
 
     const defaults = defaultHomepageContent();
+    const rawHero = response.data.homepage_config_v2?.hero;
+    const heroOverride: HomepageHeroOverride<ProductImage> | undefined = rawHero ? {
+      ...rawHero,
+      images: rawHero.images.map((item) => ({ ...item, image: imageFromApi(item.image) ?? null })),
+    } : undefined;
     const destination = (item: { category_slug?: string; query: string; url?: string; icon?: string }) => item.url || (item.icon === "cards"
       ? routes.collections() : item.category_slug
       ? routes.category(frontendCategorySlug(item.category_slug)) : routes.search(item.query));
     return updateDiscoveryDestinations({
+      hero: resolveHomepageHero(heroOverride),
       discoveryTiles: response.data.discovery_tiles?.slice(0, 12).map((item) => ({
         label: item.title, caption: item.caption ?? "", query: item.query,
         hue: item.hue ?? 150, icon: item.icon, image: imageFromApi(item.image), href: destination(item),
@@ -165,8 +173,10 @@ class ApiHomepageService implements HomepageService {
             kind: item.kind,
             featured: item.featured,
             sortOrder: item.sort_order,
-            categorySlug: frontendCategorySlug(item.category_slug),
-            href: routes.category(frontendCategorySlug(item.category_slug)),
+            categorySlug: item.category_slug ? frontendCategorySlug(item.category_slug) : undefined,
+            href: item.url || (item.category_slug
+              ? routes.category(frontendCategorySlug(item.category_slug))
+              : routes.search(item.query)),
             coverImage: imageFromApi(item.image),
             artwork: artworkVariant(item.artwork),
           }))

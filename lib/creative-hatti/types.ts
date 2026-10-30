@@ -167,7 +167,8 @@ export interface ChApiHomepagePack {
   kind: "festival" | "seasonal" | "topical";
   featured: true;
   sort_order: number;
-  category_slug: string;
+  category_slug?: string;
+  url?: string;
   image?: ChApiImage | null;
   artwork: string;
 }
@@ -181,6 +182,21 @@ export interface ChApiHomepageSections {
   featured_packs_enabled: boolean;
   character_categories: ChApiHomepageCharacter[];
   featured_packs: ChApiHomepagePack[];
+  homepage_config_v2?: ChApiHomepageConfigV2;
+}
+
+export interface ChApiHomepageConfigV2 {
+  version: 2;
+  hero: {
+    enabled: { mode: "default" | "custom"; value: boolean | null };
+    eyebrow: { mode: "default" | "custom"; value: string | null };
+    heading: { mode: "default" | "custom"; value: string | null };
+    description: { mode: "default" | "custom"; value: string | null };
+    search_placeholder: { mode: "default" | "custom"; value: string | null };
+    search_button_text: { mode: "default" | "custom"; value: string | null };
+    images: Array<{ mode: "default" | "custom"; image: ChApiImage | null; link_url: string }>;
+    stats: Array<{ mode: "default" | "custom"; value: string | null; label: string | null; visible: boolean }>;
+  };
 }
 
 export interface ChApiHomepageTile {

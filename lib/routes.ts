@@ -51,6 +51,7 @@ export const routes = {
   faqs: () => "/faqs",
   refundPolicy: () => "/refund-policy",
   about: () => "/about",
+  trustedBy: () => "/trusted-by",
   terms: () => "/terms",
   privacy: () => "/privacy",
   licenseInformation: () => "/licensing",

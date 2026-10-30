@@ -1,5 +1,6 @@
 .wrapper {
   min-width: 0;
+  container: product-grid / inline-size;
 }
 
 .count {
@@ -10,9 +11,12 @@
 
 .grid {
   display: grid;
-  align-items: start;
+  align-items: stretch;
   gap: var(--ch-space-4);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .cell {
@@ -20,16 +24,7 @@
 }
 
 .masonry {
-  display: block;
-  columns: 2;
-  column-gap: var(--ch-space-4);
-}
-
-.masonry .cell {
-  display: inline-block;
-  width: 100%;
-  margin-bottom: var(--ch-space-4);
-  break-inside: avoid;
+  display: grid;
 }
 
 .pagination {
@@ -38,28 +33,20 @@
   justify-content: center;
 }
 
-@media (min-width: 768px) {
+@container product-grid (min-width: 22rem) {
   .grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--ch-space-5);
-  }
-
-  .masonry {
-    columns: 3;
-    column-gap: var(--ch-space-5);
-  }
-
-  .masonry .cell {
-    margin-bottom: var(--ch-space-5);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1024px) {
+@container product-grid (min-width: 48rem) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container product-grid (min-width: 64rem) {
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .masonry {
-    columns: 4;
   }
 }

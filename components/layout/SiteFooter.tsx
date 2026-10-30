@@ -41,6 +41,7 @@ const SECTIONS: FooterSection[] = [
     heading: "Company",
     links: [
       { label: "About", href: routes.about() },
+      { label: "Clients", href: routes.trustedBy() },
       { label: "Terms", href: routes.terms() },
       { label: "Privacy", href: routes.privacy() },
     ],

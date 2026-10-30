@@ -10,6 +10,7 @@
   var activeRow = null;
   var editorPlaceholder = null;
   var editorSnapshot = null;
+  var validationErrorId = 0;
 
   function activateTab(tab) {
     var $button = $('.ch-home-tab[data-tab="' + tab + '"]');
@@ -18,8 +19,45 @@
     $(".ch-home-panel").prop("hidden", true);
     $button.attr("aria-selected", "true").addClass("is-active").attr("tabindex", "0");
     $("#ch-panel-" + tab).prop("hidden", false);
+    if (tab === "hero") activateHeroTab("content");
     try { window.localStorage.setItem(activeTabKey, tab); } catch { /* Storage may be unavailable. */ }
     if (window.history && window.history.replaceState) window.history.replaceState(null, "", "#" + tab);
+  }
+
+  function activateHeroTab(tab) {
+    var $button = $('.ch-home-subtab[data-hero-tab="' + tab + '"]');
+    if (!$button.length) return;
+    $(".ch-home-subtab").attr("aria-selected", "false").attr("tabindex", "-1").removeClass("is-active");
+    $(".ch-home-hero-subpanel").prop("hidden", true).attr("aria-hidden", "true");
+    $button.attr("aria-selected", "true").attr("tabindex", "0").addClass("is-active");
+    $("#ch-hero-panel-" + tab).prop("hidden", false).attr("aria-hidden", "false").attr("tabindex", "0");
+  }
+
+  function syncHeroImageSlot($slot, nextMode, previousMode) {
+    var $id = $slot.find(".ch-home-image-id");
+    var $link = $slot.find('input[name$="[link_url]"]');
+    var $preview = $slot.find(".ch-home-image-preview");
+    var defaultId = Number($slot.attr("data-default-id")) || 0;
+    var defaultSrc = $slot.attr("data-default-src") || "";
+    if (nextMode === "default") {
+      $id.val("");
+      $link.val("");
+      $preview.attr("src", defaultSrc).prop("hidden", !defaultSrc);
+      $slot.find(".ch-home-image-empty").prop("hidden", Boolean(defaultSrc));
+      $slot.find(".ch-home-image-state").text(defaultSrc ? "Effective default image" : "No default image available");
+      $slot.find(".ch-home-remove-hero-image, .ch-home-restore-image").prop("hidden", true);
+    } else {
+      if (previousMode !== "custom") {
+        $id.val(defaultId || "");
+        $preview.attr("src", defaultSrc).prop("hidden", !defaultSrc);
+      }
+      var hasImage = Boolean($id.val());
+      $slot.find(".ch-home-image-empty").prop("hidden", hasImage);
+      $slot.find(".ch-home-image-state").text(hasImage ? "Custom image override" : "Custom image cleared");
+      $slot.find(".ch-home-remove-hero-image").prop("hidden", !hasImage);
+      $slot.find(".ch-home-restore-image").prop("hidden", false);
+    }
+    $slot.attr("data-mode", nextMode);
   }
 
   function refreshRowSummary($row) {
@@ -62,12 +100,151 @@
     $(".ch-home-drawer-backdrop").prop("hidden", true);
     $("body").removeClass("ch-home-drawer-open");
   }
+
+  function clearFieldError($field) {
+    var errorId = $field.attr("data-ch-home-error");
+    if (errorId) $("#" + errorId).remove();
+    $field.removeAttr("data-ch-home-error").removeAttr("aria-invalid");
+    var describedBy = ($field.attr("aria-describedby") || "").split(/\s+/).filter(function (id) {
+      return id && id !== errorId;
+    });
+    if (describedBy.length) $field.attr("aria-describedby", describedBy.join(" "));
+    else $field.removeAttr("aria-describedby");
+  }
+
+  function clearValidationErrors($scope) {
+    $scope.find("[data-ch-home-error]").each(function () { clearFieldError($(this)); });
+  }
+
+  function setFieldError($field, message) {
+    if (!$field.length) return;
+    clearFieldError($field);
+    var errorId = "ch-home-validation-error-" + (++validationErrorId);
+    var $error = $("<span>", { id: errorId, "class": "ch-home-field-error", role: "alert" }).text(message);
+    var $label = $field.closest("label");
+    if ($label.length) $label.append($error);
+    else $field.after($error);
+    $field.attr("data-ch-home-error", errorId).attr("aria-invalid", "true");
+    var describedBy = ($field.attr("aria-describedby") || "").split(/\s+/).filter(Boolean);
+    describedBy.push(errorId);
+    $field.attr("aria-describedby", describedBy.join(" "));
+  }
+
+  function validPackUrl(value) {
+    if (/^\/(?!\/)/.test(value)) return true;
+    try {
+      var url = new URL(value);
+      return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  function validateSettingsForm($form) {
+    var firstInvalid = null;
+    function error($field, message) {
+      if (!$field.length) return;
+      setFieldError($field, message);
+      if (!firstInvalid) firstInvalid = $field;
+    }
+
+    $form.find('input[type="number"], input[type="date"]').each(function () {
+      var $field = $(this);
+      if (this.type === "number" && this.value === "") return;
+      if (this.validity && !this.validity.valid) {
+        var min = $field.attr("min");
+        var max = $field.attr("max");
+        var message = min !== undefined && max !== undefined
+          ? "Enter a value from " + min + " to " + max + "."
+          : "Enter a valid value.";
+        error($field, message);
+      }
+    });
+
+    $form.find('.ch-home-hero-image input[name$="[link_url]"]').each(function () {
+      var $field = $(this);
+      var value = ($field.val() || "").trim();
+      if (value && !validPackUrl(value)) error($field, "Use an http(s) URL or a site-relative path beginning with one slash.");
+    });
+
+    var packMode = $form.find('[name="ch_home_sections[packs_mode]"]').val();
+    $form.find(".ch-home-pack-row").each(function () {
+      var $row = $(this);
+      var $title = $row.find('input[name$="[title]"]').first();
+      var $category = $row.find('select[name$="[category_id]"]').first();
+      var $url = $row.find('input[name$="[link_url]"]').first();
+      var $query = $row.find('input[name$="[query]"]').first();
+      var $blurb = $row.find('textarea[name$="[blurb]"]').first();
+      var $image = $row.find(".ch-home-image-id").first();
+      var hasCategory = Number($category.val()) > 0;
+      var title = ($title.val() || "").trim();
+      var link = ($url.val() || "").trim();
+      var query = ($query.val() || "").trim();
+      var populated = hasCategory || title || link || query || ($blurb.val() || "").trim() || Number($image.val()) > 0;
+      if (!populated) return;
+
+      if (!hasCategory && !link && !query) {
+        error($category, "Choose an EDD category or enter a destination URL or search query.");
+      }
+      if (!hasCategory && !title) {
+        error($title, "Add a collection title when no EDD category is selected.");
+      }
+      if (link && !validPackUrl(link)) {
+        error($url, "Use an http(s) URL or a site-relative path beginning with one slash.");
+      }
+
+      if (packMode === "automatic" && $row.find('select[name$="[display_mode]"]').val() === "seasonal") {
+        var $start = $row.find('input[name$="[start_date]"]').first();
+        var $end = $row.find('input[name$="[end_date]"]').first();
+        var start = $start.val() || "";
+        var end = $end.val() || "";
+        if (!start) error($start, "Add a start date for automatic seasonal rotation.");
+        if (!end) error($end, "Add an end date for automatic seasonal rotation.");
+        if (start && end && start > end && !$row.find('input[name$="[annual]"]').prop("checked")) {
+          error($start, "The start date must not be after the end date.");
+          error($end, "The end date must not be before the start date.");
+        }
+      } else {
+        var $startDate = $row.find('input[name$="[start_date]"]').first();
+        var $endDate = $row.find('input[name$="[end_date]"]').first();
+        if ($startDate.val() && $endDate.val() && $startDate.val() > $endDate.val() && !$row.find('input[name$="[annual]"]').prop("checked")) {
+          error($startDate, "The start date must not be after the end date.");
+          error($endDate, "The end date must not be before the start date.");
+        }
+      }
+    });
+
+    $form.find('.ch-home-rows[data-section="celebrations"] .ch-home-row').each(function () {
+      var $row = $(this);
+      var $from = $row.find('input[name$="[show_from]"]').first();
+      var $until = $row.find('input[name$="[hide_after]"]').first();
+      if ($from.val() && $until.val() && $from.val() > $until.val()) {
+        error($from, "Show-from date must not be after the hide-after date.");
+        error($until, "Hide-after date must not be before the show-from date.");
+      }
+    });
+
+    return firstInvalid;
+  }
+
+  function revealField($field) {
+    var $panel = $field.closest(".ch-home-panel");
+    var section = $panel.attr("data-panel") || "packs";
+    activateTab(section);
+    var $row = $field.closest(".ch-home-row");
+    if ($row.length && $row.find(".ch-home-edit-row").length) {
+      $row.find(".ch-home-edit-row").trigger("click");
+    }
+    window.setTimeout(function () { $field.trigger("focus"); }, 0);
+  }
   $(function () {
-    var tab = (window.location.hash || "").replace(/^#/, "") || "";
+    var params = new URLSearchParams(window.location.search);
+    var tab = params.get("ch_tab") || (window.location.hash || "").replace(/^#/, "") || "";
     if (!$('.ch-home-tab[data-tab="' + tab + '"]').length) {
       try { tab = window.localStorage.getItem(activeTabKey) || ""; } catch { tab = ""; }
     }
     activateTab(tab || "characters");
+    activateHeroTab("content");
     $(".ch-home-row").each(function () { refreshRowSummary($(this)); });
     $(".ch-home-section").each(function (index) {
       var key = $(this).children("summary").text().trim() || String(index);
@@ -88,6 +265,37 @@
     if (index < 0) index = $tabs.length - 1;
     if (index >= $tabs.length) index = 0;
     $tabs.eq(index).trigger("focus").trigger("click");
+  });
+  $(document).on("click", ".ch-home-subtab", function () { activateHeroTab($(this).data("hero-tab")); });
+  $(document).on("keydown", ".ch-home-subtab", function (event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    var $tabs = $(".ch-home-subtab");
+    var index = $tabs.index(this) + (event.key === "ArrowRight" ? 1 : -1);
+    if (index < 0) index = $tabs.length - 1;
+    if (index >= $tabs.length) index = 0;
+    $tabs.eq(index).trigger("focus").trigger("click");
+  });
+
+  $(document).on("click", ".ch-home-preview-date", function () {
+    var date = $("#ch-home-pack-preview-date").val();
+    if (!date) {
+      $("#ch-home-pack-preview-date").trigger("focus");
+      return;
+    }
+    var url = new URL(window.location.href);
+    url.searchParams.set("page", "ch-home-sections");
+    url.searchParams.set("ch_tab", "packs");
+    url.searchParams.set("ch_preview_date", date);
+    url.searchParams.delete("settings-updated");
+    window.location.assign(url.toString());
+  });
+
+  $(document).on("change", ".ch-home-hero-image .ch-home-override-mode select", function () {
+    var $slot = $(this).closest(".ch-home-hero-image");
+    syncHeroImageSlot($slot, $(this).val(), $slot.attr("data-mode"));
+  });
+  $(document).on("click", ".ch-home-restore-image", function () {
+    $(this).closest(".ch-home-hero-image").find(".ch-home-override-mode select").val("default").trigger("change");
   });
 
   $(document).on("click", ".ch-home-edit-row", function () {
@@ -115,6 +323,13 @@
     if (event.key === "Escape" && activeRow) closeDrawer(false);
   });
   $(document).on("input change", ".ch-home-sections :input", function () {
+    if ($(this).closest(".ch-home-pack-preview").length) return;
+    var $row = $(this).closest(".ch-home-row");
+    if (!$row.length && activeRow) $row = activeRow;
+    if ($row.length) clearValidationErrors($row);
+    else clearFieldError($(this));
+    $(".ch-home-savebar span").text("Unsaved changes");
+    $(".ch-home-savebar").removeClass("is-error is-saving");
     $(".ch-home-savebar").addClass("is-dirty");
   });
 
@@ -200,9 +415,62 @@
     $(".ch-home-savebar").addClass("is-dirty");
   });
 
+  $(document).on("click", ".ch-home-select-hero-image", function (event) {
+    event.preventDefault();
+    var $slot = $(this).closest(".ch-home-hero-image");
+    var picker = wp.media({ title: "Choose a Hero image", button: { text: "Use this image" }, library: { type: "image" }, multiple: false });
+    picker.on("select", function () {
+      var attachment = picker.state().get("selection").first().toJSON();
+      var source = attachment.sizes && attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url;
+      $slot.find(".ch-home-image-id").val(attachment.id);
+      $slot.find(".ch-home-image-preview").attr("src", source).prop("hidden", false);
+      $slot.find(".ch-home-image-empty").prop("hidden", true);
+      $slot.find(".ch-home-image-state").text("Custom image override");
+      $slot.find(".ch-home-remove-hero-image").prop("hidden", false);
+      $slot.find(".ch-home-override-mode select").val("custom");
+      $slot.attr("data-mode", "custom").find(".ch-home-restore-image").prop("hidden", false);
+      $(".ch-home-savebar").addClass("is-dirty");
+    });
+    picker.open();
+  });
+
+  $(document).on("click", ".ch-home-remove-hero-image", function () {
+    var $slot = $(this).closest(".ch-home-hero-image");
+    $slot.find(".ch-home-image-id").val("");
+    $slot.find(".ch-home-image-preview").attr("src", "").prop("hidden", true);
+    $slot.find(".ch-home-image-empty").prop("hidden", false);
+    $slot.find(".ch-home-image-state").text("Custom image cleared");
+    $slot.find(".ch-home-remove-hero-image").prop("hidden", true);
+    $slot.find(".ch-home-override-mode select").val("custom");
+    $slot.attr("data-mode", "custom").find(".ch-home-restore-image").prop("hidden", false);
+    $(".ch-home-savebar").addClass("is-dirty");
+  });
+
+  $(document).on("click", ".ch-home-hero-restore", function () {
+    var $panel = $(this).closest(".ch-home-panel");
+    $panel.find(".ch-home-override-mode select").each(function () { $(this).val("default").trigger("change"); });
+    $panel.find(".ch-home-hero-field input, .ch-home-hero-field textarea").each(function () {
+      if (this.dataset.chDefault !== undefined) this.value = this.dataset.chDefault;
+    });
+    $panel.find(".ch-home-hero-stat input[type=text]").each(function () {
+      if (this.dataset.chDefault !== undefined) this.value = this.dataset.chDefault;
+    });
+    $panel.find(".ch-home-hero-stat input[type=checkbox]").prop("checked", true);
+    $panel.find(".ch-home-hero-enable-value").val("1");
+    $panel.find(".ch-home-savebar").addClass("is-dirty");
+  });
+
   // PHP preserves submitted field order; renumber after moves and before saving.
-  $(document).on("submit", ".ch-home-sections form", function () {
+  $(document).on("submit", "#ch-home-settings-form", function (event) {
     if (activeRow) closeDrawer(true);
+    clearValidationErrors($(this));
+    var $firstInvalid = validateSettingsForm($(this));
+    if ($firstInvalid) {
+      event.preventDefault();
+      $(".ch-home-savebar").addClass("is-dirty");
+      revealField($firstInvalid);
+      return;
+    }
     $(this).find(".ch-home-rows").each(function () {
       $(this).children(".ch-home-row").each(function (index) {
         $(this).find("[name]").each(function () {
@@ -210,5 +478,7 @@
         });
       });
     });
+    $(".ch-home-savebar span").text("Saving homepage changes…");
+    $(".ch-home-savebar").addClass("is-saving").removeClass("is-error");
   });
 })(jQuery);
