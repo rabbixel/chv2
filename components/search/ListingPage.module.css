@@ -123,6 +123,7 @@
 
   .layout {
     grid-template-columns: 16rem minmax(0, 1fr);
+    column-gap: var(--ch-space-10);
   }
 
   .sidebar {

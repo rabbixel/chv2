@@ -6,6 +6,23 @@ export interface WordPressCollectionCard {
   countLabel?: string;
 }
 
+/** Editorial item labels avoid a separate indexed-search request for counts. */
+export function needsCollectionCountLookup(card: WordPressCollectionCard): boolean {
+  return !card.countLabel?.trim();
+}
+
+/** Union both public collection sources while keeping category routes separate. */
+export function uniqueCollectionSitemapSlugs(
+  curatedSlugs: readonly string[],
+  directorySlugs: readonly string[],
+  categorySlugs: readonly string[],
+): string[] {
+  const categories = new Set(categorySlugs);
+  return [...new Set([...curatedSlugs, ...directorySlugs])].filter(
+    (slug) => !categories.has(slug),
+  );
+}
+
 export function decodeWordPressText(value: string): string {
   return value.replace(/&#(x[\da-f]+|\d+);/gi, (_, code: string) => {
     const point = code[0].toLowerCase() === "x" ? parseInt(code.slice(1), 16) : Number(code);

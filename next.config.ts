@@ -5,11 +5,14 @@ console.log(">>> CREATIVE HATTI NEXT CONFIG LOADED <<<");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
 images: {
   remotePatterns: [
     { protocol: "https", hostname: "creativehatti.test", pathname: "/wp-content/uploads/**" },
     { protocol: "https", hostname: "www.creativehatti.test", pathname: "/wp-content/uploads/**" },
     { protocol: "https", hostname: "api.creativehatti.com", pathname: "/wp-content/uploads/**" },
+    // Staging WordPress media host.
+    { protocol: "https", hostname: "api.creativehatti.in", pathname: "/wp-content/uploads/**" },
     // Local WordPress during development
     {
       protocol: "http",

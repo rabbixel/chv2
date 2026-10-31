@@ -38,7 +38,7 @@ export function PrimaryNav({ className }: PrimaryNavProps) {
 
   return (
     <nav ref={navRef} aria-label="Product categories" className={cn(styles.nav, className)}>
-      <div className="ch-container">
+      <div className="ch-container ch-container--wide">
         <ul className={styles.list}>
           {productNavigation.map((group) => {
             const isOpen = openSlug === group.label;

@@ -73,26 +73,30 @@ final class CH_Indexed_Search {
 		$valid = array();
 		foreach ( (array) $values as $entry ) {
 			$value = is_array( $entry ) ? ( $entry['amount'] ?? null ) : $entry;
-			if ( is_string( $value ) && '' === trim( $value ) ) { continue; }
-			if ( ! is_numeric( $value ) ) { continue; }
+			if ( is_string( $value ) && '' === trim( $value ) ) { return self::invalid_price_classification(); }
+			if ( ! is_numeric( $value ) ) { return self::invalid_price_classification(); }
 			$amount = (float) $value;
-			if ( ! is_finite( $amount ) || $amount < 0 || ! is_finite( $amount * 100 ) || $amount * 100 > PHP_INT_MAX ) { continue; }
+			if ( ! is_finite( $amount ) || $amount < 0 || ! is_finite( $amount * 100 ) || $amount * 100 > PHP_INT_MAX ) { return self::invalid_price_classification(); }
 			$valid[] = $amount;
 		}
+		if ( ! $valid ) { return self::invalid_price_classification(); }
 		$has_free = in_array( 0.0, $valid, true );
 		$paid = array_values( array_filter( $valid, static function( $amount ) { return $amount > 0; } ) );
 		$has_paid = (bool) $paid;
 		$minimum = $valid ? min( $valid ) : 0.0;
-		$display = $has_paid ? min( $paid ) : $minimum;
 		return array(
 			'valid' => (bool) $valid,
 			'minimum' => $minimum,
 			'minor' => (int) round( $minimum * 100 ),
-			'display' => $display,
+			'display' => $minimum,
 			'has_free' => $has_free,
 			'has_paid' => $has_paid,
 			'class' => ! $valid ? 'invalid' : ( $has_free && $has_paid ? 'mixed' : ( $has_paid ? 'paid' : 'free' ) ),
 		);
+	}
+
+	private static function invalid_price_classification() {
+		return array( 'valid' => false, 'minimum' => 0.0, 'minor' => 0, 'display' => null, 'has_free' => false, 'has_paid' => false, 'class' => 'invalid' );
 	}
 
 	/** Server-side collection predicates; used before counts, ranking, and pagination. */
@@ -102,18 +106,27 @@ final class CH_Indexed_Search {
 		return '';
 	}
 
-	/** Read EDD's fixed or variable purchasable prices, keeping missing metadata invalid. */
+	/** Classify EDD's effective fixed or selectable variable prices. */
 	public static function product_price_classification( $id ) {
 		if ( function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $id ) ) {
 			$prices = function_exists( 'edd_get_variable_prices' ) ? edd_get_variable_prices( $id ) : array();
 			return self::classify_prices( is_array( $prices ) ? $prices : array() );
 		}
 		$stored_price = get_post_meta( $id, 'edd_price', true );
-		$price_exists = function_exists( 'metadata_exists' ) && metadata_exists( 'post', $id, 'edd_price' );
-		$stored = $price_exists ? self::classify_prices( array( $stored_price ) ) : self::classify_prices( array() );
-		if ( ! $stored['valid'] || ! function_exists( 'edd_get_download_price' ) ) { return self::classify_prices( array() ); }
-		$price = self::classify_prices( array( edd_get_download_price( $id ) ) );
-		return $price['valid'] ? $price : self::classify_prices( array() );
+		$price_exists = function_exists( 'metadata_exists' ) ? metadata_exists( 'post', $id, 'edd_price' ) : ( '' !== $stored_price && null !== $stored_price );
+		if ( $price_exists ) {
+			$stored = self::classify_prices( array( $stored_price ) );
+			if ( ! $stored['valid'] ) { return $stored; }
+		} else {
+			// EDD 3.7.2's EDD_Download::get_price() returns zero when fixed-price
+			// metadata is absent. Variable-price mode was checked above; stale
+			// non-empty options with that mode disabled are treated as ambiguous.
+			$unused_options = get_post_meta( $id, 'edd_variable_prices', true );
+			if ( is_array( $unused_options ) && array_filter( $unused_options ) ) { return self::invalid_price_classification(); }
+			if ( ! is_array( $unused_options ) && ! empty( $unused_options ) ) { return self::invalid_price_classification(); }
+		}
+		if ( ! function_exists( 'edd_get_download_price' ) ) { return self::invalid_price_classification(); }
+		return self::classify_prices( array( edd_get_download_price( $id ) ) );
 	}
 
 	/** No stopword/minimum-word-length dependency; prefix lookups use the word index. */
@@ -139,8 +152,20 @@ final class CH_Indexed_Search {
 		add_action( 'ch_search_retry', array( __CLASS__, 'queue' ) );
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::add_command( 'ch-search reindex', array( __CLASS__, 'reindex' ) );
+			WP_CLI::add_command( 'ch-search orientation-backfill', array( __CLASS__, 'orientation_backfill' ) );
 			WP_CLI::add_command( 'ch-search status', array( __CLASS__, 'status' ) );
 		}
+	}
+
+	/** File orientation from the indexed preview dimensions; null means Unknown. */
+	public static function orientation_from_dimensions( $width, $height ) {
+		$width = is_numeric( $width ) ? (float) $width : 0;
+		$height = is_numeric( $height ) ? (float) $height : 0;
+		if ( ! is_finite( $width ) || ! is_finite( $height ) || $width <= 0 || $height <= 0 ) { return null; }
+		$ratio = $width / $height;
+		if ( $ratio > 1.05 ) { return 'landscape'; }
+		if ( $ratio < 0.95 ) { return 'portrait'; }
+		return 'square';
 	}
 
 	public static function queue( $id ) {
@@ -216,6 +241,7 @@ final class CH_Indexed_Search {
 		$apps = array_filter( array_map( 'trim', explode( ',', get_post_meta( $id, 'compatible_with', true ) ) ) );
 		$image_id = get_post_thumbnail_id( $id );
 		$image = $image_id ? wp_get_attachment_image_src( $image_id, 'medium' ) : false;
+		$orientation = $image ? self::orientation_from_dimensions( $image[1] ?? 0, $image[2] ?? 0 ) : null;
 		$card = array(
 			'id' => (int) $id, 'slug' => $post->post_name, 'title' => $post->post_title,
 			'price' => array( 'type' => $is_variable ? 'variable' : 'single', 'class' => $classification['class'], 'amount' => (float) $classification['display'], 'currency' => edd_get_currency() ),
@@ -224,6 +250,7 @@ final class CH_Indexed_Search {
 			'image' => $image ? array( 'id' => $image_id, 'url' => $image[0], 'width' => $image[1], 'height' => $image[2], 'alt' => get_post_meta( $image_id, '_wp_attachment_image_alt', true ) ) : null,
 		);
 		$facets = array();
+		if ( $orientation ) { $facets['orientation'][ $orientation ] = ucfirst( $orientation ); }
 		foreach ( $categories as $term ) {
 			$card['categories'][] = array( 'id' => $term->term_id, 'slug' => $term->slug, 'name' => $term->name );
 			$facets['category'][ $term->slug ] = $term->name;
@@ -335,6 +362,82 @@ final class CH_Indexed_Search {
 		WP_CLI::success( "Indexed $count downloads. Search is ready." );
 	}
 
+	/** Refresh only orientation facets in bounded batches; documents, tokens and products are untouched. */
+	public static function orientation_backfill( $args, $assoc_args ) {
+		global $wpdb;
+		$batch_size = isset( $assoc_args['batch-size'] ) ? absint( $assoc_args['batch-size'] ) : 100;
+		if ( $batch_size < 1 || $batch_size > 500 ) { WP_CLI::error( 'Use --batch-size between 1 and 500.' ); }
+		$site_host = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+		$db_host = defined( 'DB_HOST' ) ? strtolower( (string) preg_replace( '/:\\d+$/', '', DB_HOST ) ) : '';
+		if ( ! in_array( $site_host, array( 'creativehatti.test', 'localhost', '127.0.0.1' ), true ) || ! in_array( $db_host, array( 'localhost', '127.0.0.1', '::1' ), true ) ) {
+			WP_CLI::error( 'Orientation backfill is restricted to a local WordPress site and local database.' );
+		}
+		$lock = $wpdb->prefix . 'ch_search_orientation_backfill';
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s,0)', $lock ) ) ) { WP_CLI::error( 'Another orientation backfill is running.' ); }
+		$documents = self::table( 'documents' );
+		$facets = self::table( 'facets' );
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM $documents d JOIN {$wpdb->posts} p ON p.ID=d.product_id WHERE p.post_type='download' AND p.post_status='publish' AND p.post_password=''" );
+		$cursor = 0;
+		$processed = 0;
+		$changed_products = 0;
+		$rows_written = 0;
+		$orientation_counts = array( 'landscape' => 0, 'portrait' => 0, 'square' => 0, 'unknown' => 0 );
+		try {
+			WP_CLI::log( "Local target verified: home_url=" . home_url() . '; DB_HOST=' . DB_HOST . "; updating only $facets.kind='orientation' for $total published products (batch size $batch_size)." );
+			while ( true ) {
+				$rows = $wpdb->get_results( $wpdb->prepare(
+					"SELECT d.product_id,d.card FROM $documents d JOIN {$wpdb->posts} p ON p.ID=d.product_id WHERE d.product_id>%d AND p.post_type='download' AND p.post_status='publish' AND p.post_password='' ORDER BY d.product_id ASC LIMIT %d",
+					$cursor,
+					$batch_size
+				) );
+				if ( $wpdb->last_error ) { throw new RuntimeException( 'Could not read a bounded search-index batch.' ); }
+				if ( ! $rows ) { break; }
+				$ids = array_map( 'intval', wp_list_pluck( $rows, 'product_id' ) );
+				$id_list = implode( ',', $ids );
+				$current_rows = $wpdb->get_results( "SELECT product_id,value FROM $facets WHERE kind='orientation' AND product_id IN ($id_list)" );
+				if ( $wpdb->last_error ) { throw new RuntimeException( 'Could not inspect existing orientation facets.' ); }
+				$current = array();
+				foreach ( $current_rows as $current_row ) { $current[ (int) $current_row->product_id ] = $current_row->value; }
+				$desired = array();
+				foreach ( $rows as $row ) {
+					$card = json_decode( $row->card, true );
+					$image = is_array( $card ) && is_array( $card['image'] ?? null ) ? $card['image'] : array();
+					$value = self::orientation_from_dimensions( $image['width'] ?? 0, $image['height'] ?? 0 );
+					$id = (int) $row->product_id;
+					if ( $value ) { $desired[ $id ] = $value; ++$orientation_counts[ $value ]; }
+					else { ++$orientation_counts['unknown']; }
+					if ( ( $current[ $id ] ?? null ) !== $value ) { ++$changed_products; }
+				}
+				$wpdb->query( 'START TRANSACTION' );
+				if ( false === $wpdb->query( "DELETE FROM $facets WHERE kind='orientation' AND product_id IN ($id_list)" ) ) {
+					$wpdb->query( 'ROLLBACK' );
+					throw new RuntimeException( 'Could not replace the orientation facets for a batch.' );
+				}
+				$insert_rows = array();
+				foreach ( $desired as $id => $value ) { $insert_rows[] = $wpdb->prepare( '(%s,%s,%d,%s)', 'orientation', $value, $id, ucfirst( $value ) ); }
+				if ( $insert_rows && false === $wpdb->query( "INSERT INTO $facets (kind,value,product_id,label) VALUES " . implode( ',', $insert_rows ) ) ) {
+					$wpdb->query( 'ROLLBACK' );
+					throw new RuntimeException( 'Could not write the orientation facets for a batch.' );
+				}
+				if ( false === $wpdb->query( 'COMMIT' ) ) { throw new RuntimeException( 'Could not commit an orientation facet batch.' ); }
+				$rows_written += count( $desired );
+				$processed += count( $rows );
+				$cursor = max( $ids );
+				if ( 0 === $processed % 1000 || $processed === $total ) { WP_CLI::log( "Processed $processed of $total products (through ID $cursor); orientation facet rows written: $rows_written." ); }
+			}
+		} catch ( Throwable $error ) {
+			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+			WP_CLI::error( $error->getMessage() );
+		}
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		WP_CLI::success( wp_json_encode( array(
+			'products_processed' => $processed,
+			'products_changed' => $changed_products,
+			'orientation_facet_rows_written' => $rows_written,
+			'orientation_counts' => $orientation_counts,
+		) ) );
+	}
+
 	public static function status() {
 		global $wpdb;
 		$documents = self::table( 'documents' );
@@ -356,6 +459,7 @@ final class CH_Indexed_Search {
 			'per_page' => array( 'default' => 24, 'validate_callback' => function ( $value ) use ( $integer ) { return $integer( $value ) && $value >= 1 && $value <= 96; } ),
 			'sort' => array( 'type' => 'string', 'default' => 'relevance', 'enum' => array( 'relevance', 'newest', 'oldest', 'price-asc', 'price-desc', 'title-asc', 'title-desc', 'rating', 'best-selling' ) ),
 			'avail' => array( 'type' => 'string', 'enum' => array( 'free', 'paid' ) ),
+			'orientation' => array( 'type' => 'string', 'default' => 'all', 'enum' => array( 'all', 'landscape', 'portrait', 'square' ) ),
 			'collection' => array( 'validate_callback' => function ( $value ) { return is_string( $value ) && preg_match( '/^[a-z0-9-]{1,100}$/', $value ); } ),
 			'sale' => array( 'type' => 'boolean' ),
 			'rating' => array( 'type' => 'number', 'minimum' => 0, 'maximum' => 5 ),
@@ -410,6 +514,7 @@ final class CH_Indexed_Search {
 				$where[] = self::facet_condition( $kind, $values );
 			}
 		}
+		if ( 'all' !== $request['orientation'] ) { $where[] = self::facet_condition( 'orientation', array( $request['orientation'] ) ); }
 		foreach ( array( 'min' => '>=', 'max' => '<=' ) as $key => $operator ) {
 			if ( null !== $request[ $key ] ) { $where[] = $wpdb->prepare( "d.price $operator %d", $request[ $key ] ); }
 		}
@@ -437,9 +542,17 @@ final class CH_Indexed_Search {
 		$pages = max( 1, (int) ceil( $total / $size ) );
 		$page = min( (int) $request['page'], $pages );
 		$order = $orders[ $request['sort'] ];
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT d.card, ($score) AS relevance $from ORDER BY $order,d.product_id DESC LIMIT %d OFFSET %d", $size, ( $page - 1 ) * $size ) );
+		// Sort/page narrow index rows first; fetch large serialized card payloads only
+		// for the selected page instead of carrying them through the broad filesort.
+		$page_rows = "(SELECT m.product_id,m.relevance $from ORDER BY $order,d.product_id DESC LIMIT %d OFFSET %d)";
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT d.card,page.relevance FROM $page_rows page JOIN $documents d ON d.product_id=page.product_id ORDER BY $order,page.product_id DESC", $size, ( $page - 1 ) * $size ) );
 		if ( $wpdb->last_error ) { $wpdb->query( "DROP TEMPORARY TABLE $matches" ); return self::query_error(); }
-		$counts = $wpdb->get_results( "SELECT f.kind,f.value,MAX(f.label) AS label,COUNT(*) AS count FROM $matches m JOIN $facets f ON f.product_id=m.product_id WHERE f.kind IN ('category','fileType') GROUP BY f.kind,f.value ORDER BY count DESC,f.value ASC LIMIT 256" );
+		// A facets-first range scan is measurably faster only for very broad result
+		// sets; preserve match-driven indexed lookups for narrow searches.
+		$facet_from = $total >= 40000
+			? "FROM $facets f STRAIGHT_JOIN $matches m ON f.product_id=m.product_id"
+			: "FROM $matches m JOIN $facets f ON f.product_id=m.product_id";
+		$counts = $wpdb->get_results( "SELECT f.kind,f.value,MAX(f.label) AS label,COUNT(*) AS count $facet_from WHERE f.kind IN ('category','fileType') GROUP BY f.kind,f.value ORDER BY count DESC,f.value ASC LIMIT 256" );
 		if ( $wpdb->last_error ) { $wpdb->query( "DROP TEMPORARY TABLE $matches" ); return self::query_error(); }
 		$wpdb->query( "DROP TEMPORARY TABLE $matches" );
 		$output_facets = array();

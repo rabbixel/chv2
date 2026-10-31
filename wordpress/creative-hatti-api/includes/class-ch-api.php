@@ -103,7 +103,9 @@ final class CH_API {
 		$this->wishlist_controller = new CH_Wishlist_Controller( $this->auth_controller );
 
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
-		add_filter( 'rest_pre_serve_request', array( $this, 'maybe_send_cors_headers' ), 10, 4 );
+		// WordPress core reflects any Origin with credentials. Run after its
+		// default CORS callback and replace that policy only for our namespace.
+		add_filter( 'rest_pre_serve_request', array( $this, 'maybe_send_cors_headers' ), 99, 4 );
 		add_filter( 'rest_post_dispatch', array( $this, 'envelope_errors' ), 10, 3 );
 	}
 
@@ -193,10 +195,11 @@ final class CH_API {
 	}
 
 	/**
-	 * Restrict optional CORS headers to configured frontend origins.
+	 * Restrict CORS headers to explicitly configured frontend origins.
 	 *
-	 * Configure with:
-	 * add_filter( 'ch_api_allowed_origins', fn() => array( 'http://localhost:3000' ) );
+	 * Set CH_API_ALLOWED_ORIGINS to a comma-separated list of exact origins,
+	 * or use the ch_api_allowed_origins filter. When unset on a local .test or
+	 * loopback WordPress host, only the local Next.js dev origin is enabled.
 	 *
 	 * @param bool            $served Whether served.
 	 * @param WP_HTTP_Response $result Result.
@@ -209,18 +212,82 @@ final class CH_API {
 			return $served;
 		}
 
-		$origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) : '';
-		if ( '' === $origin ) {
-			return $served;
-		}
+		// Remove the credentialed origin reflected by WordPress core. Keep its
+		// methods/headers for a trusted origin; without ACAO browsers cannot use
+		// a preflight from an untrusted origin.
+		header_remove( 'Access-Control-Allow-Origin' );
+		header_remove( 'Access-Control-Allow-Credentials' );
 
-		$allowed = apply_filters( 'ch_api_allowed_origins', array() );
-		if ( in_array( $origin, array_map( 'esc_url_raw', (array) $allowed ), true ) ) {
+		$origin = isset( $_SERVER['HTTP_ORIGIN'] )
+			? self::normalize_cors_origin( esc_url_raw( wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) )
+			: '';
+		if ( '' !== $origin && $origin === self::allowed_cors_origin( $origin ) ) {
 			header( 'Access-Control-Allow-Origin: ' . $origin );
+			header( 'Access-Control-Allow-Credentials: true' );
 			header( 'Vary: Origin', false );
+		} else {
+			// A denied origin should not receive a usable preflight policy either.
+			header_remove( 'Access-Control-Allow-Methods' );
+			header_remove( 'Access-Control-Allow-Headers' );
+			header_remove( 'Access-Control-Expose-Headers' );
 		}
 
 		return $served;
+	}
+
+	/** Return only valid, normalized origin URLs; never accept paths or null origins. */
+	private static function normalize_cors_origin( $origin ) {
+		if ( ! is_string( $origin ) || '' === trim( $origin ) || 'null' === strtolower( trim( $origin ) ) ) {
+			return '';
+		}
+
+		$parts = wp_parse_url( trim( $origin ) );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+			return '';
+		}
+		if ( ! in_array( strtolower( $parts['scheme'] ), array( 'http', 'https' ), true ) ) {
+			return '';
+		}
+		if ( isset( $parts['user'] ) || isset( $parts['pass'] ) || isset( $parts['query'] ) || isset( $parts['fragment'] ) ) {
+			return '';
+		}
+		if ( isset( $parts['path'] ) && ! in_array( $parts['path'], array( '', '/' ), true ) ) {
+			return '';
+		}
+		if ( isset( $parts['port'] ) && ( $parts['port'] < 1 || $parts['port'] > 65535 ) ) {
+			return '';
+		}
+
+		$normalized = strtolower( $parts['scheme'] ) . '://' . strtolower( $parts['host'] );
+		if ( isset( $parts['port'] ) ) {
+			$normalized .= ':' . (int) $parts['port'];
+		}
+		return $normalized;
+	}
+
+	/** Resolve the exact origin allowlist from the process environment and WP filter. */
+	private static function allowed_cors_origin( $origin ) {
+		$origin = self::normalize_cors_origin( $origin );
+		if ( '' === $origin ) {
+			return '';
+		}
+
+		$environment_origins = getenv( 'CH_API_ALLOWED_ORIGINS' );
+		if ( false !== $environment_origins ) {
+			$allowed = '' === trim( $environment_origins )
+				? array()
+				: array_map( 'trim', explode( ',', $environment_origins ) );
+		} else {
+			$allowed = array();
+			$site_host = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+			if ( preg_match( '/(?:^|\\.)test$/', $site_host ) || in_array( $site_host, array( 'localhost', '127.0.0.1', '::1', '[::1]' ), true ) ) {
+				$allowed[] = 'http://localhost:3000';
+			}
+		}
+
+		$allowed = apply_filters( 'ch_api_allowed_origins', $allowed );
+		$normalized = array_filter( array_map( array( __CLASS__, 'normalize_cors_origin' ), (array) $allowed ) );
+		return in_array( $origin, $normalized, true ) ? $origin : '';
 	}
 
 	/**

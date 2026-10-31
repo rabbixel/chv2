@@ -88,12 +88,6 @@
 }
 
 @media print {
-  :global(body > div > header),
-  :global(body > div > footer),
-  :global(nav[aria-label="Breadcrumb"]),
-  :global(.ch-skip-link) {
-    display: none !important;
-  }
   .actions { display: none !important; }
   .page { max-width: none; }
   .sheet { max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }

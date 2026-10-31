@@ -13,6 +13,8 @@ export { Hero } from "./Hero";
 export type { HeroProps } from "./Hero";
 export { PopularSearches } from "./PopularSearches";
 export type { PopularSearchesProps } from "./PopularSearches";
+export { PopularFreebies } from "./PopularFreebies";
+export type { PopularFreebiesProps } from "./PopularFreebies";
 export { SeasonalCollections } from "./SeasonalCollections";
 export type { SeasonalCollectionsProps } from "./SeasonalCollections";
 export { SectionHeading } from "./SectionHeading";

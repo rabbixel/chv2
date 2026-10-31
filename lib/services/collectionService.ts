@@ -1,7 +1,4 @@
 import { collections } from "@/data/collections";
-import { ApiError, apiFetch } from "@/lib/api/client";
-import { apiEndpoints } from "@/lib/api/endpoints";
-import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
 import type { Collection, Slug } from "@/lib/types";
 
 export interface CollectionService {
@@ -34,51 +31,11 @@ class MockCollectionService implements CollectionService {
   }
 }
 
-class ApiCollectionService implements CollectionService {
-  async listCollections(): Promise<Collection[]> {
-    try {
-      return await apiFetch<Collection[]>(apiEndpoints.collections.list, {
-        revalidate: REVALIDATE_SECONDS.catalog,
-        tags: [cacheTags.categories],
-      });
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        // The catalogue API has no collection route yet; keep editorial defaults available.
-        return new MockCollectionService().listCollections();
-      }
-      throw error;
-    }
-  }
-
-  async getCollectionBySlug(slug: Slug): Promise<Collection | null> {
-    try {
-      return await apiFetch<Collection>(apiEndpoints.collections.detail(slug), {
-        revalidate: REVALIDATE_SECONDS.catalog,
-        tags: [cacheTags.categories],
-      });
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) return null;
-      throw error;
-    }
-  }
-
-  async listFeaturedPacks(): Promise<Collection[]> {
-    const all = await this.listCollections();
-    return all.filter((collection) => collection.featured);
-  }
-
-  async listSeasonal(): Promise<Collection[]> {
-    const all = await this.listCollections();
-    return all.filter((collection) => collection.seasonal);
-  }
-}
-
 let cached: CollectionService | null = null;
 
 export function getCollectionService(): CollectionService {
-  cached ??=
-    process.env.USE_MOCK_API === "false"
-      ? new ApiCollectionService()
-      : new MockCollectionService();
+  // Collections are editorial data here; the directory itself comes from the
+  // WordPress Pages API. There is no catalogue collections route to request.
+  cached ??= new MockCollectionService();
   return cached;
 }

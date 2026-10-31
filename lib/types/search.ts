@@ -19,6 +19,7 @@ export type SearchSortKey =
   | "best-selling";
 
 export type AvailabilityFilter = "free" | "paid";
+export type ImageOrientation = "all" | "landscape" | "portrait" | "square";
 
 export interface SearchFilters {
   /** Top-level taxonomy groups (OR within the list). */
@@ -30,6 +31,8 @@ export interface SearchFilters {
   priceMax?: number;
   /** Free-only or paid-only. */
   availability?: AvailabilityFilter;
+  /** File orientation of the featured card preview; Unknown is excluded by specific selections. */
+  orientation?: ImageOrientation;
   ratingMin?: number;
   fileTypes?: string[];
   /** Compatible apps, matched case-insensitively, e.g. `["illustrator"]`. */

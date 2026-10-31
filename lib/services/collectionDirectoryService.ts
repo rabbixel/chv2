@@ -2,7 +2,7 @@ import { collections } from "@/data/collections";
 import { apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
-import { collectionGridQuery, parseCollectionCards } from "@/lib/creative-hatti/collections";
+import { collectionGridQuery, needsCollectionCountLookup, parseCollectionCards } from "@/lib/creative-hatti/collections";
 import { normalizeWordPressMediaUrl } from "@/lib/creative-hatti/media";
 import { getCategoryService } from "./categoryService";
 import { routes } from "@/lib/routes";
@@ -19,6 +19,8 @@ export interface CollectionDirectoryEntry {
 }
 export interface CollectionDirectoryService {
   listEntries(): Promise<CollectionDirectoryEntry[]>;
+  getEntriesBySlugs(slugs: readonly string[]): Promise<CollectionDirectoryEntry[]>;
+  listSitemapSlugs(categorySlugs: readonly string[]): Promise<string[]>;
   getPreview(): Promise<ProductImage | undefined>;
   getEntry(slug: string): Promise<CollectionDirectoryEntry | null>;
   listProducts(slug: string, page: number): Promise<{ products: Product[]; totalPages: number; total: number }>;
@@ -61,6 +63,21 @@ function collectionSearchQueries(
 
 class MockCollectionDirectoryService implements CollectionDirectoryService {
   async listEntries() { return collections.map((c) => ({ slug: c.slug, title: c.title, image: c.coverImage, query: c.query })); }
+  async getEntriesBySlugs(slugs: readonly string[]) {
+    const requested = [...new Set(slugs.filter((slug) => /^[\w-]+$/.test(slug)))].slice(0, 4);
+    if (requested.length === 0) return [];
+    const categories = new Set((await getCategoryService().listCategories()).map((category) => category.slug));
+    const bySlug = new Map(collections.map((collection) => [collection.slug, collection]));
+    return requested.flatMap((slug) => {
+      const collection = bySlug.get(slug);
+      if (!collection || categories.has(slug)) return [];
+      return [{ slug, title: collection.title, query: collection.query, href: routes.collection(slug), image: collection.coverImage }];
+    });
+  }
+  async listSitemapSlugs(categorySlugs: readonly string[]) {
+    const categories = new Set(categorySlugs);
+    return collections.map((entry) => entry.slug).filter((slug) => !categories.has(slug));
+  }
   async getPreview() { return collections.find((c) => c.coverImage)?.coverImage; }
   async getEntry(slug: string) { return (await this.listEntries()).find((c) => c.slug === slug) ?? null; }
   async listProducts(slug: string, page: number) {
@@ -77,6 +94,48 @@ class WordPressCollectionDirectoryService implements CollectionDirectoryService 
       ...cache, wordpress: true, searchParams: { slug: "collections", per_page: 1, _fields: "slug,content" },
     });
     return parseCollectionCards(pages[0]?.content.rendered ?? "");
+  }
+  async listSitemapSlugs(categorySlugs: readonly string[]) {
+    const categories = new Set(categorySlugs);
+    return (await this.cards())
+      .map((card) => card.slug)
+      .filter((slug) => !categories.has(slug));
+  }
+  async getEntriesBySlugs(slugs: readonly string[]): Promise<CollectionDirectoryEntry[]> {
+    const requested = [...new Set(slugs.filter((slug) => /^[\w-]+$/.test(slug)))].slice(0, 4);
+    if (requested.length === 0) return [];
+
+    const [cards, categories] = await Promise.all([
+      this.cards(),
+      getCategoryService().listCategories(),
+    ]);
+    const categorySlugs = new Set(categories.map((category) => category.slug));
+    const cardsBySlug = new Map(cards.map((card) => [card.slug, card]));
+    const selected = requested.flatMap((slug) => {
+      const card = cardsBySlug.get(slug);
+      return card && !categorySlugs.has(slug) ? [card] : [];
+    });
+
+    const entries: CollectionDirectoryEntry[] = [];
+    for (let offset = 0; offset < selected.length; offset += 4) {
+      const batch = selected.slice(offset, offset + 4);
+      entries.push(...await Promise.all(batch.map(async (card) => {
+        let image: ProductImage | undefined;
+        try {
+          image = this.productImage(await this.image(card.mediaId));
+        } catch {
+          // Keep a valid text-only card when an individual attachment is unavailable.
+        }
+        return {
+          slug: card.slug,
+          title: card.title,
+          query: collections.find((collection) => collection.slug === card.slug)?.query,
+          href: routes.collection(card.slug),
+          ...(image ? { image } : {}),
+        };
+      })));
+    }
+    return entries;
   }
   private async image(id: number): Promise<WordPressMedia> {
     return apiFetch<WordPressMedia>(apiEndpoints.wordpress.mediaDetail(id), {
@@ -104,8 +163,9 @@ class WordPressCollectionDirectoryService implements CollectionDirectoryService 
       (card) => !categories.some((category) => category.slug === card.slug),
     );
     const counts = new Map<string, number | null>();
-    for (let offset = 0; offset < collectionCards.length; offset += COUNT_CONCURRENCY) {
-      const batch = collectionCards.slice(offset, offset + COUNT_CONCURRENCY);
+    const cardsNeedingCounts = collectionCards.filter(needsCollectionCountLookup);
+    for (let offset = 0; offset < cardsNeedingCounts.length; offset += COUNT_CONCURRENCY) {
+      const batch = cardsNeedingCounts.slice(offset, offset + COUNT_CONCURRENCY);
       const results = await Promise.all(batch.map(async (card) => {
         try {
           const entry = await this.getEntry(card.slug);
@@ -132,7 +192,7 @@ class WordPressCollectionDirectoryService implements CollectionDirectoryService 
       if (total === 0) return [];
       return [{ slug: card.slug, title: card.title,
         countLabel: total === undefined || total === null
-          ? undefined
+          ? card.countLabel
           : `${total.toLocaleString("en-IN")} Items`,
         href: category ? routes.category(category.slug) : routes.collection(card.slug), image: item ? this.productImage(item) : undefined }];
     });

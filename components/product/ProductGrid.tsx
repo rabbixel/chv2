@@ -70,9 +70,9 @@ export async function ProductGrid({
         />
       ) : (
         <ul className={cn(styles.grid, masonry && styles.masonry)}>
-          {products.map((product) => (
+          {products.map((product, index) => (
             <li key={product.id} className={styles.cell}>
-              <ProductCard product={product} wishlisted={wishlisted.has(product.id)} titleAs={cardTitleAs} artworkPreview={artworkPreview} />
+              <ProductCard product={product} wishlisted={wishlisted.has(product.id)} titleAs={cardTitleAs} artworkPreview={artworkPreview} priorityImage={index === 0} />
             </li>
           ))}
         </ul>

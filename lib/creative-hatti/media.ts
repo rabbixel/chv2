@@ -7,7 +7,7 @@ const WORDPRESS_MEDIA_HOSTNAMES = new Set([
   "www.creativehatti.com",
   "api.creativehatti.com",
 ]);
-const DEFAULT_PRODUCTION_WORDPRESS_URL = "https://www.creativehatti.com";
+const DEFAULT_PRODUCTION_WORDPRESS_URL = "https://api.creativehatti.com";
 
 export function isLocalWordPressMediaUrl(value: string): boolean {
   try {
@@ -38,6 +38,15 @@ export function productionWordPressHostname(): string {
   return productionWordPressUrl().hostname;
 }
 
+function localApiOrigin(): URL | null {
+  try {
+    const apiUrl = new URL(process.env.CH_API_URL ?? "");
+    return LOCAL_WORDPRESS_HOSTNAMES.has(apiUrl.hostname) ? apiUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeWordPressMediaUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -65,6 +74,19 @@ export function normalizeWordPressMediaUrl(value: string): string {
       url.protocol = production.protocol;
       url.hostname = production.hostname;
       url.port = production.port;
+    } else if (
+      process.env.NODE_ENV !== "production" &&
+      url.hostname === "api.creativehatti.com"
+    ) {
+      // The local WordPress API can retain production-shaped media URLs even
+      // though its uploads live in Laragon. In local development, serve those
+      // paths from the configured local API host; production URLs stay intact.
+      const localApi = localApiOrigin();
+      if (localApi) {
+        url.protocol = localApi.protocol;
+        url.hostname = localApi.hostname;
+        url.port = localApi.port;
+      }
     }
     return url.toString();
   } catch {

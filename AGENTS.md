@@ -30,7 +30,13 @@ architecture docs.
 
 ## Constraints
 
-- Frontend only: no database, no payment processing, no secrets.
-  Never add `NEXT_PUBLIC_*` credentials of any kind.
+- Allowed scope: Next.js frontend changes, the `wordpress/creative-hatti-home-sections`
+  plugin, and its directly associated REST API and homepage integration. The plugin
+  may save and update its own WordPress options and collection settings through
+  existing WordPress APIs.
+- Do not modify unrelated WordPress plugins, database schemas, or direct database
+  migrations. Do not change payment processing or secrets. Never add `NEXT_PUBLIC_*`
+  credentials of any kind.
+- Production changes require explicit approval. Do not deploy or push without approval.
 - No new dependencies without a clear, stated need.
 - Don't replace working code unnecessarily; keep diffs focused per run.

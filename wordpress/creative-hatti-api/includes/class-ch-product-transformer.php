@@ -140,26 +140,35 @@ class CH_Product_Transformer {
 		$currency = function_exists( 'edd_get_currency' ) ? edd_get_currency() : 'INR';
 
 		if ( function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $post_id ) ) {
+			$options = $this->variable_prices( $post_id );
+			$classification = $this->classify_amounts( array_map( static function ( $option ) { return $option['amount']; }, $options ) );
 			$data = array(
-				'type'     => 'variable',
-				'currency' => $currency,
-				'options'  => $this->variable_prices( $post_id ),
+				'type' => 'variable', 'currency' => $currency, 'options' => $options,
+				'amount' => $classification['valid'] ? $classification['minimum'] : null,
+				'formatted' => $this->format_amount( $classification['valid'] ? $classification['minimum'] : null, $currency ),
+				'class' => $classification['class'], 'valid' => $classification['valid'],
 			);
-
-			return $include_type ? $data : $this->minimum_variable_price( $data );
+			return $include_type ? $data : array( 'class' => $data['class'], 'amount' => $data['amount'], 'formatted' => $data['formatted'], 'currency' => $currency );
 		}
 
-		// EDD normalizes absent/malformed fixed metadata to zero. Only an
-		// explicitly valid stored price may be presented as a free purchase.
+		// EDD 3.7.2 treats absent fixed-price metadata as zero when variable
+		// pricing is disabled. Malformed stored values remain invalid.
 		$stored = get_post_meta( $post_id, 'edd_price', true );
-		$amount = is_numeric( $stored ) && is_finite( (float) $stored ) && (float) $stored >= 0
-			? ( function_exists( 'edd_get_download_price' ) ? edd_get_download_price( $post_id ) : $stored ) : null;
+		$exists = function_exists( 'metadata_exists' ) ? metadata_exists( 'post', $post_id, 'edd_price' ) : ( '' !== $stored && null !== $stored );
+		$raw_valid = ! $exists || ( is_numeric( $stored ) && is_finite( (float) $stored ) && (float) $stored >= 0 );
+		$stale_options = ! $exists ? get_post_meta( $post_id, 'edd_variable_prices', true ) : array();
+		$no_contradictory_options = ! ( is_array( $stale_options ) ? (bool) array_filter( $stale_options ) : ! empty( $stale_options ) );
+		$amount = $raw_valid && $no_contradictory_options
+			? ( function_exists( 'edd_get_download_price' ) ? edd_get_download_price( $post_id ) : ( $exists ? $stored : null ) ) : null;
 		$amount = is_numeric( $amount ) && is_finite( (float) $amount ) && (float) $amount >= 0 ? (float) $amount : null;
+		$classification = null === $amount ? $this->invalid_classification() : $this->classify_amounts( array( $amount ) );
 
 		$data = array(
 			'amount'    => $amount,
 			'formatted' => $this->format_amount( $amount, $currency ),
 			'currency'  => $currency,
+			'class'     => $classification['class'],
+			'valid'     => $classification['valid'],
 		);
 
 		if ( $include_type ) {
@@ -190,7 +199,7 @@ class CH_Product_Transformer {
 				continue;
 			}
 
-			$amount = isset( $price['amount'] ) && is_numeric( $price['amount'] ) ? (float) $price['amount'] : null;
+			$amount = isset( $price['amount'] ) && is_numeric( $price['amount'] ) && is_finite( (float) $price['amount'] ) && (float) $price['amount'] >= 0 ? (float) $price['amount'] : null;
 			$options[] = array(
 				'id'        => is_numeric( $key ) ? (int) $key : sanitize_key( $key ),
 				'name'      => isset( $price['name'] ) ? sanitize_text_field( $price['name'] ) : '',
@@ -256,16 +265,24 @@ class CH_Product_Transformer {
 	 * @return array
 	 */
 	private function minimum_variable_price( array $price ) {
-		$amounts = wp_list_pluck( $price['options'], 'amount' );
-		$amounts = array_filter( $amounts, static function ( $amount ) { return is_numeric( $amount ) && is_finite( (float) $amount ) && (float) $amount >= 0; } );
-		$amount  = $amounts ? min( $amounts ) : null;
+		return array( 'class' => $price['class'], 'amount' => $price['amount'], 'formatted' => $price['formatted'], 'currency' => $price['currency'], 'valid' => $price['valid'] );
+	}
 
-		return array(
-			'class'     => ! $amounts ? 'invalid' : ( max( $amounts ) == 0 ? 'free' : ( min( $amounts ) == 0 ? 'mixed' : 'paid' ) ),
-			'amount'    => $amount,
-			'formatted' => $this->format_amount( $amount, $price['currency'] ),
-			'currency'  => $price['currency'],
-		);
+	private function classify_amounts( $amounts ) {
+		if ( ! $amounts ) { return $this->invalid_classification(); }
+		$valid = array();
+		foreach ( $amounts as $amount ) {
+			if ( ! is_numeric( $amount ) || ! is_finite( (float) $amount ) || (float) $amount < 0 ) { return $this->invalid_classification(); }
+			$valid[] = (float) $amount;
+		}
+		$has_free = in_array( 0.0, $valid, true );
+		$has_paid = (bool) array_filter( $valid, static function ( $amount ) { return $amount > 0; } );
+		$minimum = min( $valid );
+		return array( 'valid' => true, 'minimum' => $minimum, 'has_free' => $has_free, 'has_paid' => $has_paid, 'class' => $has_free && $has_paid ? 'mixed' : ( $has_paid ? 'paid' : 'free' ) );
+	}
+
+	private function invalid_classification() {
+		return array( 'valid' => false, 'minimum' => null, 'has_free' => false, 'has_paid' => false, 'class' => 'invalid' );
 	}
 
 	/**

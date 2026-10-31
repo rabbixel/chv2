@@ -28,6 +28,15 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+@media print {
+  body:has(.ch-receipt-print) > div > header,
+  body:has(.ch-receipt-print) > div > footer,
+  body:has(.ch-receipt-print) nav[aria-label="Breadcrumb"],
+  body:has(.ch-receipt-print) .ch-skip-link {
+    display: none !important;
+  }
+}
+
 h1,
 h2,
 h3,

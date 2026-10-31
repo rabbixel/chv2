@@ -1,7 +1,9 @@
 .card {
   display: flex;
   flex-direction: column;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -16,6 +18,7 @@
   aspect-ratio: 4 / 3;
   background-color: var(--ch-neutral-100);
   overflow: hidden;
+  isolation: isolate;
 }
 
 .media:hover {
@@ -25,14 +28,9 @@
 .image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center top;
-}
-
-/* Keep the complete product artwork visible in catalogue/search cards. */
-.containImage {
   object-fit: contain;
   object-position: center;
+  z-index: 0;
 }
 
 .artworkPreview .media { aspect-ratio: 1; background-color: var(--ch-color-surface); }
@@ -71,6 +69,7 @@
 
 .badges {
   position: absolute;
+  z-index: 2;
   top: var(--ch-space-2);
   left: var(--ch-space-2);
   right: 3.25rem;
@@ -80,11 +79,17 @@
   pointer-events: none;
 }
 
+.badges .freeBadge {
+  background-color: var(--ch-brand-50);
+  border-color: var(--ch-brand-200);
+  color: var(--ch-brand-900);
+}
+
 .actions {
   position: absolute;
   top: var(--ch-space-2);
   right: var(--ch-space-2);
-  z-index: 2;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -97,6 +102,10 @@
   gap: var(--ch-space-1);
   padding: var(--ch-space-3) var(--ch-space-4) var(--ch-space-4);
   flex: 1;
+}
+
+.freeBody {
+  padding: var(--ch-space-3);
 }
 
 .kicker {
@@ -130,6 +139,36 @@
 .titleLink:hover {
   color: var(--ch-color-text);
   text-decoration: underline;
+}
+
+.freeInfoRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--ch-space-10);
+  align-items: center;
+  column-gap: var(--ch-space-3);
+  min-width: 0;
+}
+
+.freeTextGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-1);
+  min-width: 0;
+}
+
+.freeTitle {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.freeTitle .titleLink {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .meta {
@@ -169,21 +208,51 @@
 }
 
 .free {
-  display: inline-block;
-  font-size: var(--ch-text-lg);
-  font-weight: var(--ch-weight-bold);
-  letter-spacing: var(--ch-tracking-tight);
-  color: var(--ch-color-brand);
-  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--ch-space-10);
+  min-width: var(--ch-space-10);
+  height: var(--ch-space-10);
+  padding: 0;
+  color: var(--ch-brand-900);
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-brand-200);
+  border-radius: var(--ch-radius-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--ch-duration-fast) var(--ch-ease-out),
+    border-color var(--ch-duration-fast) var(--ch-ease-out);
 }
 
-.free:hover {
-  color: var(--ch-color-brand-strong);
-  text-decoration: underline;
+.free:hover:not(:disabled) {
+  background-color: var(--ch-brand-50);
+  border-color: var(--ch-brand-400);
 }
 
 .free:focus-visible {
-  border-radius: var(--ch-radius-sm);
   outline: 2px solid var(--ch-focus-ring-color);
   outline-offset: 2px;
+}
+
+.free:disabled { cursor: wait; opacity: 0.7; }
+
+.freeAction {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--ch-space-1);
+}
+
+.freeError {
+  display: block;
+  max-width: min(18rem, calc(100vw - 2 * var(--ch-gutter)));
+  padding: var(--ch-space-1) var(--ch-space-2);
+  font-size: var(--ch-text-xs);
+  color: var(--ch-color-danger);
+  background-color: var(--ch-color-surface);
+  border: 1px solid var(--ch-color-danger-border);
+  border-radius: var(--ch-radius-sm);
+  box-shadow: var(--ch-shadow-sm);
 }

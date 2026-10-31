@@ -8,6 +8,7 @@
 
 export const routes = {
   home: () => "/",
+  galleryPreview: () => "/gallery-preview",
   search: (query?: string) =>
     query ? `/search?q=${encodeURIComponent(query)}` : "/search",
   categories: () => "/categories",
@@ -51,6 +52,7 @@ export const routes = {
   faqs: () => "/faqs",
   refundPolicy: () => "/refund-policy",
   about: () => "/about",
+  trustedBy: () => "/trusted-by",
   terms: () => "/terms",
   privacy: () => "/privacy",
   licenseInformation: () => "/licensing",

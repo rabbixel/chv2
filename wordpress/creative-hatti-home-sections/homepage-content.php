@@ -52,7 +52,7 @@ final class CH_Home_Content {
    'Greeting Card', 'Background Pattern' );
  }
 
- private static function date( $value ) {
+ public static function date_value( $value ) {
   if ( ! is_string( $value ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) { return ''; }
   $date = DateTimeImmutable::createFromFormat( '!Y-m-d', $value );
   return $date && $date->format( 'Y-m-d' ) === $value ? $value : '';
@@ -73,11 +73,11 @@ final class CH_Home_Content {
     $term = $term_id ? get_term( $term_id, CH_Home_Sections::TAXONOMY ) : false;
     $image_id = absint( $row['image_id'] ?? 0 );
     $product_id = absint( $row['product_id'] ?? 0 );
-    $from = self::date( $row['show_from'] ?? '' );
-    $until = self::date( $row['hide_after'] ?? '' );
+    $from = self::date_value( $row['show_from'] ?? '' );
+    $until = self::date_value( $row['hide_after'] ?? '' );
     $invalid = false;
     foreach ( array( 'event_date', 'show_from', 'hide_after' ) as $field ) {
-     if ( ! empty( $row[ $field ] ) && ! self::date( $row[ $field ] ) ) { $invalid = true; }
+     if ( ! empty( $row[ $field ] ) && ! self::date_value( $row[ $field ] ) ) { $invalid = true; }
     }
     if ( $invalid || ( $from && $until && $from > $until ) ) {
      add_settings_error( CH_Home_Sections::OPTION, 'invalid_schedule', 'A card was skipped because its dates are invalid or its visibility window is reversed.' );
@@ -91,7 +91,7 @@ final class CH_Home_Content {
      'image_id' => CH_Home_Sections::image_dto( $image_id ) ? $image_id : 0,
      'product_id' => 'download' === get_post_type( $product_id ) && 'publish' === get_post_status( $product_id ) ? $product_id : 0,
      'icon' => sanitize_key( $row['icon'] ?? '' ),
-     'event_date' => self::date( $row['event_date'] ?? '' ), 'show_from' => $from, 'hide_after' => $until,
+     'event_date' => self::date_value( $row['event_date'] ?? '' ), 'show_from' => $from, 'hide_after' => $until,
      'priority' => min( 100, max( 0, (int) ( $row['priority'] ?? 0 ) ) ), 'pinned' => ! empty( $row['pinned'] ),
     );
    }
@@ -234,6 +234,7 @@ final class CH_Home_Content {
    ?>
   <section class="ch-home-panel" id="ch-panel-<?php echo esc_attr( $section ); ?>" role="tabpanel" aria-labelledby="ch-tab-<?php echo esc_attr( $section ); ?>" data-panel="<?php echo esc_attr( $section ); ?>" <?php echo 'discovery' === $section ? '' : 'hidden'; ?>>
     <header class="ch-home-panel-head"><div><h2><?php echo esc_html( 'discovery' === $section ? 'Collections' : 'Celebrations' ); ?></h2><p><?php echo esc_html( 'discovery' === $section ? 'Manage the homepage discovery cards, including Browse All Collections.' : 'Manage seasonal and scheduled homepage collections.' ); ?></p></div><label class="ch-home-enable"><input type="checkbox" name="ch_home_sections[<?php echo esc_attr( $section ); ?>_enabled]" value="1" <?php checked( ! empty( $settings[ $section . '_enabled' ] ) ); ?>> Enabled</label></header>
+    <?php CH_Home_Sections::render_inner_tabs( $section ); ?><div id="ch-section-<?php echo esc_attr( $section ); ?>-pane-content" data-section-pane="content" data-section-target="<?php echo esc_attr( $section ); ?>"><?php CH_Home_Sections::render_section_content_controls( 'discovery' === $section ? 'discovery' : 'seasonal_collections', 'discovery' === $section ? array( 'eyebrow' => 'Start exploring', 'heading' => 'What are you creating today?', 'description' => 'Jump straight into the aisles of the Hatti — every tile opens a curated corner of the marketplace.' ) : array( 'eyebrow' => 'Seasonal & topical', 'heading' => 'Collections for every celebration', 'description' => 'Diwali to Bollywood — topical shelves that refresh with the Indian festive calendar.' ), $settings ); ?></div><div id="ch-section-<?php echo esc_attr( $section ); ?>-pane-items" data-section-pane="items" data-section-target="<?php echo esc_attr( $section ); ?>" hidden>
     <?php if ( 'discovery' === $section ) : ?><input type="hidden" name="ch_home_sections[browse_collections_enabled]" value="0"><label class="ch-inline-toggle"><input type="checkbox" name="ch_home_sections[browse_collections_enabled]" value="1" <?php checked( ! isset( $settings['browse_collections_enabled'] ) || ! empty( $settings['browse_collections_enabled'] ) ); ?>>Show Browse All Collections card</label><?php endif; ?>
     <p class="description">Unchecked uses curated defaults with product previews. Choose an image or a published product ID to use its featured image. Row order controls discovery tiles. An enabled empty section is hidden.</p>
     <?php if ( 'celebrations' === $section ) : ?><p>Dates use Asia/Kolkata. Without explicit visibility dates, events appear 60 days before and expire 2 days after. Undated cards are evergreen. Pinned cards come first, then events, priority and date. Only 10 active cards appear. Add lunar festival dates for each year.</p><?php endif; ?>
@@ -242,21 +243,26 @@ final class CH_Home_Content {
     </div>
     <button type="button" class="button ch-home-add-row" data-section="<?php echo esc_attr( $section ); ?>">Add card</button>
     <script type="text/html" id="ch-home-row-template-<?php echo esc_attr( $section ); ?>"><?php self::render_row( $section, '__INDEX__', array(), $terms ); ?></script>
+    </div>
    </section>
    <?php
   }
   ?>
   <section class="ch-home-panel" id="ch-panel-keywords" role="tabpanel" aria-labelledby="ch-tab-keywords" data-panel="keywords" hidden>
    <header class="ch-home-panel-head"><div><h2>Popular Themes</h2><p>Control the search keywords displayed on the homepage.</p></div><label class="ch-home-enable"><input type="checkbox" name="ch_home_sections[keywords_enabled]" value="1" <?php checked( ! empty( $settings['keywords_enabled'] ) ); ?>> Enabled</label></header>
+   <?php CH_Home_Sections::render_inner_tabs( 'keywords' ); ?><div id="ch-section-keywords-pane-content" data-section-pane="content" data-section-target="keywords"><?php CH_Home_Sections::render_section_content_controls( 'popular_themes', array( 'eyebrow' => '', 'heading' => 'Explore popular themes', 'description' => '' ), $settings ); ?></div><div id="ch-section-keywords-pane-items" data-section-pane="items" data-section-target="keywords" hidden>
    <p>One keyword per line. Keep at least 20–30 useful terms. Up to 100 are stored; 30 appear on the homepage.</p>
    <textarea class="widefat" rows="10" name="ch_home_sections[keywords]"><?php echo esc_textarea( ! empty( $settings['keywords_enabled'] ) ? ( $settings['keywords'] ?? '' ) : implode( "\n", self::keywords() ) ); ?></textarea>
    <label><input type="checkbox" name="ch_home_sections[keywords_rotate]" value="1" <?php checked( ! empty( $settings['keywords_rotate'] ) ); ?>>Rotate 30 keywords weekly when the pool contains more than 30</label>
+   </div>
   </section>
   <section class="ch-home-panel" id="ch-panel-trusted" role="tabpanel" aria-labelledby="ch-tab-trusted" data-panel="trusted" hidden>
    <header class="ch-home-panel-head"><div><h2>Trusted Clients</h2><p>Sync client logos from a published WordPress page.</p></div><label class="ch-home-enable"><input type="checkbox" name="ch_home_sections[trusted_enabled]" value="1" <?php checked( ! isset( $settings['trusted_enabled'] ) || $settings['trusted_enabled'] ); ?>> Enabled</label></header>
+   <?php CH_Home_Sections::render_inner_tabs( 'trusted' ); ?><div id="ch-section-trusted-pane-content" data-section-pane="content" data-section-target="trusted"><?php CH_Home_Sections::render_section_content_controls( 'trusted_clients', array( 'eyebrow' => 'Loved across India', 'heading' => 'We are trusted by', 'description' => 'Studios, brands and creators build with Creative Hatti assets every day.', 'browse_label' => 'View All Clients', 'browse_url' => '/trusted-by' ), $settings ); ?></div><div id="ch-section-trusted-pane-items" data-section-pane="items" data-section-target="trusted" hidden>
    <p>Leave the page ID blank to use the published page at trusted-by. WPBakery image/gallery shortcodes and Gutenberg images are supported. Logos retain page order; duplicates and missing images are skipped. Image alt text or attachment title supplies the brand name.</p>
    <label>Source page ID (optional) <input type="number" min="1" name="ch_home_sections[trusted_page_id]" value="<?php echo esc_attr( ! empty( $settings['trusted_page_id'] ) ? $settings['trusted_page_id'] : '' ); ?>"></label>
    <p><?php echo esc_html( count( self::trusted( $settings ) ) . ' valid client images found.' ); ?></p>
+   </div>
   </section>
   <?php
  }

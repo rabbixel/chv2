@@ -44,6 +44,7 @@ export type {
   VerifyPaymentInput,
 } from "./orderService";
 export {
+  getCachedProductBySlug,
   getProductService,
   type ProductListParams,
   type ProductService,

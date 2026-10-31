@@ -75,6 +75,8 @@ export interface Product {
   priceOptions?: ProductPriceOption[];
   /** False when the API has no valid EDD price; availability refresh must preserve this guard. */
   priceValid?: boolean;
+  /** Authoritative EDD price classification when supplied by WordPress/search. */
+  priceClass?: "free" | "paid" | "mixed" | "invalid";
   /** Original price when on sale; absent otherwise. */
   compareAtPrice?: Money;
 

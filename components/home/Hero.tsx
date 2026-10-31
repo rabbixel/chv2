@@ -1,63 +1,78 @@
 import { SearchBar, type SearchBarCategory } from "@/components/search";
 import { Badge } from "@/components/ui";
-import { heroStats } from "@/lib/homepage";
 import Link from "next/link";
 import { ProductImage } from "@/components/product";
-import type { Product } from "@/lib/types";
+import type { Product, ProductImage as ProductImageData } from "@/lib/types";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import type { HomepageHeroConfig } from "@/lib/homepage-config";
 import styles from "./Hero.module.css";
 
 export interface HeroProps {
   categories: SearchBarCategory[];
   popularSearches: string[];
   products: Product[];
+  config: HomepageHeroConfig<ProductImageData>;
 }
 
-export function Hero({ categories, popularSearches, products }: HeroProps) {
-  const previews = products.filter((product) => product.images.some((image) => image.url)).slice(0, 4);
+export function Hero({ categories, popularSearches, products, config }: HeroProps) {
+  if (!config.enabled) return null;
+  const previews = config.showImages
+    ? products.filter((product) => product.images.some((image) => image.url)).slice(0, 4)
+    : [];
+  const gallery = config.showImages ? config.images.flatMap((slot, index) => {
+    const product = previews[index];
+    const productImage = product?.images.find((entry) => entry.url);
+    const image = slot.mode === "custom" ? slot.image : productImage;
+    if (!image) return [];
+    const href = slot.destinationType === "search"
+      ? (slot.searchKeyword.trim() ? routes.search(slot.searchKeyword) : undefined)
+      : slot.destinationType === "custom_url"
+        ? slot.href
+        : (product ? routes.product(product.slug) : undefined);
+    return [{ image, product, href, key: slot.mode === "custom" ? `custom-${index}` : product?.id ?? `default-${index}` }];
+  }) : [];
   return (
-    <section className={styles.hero} aria-labelledby="hero-heading">
-      <div className="ch-container">
-        <div className={cn(styles.layout, previews.length > 0 && styles.withArtwork)}>
+    <section className={cn(styles.hero, !config.showImages && styles.centeredHero)} aria-labelledby="hero-heading">
+      <div className="ch-container ch-container--wide">
+        <div className={cn(styles.layout, gallery.length > 0 ? styles.withArtwork : styles.centered)}>
         <div className={styles.inner}>
-          <Badge variant="accent" size="md" className={styles.eyebrow}>
-            India&apos;s creative marketplace
-          </Badge>
+          {config.eyebrow && <Badge variant="accent" size="md" className={styles.eyebrow}>{config.eyebrow}</Badge>}
           <h1 id="hero-heading" className={styles.title}>
-            The Ultimate Collection of Indian Vector Assets
+            {config.heading}
           </h1>
-          <p className={styles.copy}>
-            Characters, festival creatives, banners, bundles and ready-to-use
-            templates — crafted with authentic Indian tadka for your next
-            project.
-          </p>
+          {config.description && <p className={styles.copy}>{config.description}</p>}
           <div className={styles.search}>
             <SearchBar
               id="hero-search"
-              placeholder="What are you searching for today…"
+              placeholder={config.searchPlaceholder}
+              buttonText={config.searchButtonText}
               categories={categories}
               popularSearches={popularSearches}
             />
           </div>
           <dl className={styles.stats}>
-            {heroStats.map((stat) => (
-              <div key={stat.label} className={styles.stat}>
+            {config.stats.filter((stat) => stat.visible).map((stat, index) => (
+              <div key={`${stat.label}-${index}`} className={styles.stat}>
                 <dt>{stat.label}</dt>
                 <dd>{stat.value}</dd>
               </div>
             ))}
           </dl>
         </div>
-        {previews.length > 0 && (
+        {gallery.length > 0 && (
           <ul className={styles.gallery} aria-label="Explore featured artwork">
-            {previews.map((product, index) => (
-              <li key={product.id}>
-                <Link href={routes.product(product.slug)} className={styles.preview} aria-label={product.title}>
-                  <ProductImage image={product.images.find((image) => image.url)!} title={product.title}
+            {gallery.map((entry, index) => (
+              <li key={entry.key}>
+                {entry.href ? <Link href={entry.href} className={styles.preview} aria-label={entry.product?.title || entry.image.alt || `Featured artwork ${index + 1}`}>
+                  <ProductImage image={entry.image} title={entry.product?.title || entry.image.alt || "Featured artwork"}
                     sizes="(max-width: 767px) 44vw, (max-width: 1023px) 22vw, 240px"
                     priority={index === 0} decorative className={styles.previewImage} />
-                </Link>
+                </Link> : <div className={styles.preview}>
+                  <ProductImage image={entry.image} title={entry.image.alt || "Featured artwork"}
+                    sizes="(max-width: 767px) 44vw, (max-width: 1023px) 22vw, 240px"
+                    priority={index === 0} decorative className={styles.previewImage} />
+                </div>}
               </li>
             ))}
           </ul>

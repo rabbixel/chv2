@@ -37,7 +37,7 @@ export default async function ReceiptPage({ params }: ReceiptPageProps) {
       redirect(routes.login(routes.accountOrderReceipt(id)));
     }
     return (
-      <div className={styles.page}>
+      <div className={`${styles.page} ch-receipt-print`}>
         <Link href={routes.accountOrder(id)} className={styles.back}>← Back to order</Link>
         <h1 className={styles.title}>Receipt unavailable</h1>
         <p className={styles.muted}>Please refresh the page or try again shortly.</p>
@@ -55,7 +55,7 @@ export default async function ReceiptPage({ params }: ReceiptPageProps) {
   ].filter(Boolean);
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ch-receipt-print`}>
       <div className={styles.actions}>
         <Link href={routes.accountOrder(id)} className={styles.back}>← Back to order</Link>
         <PrintReceiptButton label={isReceipt ? "Print Receipt" : "Print Order Summary"} />

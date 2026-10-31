@@ -116,6 +116,16 @@ export function ActiveFilters({
       ),
     });
   }
+  if (params.orientation && params.orientation !== "all") {
+    chips.push({
+      key: "orientation",
+      label: params.orientation[0].toUpperCase() + params.orientation.slice(1),
+      href: buildListingHref(
+        basePath,
+        withListingPatch(params, { orientation: "all" }),
+      ),
+    });
+  }
 
   if (chips.length === 0) return null;
 
@@ -130,6 +140,7 @@ export function ActiveFilters({
       files: [],
       apps: [],
       collection: undefined,
+      orientation: "all",
     }),
   );
 

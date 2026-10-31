@@ -7,6 +7,32 @@ EDD's `download_category` taxonomy.
 Version 1.1 also manages discovery tiles, scheduled celebrations, keyword
 themes and trusted clients. Existing character/pack settings are preserved.
 
+## Handpicked Packs
+
+The **Handpicked Packs** tab manages the existing `packs` entries in the
+`ch_home_sections` WordPress option. Existing cards, including Social Media,
+remain enabled as evergreen collections in Manual mode when first saved with
+the new controls. This is an additive Settings API update; it does not rename
+options, change attachment IDs, or run a database migration.
+
+Each pack can use an EDD category, a URL, or a search query as its destination,
+and can keep its own Media Library thumbnail. Manual mode preserves row order
+and ignores seasonal dates. Automatic mode selects active seasonal entries by
+priority first, then fills remaining slots with enabled evergreen entries.
+Destinations are deduplicated and the visible-card limit defaults to five
+(maximum eight). Seasonal start/end dates are evaluated in Asia/Kolkata. Date
+windows may cross New Year; annual recurrence compares month/day and should be
+used only for fixed-date campaigns. Movable festivals require explicit dates
+for each year. The admin date preview evaluates the saved pack configuration
+for the selected India date.
+
+The REST endpoint returns only the selected cards in `featured_packs` when
+`featured_packs_enabled` is true. The Next.js homepage uses the WordPress list
+instead of its default featured collections whenever the section is enabled.
+In development, the homepage-section fetch is uncached. In production, its
+60-second revalidation bounds a scheduled change's visibility delay to about a
+minute without requiring cron.
+
 ## Discovery and celebrations
 
 Unchecked sections use editorial defaults. Default artwork is drawn from

@@ -1,30 +1,31 @@
 import { SectionHeading } from "./SectionHeading";
 import styles from "./TrustedBy.module.css";
-import Image from "next/image";
 import type { TrustedBrand } from "@/lib/services/homepageService";
-import { isLocalWordPressMediaUrl } from "@/lib/creative-hatti/media";
+import Link from "next/link";
+import { routes } from "@/lib/routes";
+import { ClientLogoGrid } from "@/components/clients";
+import { selectFeaturedClientBrands } from "@/lib/creative-hatti/clients";
 
-export function TrustedBy({ brands }: { brands: TrustedBrand[] }) {
-  if (!brands.length) return null;
+export function TrustedBy({ brands, copy }: { brands: TrustedBrand[]; copy?: { eyebrow?: string; heading?: string; description?: string; browse_label?: string; browse_url?: string } }) {
+  const featuredBrands = selectFeaturedClientBrands(brands);
+  if (!featuredBrands.length) return null;
   return (
     <section aria-labelledby="trusted-heading">
-      <SectionHeading
-        eyebrow="Loved across India"
-        title="We are trusted by"
-        copy="Studios, brands and creators build with Creative Hatti assets every day."
-      />
+      <div className={styles.header}>
+        <SectionHeading
+          className={styles.headerContent}
+          eyebrow={copy?.eyebrow ?? "Loved across India"}
+          title={copy?.heading ?? "We are trusted by"}
+          copy={copy?.description ?? "Studios, brands and creators build with Creative Hatti assets every day."}
+        />
+        {(copy?.browse_url ?? routes.trustedBy()) && (copy?.browse_label ?? "View All Clients") && <p className={styles.viewAll}>
+          <Link href={copy?.browse_url ?? routes.trustedBy()}>{copy?.browse_label ?? "View All Clients"}</Link>
+        </p>}
+      </div>
       <h2 id="trusted-heading" className="ch-visually-hidden">
         Trusted by leading brands
       </h2>
-      <ul className={styles.grid} aria-label="Trusted clients">
-        {brands.map((brand) => (
-          <li key={brand.id} className={styles.tile}>
-            <Image src={brand.image.url} alt={brand.name} width={brand.image.width ?? 240}
-              height={brand.image.height ?? 120} sizes="(max-width: 640px) 40vw, 160px"
-              className={styles.logo} unoptimized={isLocalWordPressMediaUrl(brand.image.url)} />
-          </li>
-        ))}
-      </ul>
+      <ClientLogoGrid brands={featuredBrands} layout="featured" />
     </section>
   );
 }

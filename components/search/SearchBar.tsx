@@ -27,6 +27,7 @@ export interface SearchBarProps {
   id: string;
   defaultValue?: string;
   placeholder?: string;
+  buttonText?: string;
   /** Category suggestions (from the category service via the header). */
   categories?: SearchBarCategory[];
   popularSearches?: string[];
@@ -64,6 +65,7 @@ export function SearchBar({
   id,
   defaultValue = "",
   placeholder = "Search fonts, graphics, templates…",
+  buttonText = "Search",
   categories = [],
   popularSearches = [],
 }: SearchBarProps) {
@@ -236,7 +238,7 @@ export function SearchBar({
       autoComplete="off"
     >
       <label htmlFor={id} className="ch-visually-hidden">
-        Search products
+        {buttonText}
       </label>
       <span className={styles.icon} aria-hidden="true">
         <Icon name="search" size={18} />
@@ -263,7 +265,7 @@ export function SearchBar({
         autoComplete="off"
       />
       <button type="submit" className={styles.submit}>
-        Search
+        {buttonText}
       </button>
       {showPanel && (
         <div className={styles.panel} role="presentation">

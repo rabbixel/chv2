@@ -12,6 +12,7 @@ import {
   formatMoney,
 } from "@/lib/utils";
 import { ProductImage as ProductImageView } from "./ProductImage";
+import { FreeDownloadAction } from "./FreeDownloadAction";
 import { QuickAddButton } from "./QuickAddButton";
 import { WishlistButton } from "./WishlistButton";
 import styles from "./ProductCard.module.css";
@@ -26,6 +27,8 @@ export interface ProductCardProps {
   product: Product;
   /** Homepage merchandising: show the entire artwork in a larger square slot. */
   artworkPreview?: boolean;
+  /** Eager-load the first above-the-fold card image in a product grid. */
+  priorityImage?: boolean;
   /** Initial wishlist state (resolved by the listing page later). */
   wishlisted?: boolean;
   /**
@@ -54,11 +57,15 @@ export function ProductCard({
   wishlisted = false,
   titleAs = "h3",
   artworkPreview = false,
+  priorityImage = false,
 }: ProductCardProps) {
   const Title = titleAs;
   const href = routes.product(product.slug);
   const percent = discountPercent(product.compareAtPrice, product.price);
   const cover = product.images[0];
+  const imageSizes = artworkPreview
+    ? "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
+    : "(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw";
   const kicker = [
     KIND_LABELS[product.kind],
     categoryDisplayName(product.categorySlugs[0] ?? product.productGroup),
@@ -66,6 +73,13 @@ export function ProductCard({
   ]
     .filter(Boolean)
     .join(" · ");
+  const titleElement = (
+    <Title className={cn(styles.title, product.isFree && styles.freeTitle)}>
+      <Link href={href} className={styles.titleLink} title={product.title} aria-label={product.title}>
+        {product.title}
+      </Link>
+    </Title>
+  );
 
   return (
     <Card padding="none" interactive className={cn(styles.card, artworkPreview && styles.artworkPreview)}>
@@ -73,11 +87,6 @@ export function ProductCard({
         <Link
           href={href}
           className={styles.media}
-          style={
-            !artworkPreview && cover?.width && cover.height
-              ? { aspectRatio: `${cover.width} / ${cover.height}` }
-              : undefined
-          }
           aria-label={product.title}
           tabIndex={-1}
         >
@@ -87,11 +96,10 @@ export function ProductCard({
             <ProductImageView
               image={cover}
               title={product.title}
-              sizes={artworkPreview
-                ? "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
-                : "(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"}
+              sizes={imageSizes}
+              priority={priorityImage}
               decorative
-              className={cn(styles.image, styles.containImage)}
+              className={styles.image}
             />
           ) : (
             <PlaceholderArt product={product} />
@@ -101,7 +109,7 @@ export function ProductCard({
           {product.soldOut && <Badge variant="danger" size="sm">Sold Out</Badge>}
           {product.purchasable === false && !product.soldOut && <Badge variant="danger" size="sm">Temporarily unavailable</Badge>}
           {product.isFree && (
-            <Badge variant="success" size="sm">
+            <Badge variant="brand" size="sm" className={styles.freeBadge}>
               Free
             </Badge>
           )}
@@ -132,13 +140,25 @@ export function ProductCard({
           <QuickAddButton product={product} />
         </div>
       </div>
-      <div className={styles.body}>
-        <p className={styles.kicker}>{kicker}</p>
-        <Title className={styles.title}>
-          <Link href={href} className={styles.titleLink}>
-            {product.title}
-          </Link>
-        </Title>
+      <div className={cn(styles.body, product.isFree && styles.freeBody)}>
+        {product.isFree ? (
+          <div className={styles.freeInfoRow}>
+            <div className={styles.freeTextGroup}>
+              <p className={styles.kicker}>{kicker}</p>
+              {titleElement}
+            </div>
+            <FreeDownloadAction
+              slug={product.slug}
+              title={product.title}
+              priceOptions={product.priceOptions}
+            />
+          </div>
+        ) : (
+          <>
+            <p className={styles.kicker}>{kicker}</p>
+            {titleElement}
+          </>
+        )}
         {(product.bestseller || product.isNew) && (
           <span className="ch-visually-hidden">
             {product.bestseller ? "Bestseller. " : ""}
@@ -168,14 +188,12 @@ export function ProductCard({
               )}
             </p>
           )}
-        <p className={styles.priceRow}>
-          {product.isFree ? (
-            <Link href={href} className={styles.free} aria-label={`View ${product.title} free download`}>
-              Free download
-            </Link>
+        {!product.isFree && <p className={styles.priceRow}>
+          {product.priceClass === "mixed" ? (
+            <span className={styles.price}>Options from {Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
           ) : (
             <>
-              <span className={styles.price}>{Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
+              <span className={styles.price}>{product.priceClass === "invalid" || product.priceValid === false ? "Price unavailable" : Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
               {product.compareAtPrice && (
                 <s className={cn(styles.compareAt)}>
                   {formatMoney(product.compareAtPrice)}
@@ -183,7 +201,7 @@ export function ProductCard({
               )}
             </>
           )}
-        </p>
+        </p>}
       </div>
     </Card>
   );

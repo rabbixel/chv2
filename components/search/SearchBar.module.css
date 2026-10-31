@@ -65,6 +65,7 @@
   left: 0;
   right: 0;
   z-index: var(--ch-z-dropdown);
+  text-align: left;
   background-color: var(--ch-color-surface);
   border: 1px solid var(--ch-color-border);
   border-radius: var(--ch-radius-md);
@@ -73,9 +74,10 @@
 }
 
 .list {
-  max-height: 21rem;
+  max-height: min(21rem, calc(100dvh - 8rem));
   overflow-y: auto;
   padding: var(--ch-space-2);
+  text-align: left;
 }
 
 .section + .section {
@@ -88,6 +90,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  margin: 0;
   padding: var(--ch-space-1) var(--ch-space-2);
   font-size: var(--ch-text-xs);
   font-weight: var(--ch-weight-semibold);
@@ -115,17 +119,24 @@
 .options {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .option {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: var(--ch-space-2);
   padding: var(--ch-space-2);
   font-size: var(--ch-text-base);
   color: var(--ch-color-text);
   border-radius: var(--ch-radius-sm);
   cursor: pointer;
+  text-align: left;
+}
+
+.option > svg {
+  flex: none;
 }
 
 .optionActive {

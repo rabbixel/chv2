@@ -21,9 +21,10 @@ export interface CharacterCategoryWithCount {
 
 export interface CharacterCategoriesProps {
   categories: CharacterCategoryWithCount[];
+  copy?: { eyebrow?: string; heading?: string; description?: string };
 }
 
-export async function CharacterCategories({ categories }: CharacterCategoriesProps) {
+export async function CharacterCategories({ categories, copy }: CharacterCategoriesProps) {
   const productService = getProductService();
   const categoriesWithImages = await Promise.all(
     categories.map(async (category) => {
@@ -42,9 +43,9 @@ export async function CharacterCategories({ categories }: CharacterCategoriesPro
   return (
     <section aria-labelledby="characters-heading">
       <SectionHeading
-        eyebrow="Same character, every pose"
-        title="Featured Character Categories"
-        copy="Consistent characters in varied actions and poses — mythology, professions, culture and festivals."
+        eyebrow={copy?.eyebrow ?? "Same character, every pose"}
+        title={copy?.heading ?? "Featured Character Categories"}
+        copy={copy?.description ?? "Consistent characters in varied actions and poses — mythology, professions, culture and festivals."}
       />
       <h2 id="characters-heading" className="ch-visually-hidden">
         Featured character categories

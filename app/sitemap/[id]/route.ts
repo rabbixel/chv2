@@ -1,8 +1,11 @@
 import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
+import { canonicalUrlForPath } from "@/lib/seo-canonical";
+import { uniqueCollectionSitemapSlugs } from "@/lib/creative-hatti/collections";
 import {
   getCategoryService,
   getCollectionService,
+  getCollectionDirectoryService,
   getProductService,
 } from "@/lib/services";
 
@@ -63,6 +66,15 @@ export async function GET(
       getCategoryService().listCategories(),
       getCollectionService().listCollections(),
     ]);
+    const directorySlugs =
+      await getCollectionDirectoryService().listSitemapSlugs(
+        categories.map((category) => category.slug),
+      );
+    const collectionSlugs = uniqueCollectionSitemapSlugs(
+      collections.map((collection) => collection.slug),
+      directorySlugs,
+      categories.map((category) => category.slug),
+    );
     return xmlResponse([
       urlEntry(SITE.url, { changeFrequency: "daily", priority: 1 }),
       ...categories.map((category) =>
@@ -71,8 +83,8 @@ export async function GET(
           priority: 0.7,
         }),
       ),
-      ...collections.map((collection) =>
-        urlEntry(`${SITE.url}${routes.collection(collection.slug)}`, {
+      ...collectionSlugs.map((slug) =>
+        urlEntry(`${SITE.url}${routes.collection(slug)}`, {
           changeFrequency: "weekly",
           priority: 0.7,
         }),
@@ -82,7 +94,11 @@ export async function GET(
 
   const { items } = await getProductService().getSitemapBatch(id, PRODUCT_CHUNK_SIZE);
   return xmlResponse(items.map((product) =>
-    urlEntry(product.canonicalUrl || `${SITE.url}${routes.product(product.slug)}`, {
+    urlEntry(canonicalUrlForPath(
+      product.canonicalUrl,
+      SITE.url,
+      routes.product(product.slug),
+    ), {
       lastModified: product.updatedAt,
       changeFrequency: "weekly",
       priority: 0.8,

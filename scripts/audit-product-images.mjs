@@ -62,12 +62,12 @@ const phpExe = option("--php-exe", "C:/laragon/bin/php/php-8.3.33-Win32-vs16-x64
 
 const productionHost = (() => {
   try {
-    const configured = new URL(process.env.WORDPRESS_URL || "https://www.creativehatti.com");
+    const configured = new URL(process.env.WORDPRESS_URL || "https://api.creativehatti.com");
     return ["creativehatti.test", "www.creativehatti.test"].includes(configured.hostname)
-      ? "www.creativehatti.com"
+      ? "api.creativehatti.com"
       : configured.host;
   } catch {
-    return "www.creativehatti.com";
+    return "api.creativehatti.com";
   }
 })();
 

@@ -14,6 +14,7 @@ import type {
   SearchFilters,
   SearchParams,
   SearchSortKey,
+  ImageOrientation,
   Slug,
 } from "@/lib/types";
 
@@ -28,6 +29,9 @@ export interface ListingParams {
   files: string[];
   apps: string[];
   collection?: Slug;
+  orientation?: ImageOrientation;
+  density?: "compact" | "comfortable";
+  overlay?: "hover" | "always";
   page: number;
 }
 
@@ -50,6 +54,7 @@ const SORT_KEYS: SearchSortKey[] = [
   "rating",
   "best-selling",
 ];
+const ORIENTATIONS: ImageOrientation[] = ["all", "landscape", "portrait", "square"];
 
 function asList(
   value: string | string[] | undefined,
@@ -81,6 +86,11 @@ export function parseListingParams(
       : searchParams.avail
   ) as AvailabilityFilter | undefined;
   const rawCollection = searchParams.collection;
+  const rawOrientation = Array.isArray(searchParams.orientation)
+    ? searchParams.orientation[0]
+    : searchParams.orientation;
+  const rawDensity = Array.isArray(searchParams.density) ? searchParams.density[0] : searchParams.density;
+  const rawOverlay = Array.isArray(searchParams.overlay) ? searchParams.overlay[0] : searchParams.overlay;
 
   return {
     q: (Array.isArray(rawQuery) ? rawQuery[0] : rawQuery)?.trim() ?? "",
@@ -98,6 +108,11 @@ export function parseListingParams(
     collection: (
       Array.isArray(rawCollection) ? rawCollection[0] : rawCollection
     )?.trim() || undefined,
+    orientation: ORIENTATIONS.includes(rawOrientation as ImageOrientation)
+      ? rawOrientation as ImageOrientation
+      : "all",
+    density: rawDensity === "compact" ? "compact" : "comfortable",
+    overlay: rawOverlay === "always" ? "always" : "hover",
     page: Math.max(1, asInt(searchParams.page) ?? 1),
   };
 }
@@ -116,6 +131,7 @@ export function toSearchParams(
   if (params.files.length > 0) filters.fileTypes = params.files;
   if (params.apps.length > 0) filters.compatibleWith = params.apps;
   if (params.collection) filters.collection = params.collection;
+  if (params.orientation && params.orientation !== "all") filters.orientation = params.orientation;
 
   return {
     query: params.q,
@@ -141,6 +157,9 @@ export function buildListingHref(
   for (const file of params.files) search.append("file", file);
   for (const app of params.apps) search.append("app", app);
   if (params.collection) search.set("collection", params.collection);
+  if (params.orientation && params.orientation !== "all") search.set("orientation", params.orientation);
+  if (params.density && params.density !== "comfortable") search.set("density", params.density);
+  if (params.overlay && params.overlay !== "hover") search.set("overlay", params.overlay);
   if (params.page > 1) search.set("page", String(params.page));
   const query = search.toString();
   return query ? `${basePath}?${query}` : basePath;
@@ -164,6 +183,7 @@ export function countActiveFilters(params: ListingParams): number {
     params.files.length +
     params.apps.length +
     (params.collection ? 1 : 0)
+    + (params.orientation && params.orientation !== "all" ? 1 : 0)
   );
 }
 

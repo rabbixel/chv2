@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function CollectionsPage() {
   const entries = await getCollectionDirectoryService().listEntries();
-  return <Container><div className={styles.page}>
+  return <Container size="wide"><div className={styles.page}>
     <Breadcrumbs items={[{ label: "Home", href: routes.home() }, { label: "Collections" }]} />
     <header className={styles.heading}><h1>Browse all Collections</h1></header>
     <ul className={styles.grid}>

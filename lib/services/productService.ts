@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { products } from "@/data/products";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
@@ -10,6 +11,7 @@ import {
 import {
   selectGalleryImages,
 } from "@/lib/creative-hatti/image-matching.mjs";
+import { selectPopularFreeCharacters } from "@/lib/creative-hatti/popular-free-characters.mjs";
 import {
   apiCategorySlug,
   paginatedFromApi,
@@ -54,17 +56,56 @@ export interface ProductListParams extends PaginationParams {
 export interface ProductService {
   listProducts(params?: ProductListParams): Promise<Paginated<Product>>;
   getProductById(id: string): Promise<Product | null>;
+  /** Resolve a bounded ordered manual homepage selection, then refresh availability in one batch. */
+  getProductsByIds(ids: string[]): Promise<Product[]>;
   getProductBySlug(slug: Slug): Promise<Product | null>;
   /** Fresh product/variation data for server-side cart mutations. */
   getProductForQuickAdd(slug: Slug): Promise<Product | null>;
   listRelatedProducts(slug: Slug, limit?: number): Promise<Product[]>;
   listFeaturedProducts(limit?: number): Promise<Product[]>;
   listBestsellers(limit?: number): Promise<Product[]>;
+  /** Free character artwork ordered by the indexed EDD sales count. */
+  listPopularFreeCharacters(limit?: number): Promise<Product[]>;
   listNewArrivals(limit?: number): Promise<Product[]>;
   getSitemapBatch(page: number, pageSize: number): Promise<{
     total: number;
     items: Array<{ slug: string; updatedAt?: string; canonicalUrl?: string }>;
   }>;
+}
+
+const POPULAR_FREE_CHARACTER_CANDIDATE_LIMIT = 32;
+const MAX_POPULAR_FREE_CHARACTERS = 8;
+
+/**
+ * Search is the shared authoritative source for free-only filtering and EDD
+ * popularity. Keep the candidate page bounded so the homepage makes one
+ * indexed-search request and one batched availability refresh at most.
+ */
+async function searchPopularFreeCharacters(limit = MAX_POPULAR_FREE_CHARACTERS): Promise<Product[]> {
+  const safeLimit = Math.max(0, Math.min(MAX_POPULAR_FREE_CHARACTERS, Math.floor(limit)));
+  if (safeLimit === 0) return [];
+
+  try {
+    // Dynamic import avoids the search/product availability service cycle.
+    const { getSearchService } = await import("./searchService");
+    const result = await getSearchService().searchProducts({
+      query: "",
+      filters: {
+        groups: ["freebies"],
+        availability: "free",
+      },
+      sort: "best-selling",
+      page: 1,
+      pageSize: POPULAR_FREE_CHARACTER_CANDIDATE_LIMIT,
+    });
+
+    // The live catalog stores free character art in the freebies group with
+    // people/portrait subcategories; it is distinct from paid character bundles.
+    return selectPopularFreeCharacters(result.items, safeLimit);
+  } catch (error) {
+    console.error("Popular free character search is unavailable; returning no products.", error);
+    return [];
+  }
 }
 
 /* ------------------------------ Mock ------------------------------ */
@@ -134,6 +175,14 @@ class MockProductService implements ProductService {
     return products.find((product) => product.id === id) ?? null;
   }
 
+  async getProductsByIds(ids: string[]): Promise<Product[]> {
+    const selected = new Set(ids.slice(0, 8));
+    return ids.slice(0, 8).flatMap((id) => {
+      const product = products.find((item) => item.id === id);
+      return product && selected.has(product.id) ? [product] : [];
+    });
+  }
+
   async listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
     const current = products.find((product) => product.slug === slug);
     if (!current) return [];
@@ -168,6 +217,10 @@ class MockProductService implements ProductService {
       .sort(SORT_FNS["best-selling"])
       .filter((product) => product.bestseller)
       .slice(0, limit);
+  }
+
+  async listPopularFreeCharacters(limit = MAX_POPULAR_FREE_CHARACTERS): Promise<Product[]> {
+    return searchPopularFreeCharacters(limit);
   }
 
   async listNewArrivals(limit = 8): Promise<Product[]> {
@@ -279,8 +332,27 @@ class ApiProductService implements ProductService {
     }
   }
 
+  async getProductsByIds(ids: string[]): Promise<Product[]> {
+    const orderedIds = Array.from(new Set(ids.filter((id) => /^[1-9][0-9]{0,9}$/.test(id)))).slice(0, 8);
+    const resolved = await mapWithConcurrency(orderedIds, 4, async (id) => {
+      try {
+        const result = await apiFetch<ChApiEnvelope<ChApiProductDetail>>(apiEndpoints.products.byId(id), {
+          revalidate: REVALIDATE_SECONDS.product,
+          tags: [cacheTags.product(id)],
+        });
+        return productFromApi(result.data);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    });
+    const productsInOrder = resolved.filter((product): product is Product => product !== null);
+    const refreshed = await refreshProductAvailability(productsInOrder);
+    return refreshed.filter((product) => product.status === "active");
+  }
+
   async listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
-    const current = await this.getProductBySlug(slug);
+    const current = await getCachedProductBySlug(slug);
     const categorySlug = current?.categorySlugs[0];
     if (!categorySlug) return [];
     const result = await this.listProducts({
@@ -302,11 +374,26 @@ class ApiProductService implements ProductService {
   }
 
   async listBestsellers(limit = 8): Promise<Product[]> {
-    const result = await this.listProducts({
-      sort: "best-selling",
-      pageSize: limit,
-    });
-    return result.items;
+    try {
+      // The products endpoint ignores best-selling. Use the indexed EDD sales
+      // ranking; if it is unavailable, omit this section instead of presenting
+      // newest products as best sellers.
+      const { getSearchService } = await import("./searchService");
+      const result = await getSearchService().searchProducts({
+        query: "",
+        page: 1,
+        pageSize: limit,
+        sort: "best-selling",
+      });
+      return result.items;
+    } catch (error) {
+      console.error("Best seller ranking is unavailable; returning no products.", error);
+      return [];
+    }
+  }
+
+  async listPopularFreeCharacters(limit = MAX_POPULAR_FREE_CHARACTERS): Promise<Product[]> {
+    return searchPopularFreeCharacters(limit);
   }
 
   async listNewArrivals(limit = 8): Promise<Product[]> {
@@ -437,6 +524,15 @@ export function getProductService(): ProductService {
       : new MockProductService();
   return cached;
 }
+
+/**
+ * Deduplicate product detail work within one React server render. The
+ * availability overlay remains no-store and is refreshed on later requests.
+ */
+export const getCachedProductBySlug = cache(
+  (slug: Slug): Promise<Product | null> =>
+    getProductService().getProductBySlug(slug),
+);
 
 /** Resolve account purchase artwork through the same product service as cart. */
 export async function resolveProductImagesByUrl(

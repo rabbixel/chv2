@@ -1,0 +1,158 @@
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ch-space-2);
+  width: 100%;
+  min-height: 16rem;
+}
+
+.row {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.tile {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--ch-neutral-100);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-sm);
+}
+
+.tile:focus-visible { outline: 2px solid var(--ch-focus-ring-color); outline-offset: 2px; }
+
+.imageLink {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--ch-neutral-100);
+}
+
+.imageLink:hover { text-decoration: none; }
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.missingImage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ch-color-text-muted);
+  font-size: var(--ch-text-sm);
+  background: var(--ch-neutral-100);
+}
+
+.quickActions {
+  position: absolute;
+  z-index: 3;
+  top: var(--ch-space-2);
+  right: var(--ch-space-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ch-space-1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ch-duration-fast) var(--ch-ease-out);
+}
+
+.tile:focus-visible .quickActions,
+.tile:has(.quickActions :focus-visible) .quickActions,
+.tile:has(.overlay :focus-visible) .quickActions,
+.tile[data-overlay-mode="always"] .quickActions,
+.tile[data-details-open="true"] .quickActions { opacity: 1; pointer-events: auto; }
+
+.quickActions :global(.root) { display: block; }
+.quickActions :global(button), .quickActions .wishlistAction {
+  display: grid;
+  place-items: center;
+  width: calc(var(--ch-space-8) + var(--ch-space-1));
+  min-width: calc(var(--ch-space-8) + var(--ch-space-1));
+  height: calc(var(--ch-space-8) + var(--ch-space-1));
+  min-height: calc(var(--ch-space-8) + var(--ch-space-1));
+  padding: 0;
+  color: var(--ch-color-text-inverse);
+  background: color-mix(in srgb, var(--ch-neutral-950) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ch-neutral-50) 60%, transparent);
+  border-radius: var(--ch-radius-sm);
+  box-shadow: none;
+}
+
+.quickActions :global(button:hover:not(:disabled)), .quickActions .wishlistAction:hover {
+  color: var(--ch-color-text-inverse);
+  background: var(--ch-color-brand-strong);
+  transform: none;
+}
+
+.quickActions :global(button:focus-visible), .quickActions .wishlistAction:focus-visible,
+.eyeAction:focus-visible, .title:focus-visible {
+  outline: 2px solid var(--ch-color-surface);
+  outline-offset: 2px;
+}
+
+.overlay {
+  position: absolute;
+  z-index: 2;
+  inset: auto 0 0;
+  display: flex;
+  align-items: flex-end;
+  padding: var(--ch-space-2) var(--ch-space-3);
+  color: var(--ch-color-text-inverse);
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--ch-neutral-950) 70%, transparent) 34%,
+    color-mix(in srgb, var(--ch-neutral-950) 96%, transparent) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ch-duration-fast) var(--ch-ease-out);
+}
+
+.tile:focus-visible .overlay,
+.tile:has(.quickActions :focus-visible) .overlay,
+.tile:has(.overlay :focus-visible) .overlay,
+.tile[data-overlay-mode="always"] .overlay,
+.tile[data-details-open="true"] .overlay {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover .quickActions { opacity: 1; pointer-events: auto; }
+  .tile:hover .overlay,
+  .tile:hover .overlayContent { opacity: 1; pointer-events: auto; }
+}
+
+.overlayContent { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: end; gap: var(--ch-space-1) var(--ch-space-2); width: 100%; min-width: 0; pointer-events: none; }
+.tile:focus-visible .overlayContent,
+.tile:has(.quickActions :focus-visible) .overlayContent,
+.tile:has(.overlay :focus-visible) .overlayContent,
+.tile[data-overlay-mode="always"] .overlayContent,
+.tile[data-details-open="true"] .overlayContent { pointer-events: auto; }
+.title { grid-column: 1; grid-row: 1; display: block; min-width: 0; overflow: hidden; color: var(--ch-color-surface); font-family: var(--ch-font-display); font-size: var(--ch-text-sm); font-weight: var(--ch-weight-semibold); line-height: 1.3; text-decoration: none; text-overflow: ellipsis; text-shadow: 0 1px 3px color-mix(in srgb, var(--ch-neutral-950) 90%, transparent); white-space: nowrap; }
+.overlay .title:link, .overlay .title:visited, .overlay .title:hover, .overlay .title:focus, .overlay .title:active, .overlay .title:focus-visible { color: var(--ch-color-surface); text-decoration: none; }
+.category { grid-column: 1; grid-row: 2; min-width: 0; margin: 0; overflow: hidden; color: var(--ch-color-text-inverse); font-size: var(--ch-text-xs); line-height: 1.3; text-overflow: ellipsis; text-shadow: 0 1px 2px color-mix(in srgb, var(--ch-neutral-950) 90%, transparent); white-space: nowrap; }
+.eyeAction { position: relative; grid-column: 2; grid-row: 1 / 3; align-self: end; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: calc(var(--ch-space-8) + var(--ch-space-1)); height: calc(var(--ch-space-8) + var(--ch-space-1)); color: var(--ch-color-text-inverse); background: color-mix(in srgb, var(--ch-neutral-950) 78%, transparent); border: 1px solid color-mix(in srgb, var(--ch-neutral-50) 60%, transparent); border-radius: var(--ch-radius-sm); text-decoration: none; }
+.eyeAction:hover, .eyeAction:visited, .eyeAction:focus-visible { color: var(--ch-color-text-inverse); background: var(--ch-color-brand-strong); text-decoration: none; }
+.eyeAction::after { position: absolute; right: 0; bottom: calc(100% + var(--ch-space-2)); padding: var(--ch-space-1) var(--ch-space-2); color: var(--ch-color-text-inverse); background: var(--ch-neutral-950); border-radius: var(--ch-radius-sm); content: attr(data-tooltip); font-family: var(--ch-font-sans); font-size: var(--ch-text-xs); font-weight: var(--ch-weight-medium); opacity: 0; pointer-events: none; white-space: nowrap; }
+.eyeAction:hover::after, .eyeAction:focus-visible::after { opacity: 1; }
+
+@media (pointer: coarse) {
+  .overlay { padding-inline: var(--ch-space-2); }
+  .quickActions :global(button), .quickActions .wishlistAction, .eyeAction { width: calc(var(--ch-space-10) + var(--ch-space-1)); min-width: calc(var(--ch-space-10) + var(--ch-space-1)); height: calc(var(--ch-space-10) + var(--ch-space-1)); min-height: calc(var(--ch-space-10) + var(--ch-space-1)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay { transition: none; }
+}

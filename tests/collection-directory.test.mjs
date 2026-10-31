@@ -5,7 +5,7 @@ import ts from "typescript";
 
 const source = await readFile(new URL("../lib/creative-hatti/collections.ts", import.meta.url), "utf8");
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } });
-const { decodeWordPressPlainText, parseCollectionCards, collectionGridQuery } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
+const { decodeWordPressPlainText, parseCollectionCards, collectionGridQuery, needsCollectionCountLookup, uniqueCollectionSitemapSlugs } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
 
 test("decodes WordPress entities into safe plain-text product titles", () => {
   assert.equal(decodeWordPressPlainText("Betty&#8217;s Cakes &amp; More"), "Betty’s Cakes & More");
@@ -27,4 +27,23 @@ test("does not turn malformed links or missing attachments into cards", () => {
 test("extracts the legacy grid query without executing shortcodes", () => {
   assert.equal(collectionGridQuery('[grid_plus name=&#8221;Nurses Day&#8221;]'), "Nurses Day");
   assert.equal(collectionGridQuery("<p>No grid</p>"), undefined);
+});
+
+test("uses editorial collection counts without issuing extra search count requests", () => {
+  assert.equal(needsCollectionCountLookup({ slug: "diwali", title: "Diwali", mediaId: 1, countLabel: "315+ Items" }), false);
+  assert.equal(needsCollectionCountLookup({ slug: "uncounted", title: "Uncounted", mediaId: 2 }), true);
+});
+
+test("includes directory collections in the sitemap once and excludes category routes", () => {
+  assert.deepEqual(
+    uniqueCollectionSitemapSlugs(["diwali", "curated-only"], ["diwali", "directory-only", "images"], ["images"]),
+    ["diwali", "curated-only", "directory-only"],
+  );
+});
+
+test("collections stay on curated service data and never request the absent API route", async () => {
+  const source = await readFile(new URL("../lib/services/collectionService.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /apiFetch|apiEndpoints\.collections/);
+  assert.match(source, /cached \?\?= new MockCollectionService\(\)/);
+  assert.match(source, /listSeasonal\(\)[\s\S]*?collection\.seasonal/);
 });

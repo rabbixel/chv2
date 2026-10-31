@@ -228,18 +228,21 @@ Media fields return normalized attachment DTOs using safe WordPress attachment U
 
 ## CORS
 
-The plugin does not enable wildcard CORS. For local development, configure allowed frontend origins with:
+WordPress core reflects the request origin and enables credentials on REST
+responses. This plugin removes those reflected origin/credential headers for
+`ch/v1` responses and re-adds them only for exact configured origins. The
+server-to-server Next.js integration does not depend on CORS.
 
-```php
-add_filter(
-	'ch_api_allowed_origins',
-	static function () {
-		return array( 'http://localhost:3000' );
-	}
-);
-```
+Configure browser origins per environment with the PHP process environment
+variable `CH_API_ALLOWED_ORIGINS` as a comma-separated list of origins, with
+scheme and optional port but no path. For example, the local `.test` setup
+defaults to `http://localhost:3000`; production has no implicit origins and
+must be configured explicitly if browser CORS is required. A site-specific
+`ch_api_allowed_origins` filter can also supply the allowlist. An explicitly
+empty environment variable disables cross-origin access.
 
-Only `ch/v1` responses are considered for this optional CORS behavior.
+Only `ch/v1` responses are restricted by this plugin; WordPress core behavior
+for other REST namespaces is left unchanged.
 
 ## Known Legacy Data Issues
 
