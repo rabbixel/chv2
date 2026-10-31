@@ -154,25 +154,28 @@ class WordPressCollectionDirectoryService implements CollectionDirectoryService 
     const cards = await this.cards();
     const ids = [...new Set(cards.map((c) => c.mediaId))];
     const media: WordPressMedia[] = [];
-    // Individual attachment routes work on the legacy installation; cap concurrency.
-    // Keep build-time WordPress load low and tolerate missing/temporarily unavailable media.
-    for (const id of ids) {
-      let item: WordPressMedia | undefined;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          item = await this.image(id);
-          break;
-        } catch (error) {
-          const retryable = error instanceof Error && "status" in error &&
-            typeof error.status === "number" && error.status >= 500;
-          if (!retryable || attempt === 2) {
-            console.warn("[CH collections] Media unavailable", { id, attempt: attempt + 1 });
-            break;
+    // Fetch attachments in small bounded batches instead of a long serial waterfall.
+    // Two concurrent requests limit pressure on the WordPress database.
+    const MEDIA_CONCURRENCY = 2;
+    for (let offset = 0; offset < ids.length; offset += MEDIA_CONCURRENCY) {
+      const batch = ids.slice(offset, offset + MEDIA_CONCURRENCY);
+      const results = await Promise.all(batch.map(async (id): Promise<WordPressMedia | undefined> => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            return await this.image(id);
+          } catch (error) {
+            const retryable = error instanceof Error && "status" in error &&
+              typeof error.status === "number" && error.status >= 500;
+            if (!retryable || attempt === 2) {
+              console.warn("[CH collections] Media unavailable", { id, attempt: attempt + 1 });
+              return undefined;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
           }
-          await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
         }
-      }
-      if (item) media.push(item);
+        return undefined;
+      }));
+      media.push(...results.filter((item): item is WordPressMedia => item !== undefined));
     }
     const categories = await getCategoryService().listCategories();
     const collectionCards = cards.filter(
