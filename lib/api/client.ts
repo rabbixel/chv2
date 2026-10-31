@@ -78,7 +78,13 @@ export async function apiFetch<TResponse>(
     }
   }
 
-  const response = await fetch(url.toString(), {
+  // Retry only public, cacheable GET reads on temporary upstream failures.
+  // Never retry writes, authenticated requests, or no-store reads.
+  const retryableRead = (options.method ?? "GET") === "GET" &&
+    options.cache !== "no-store" && !options.headers;
+  let response: Response;
+  for (let attempt = 0; ; attempt++) {
+    response = await fetch(url.toString(), {
     method: options.method ?? "GET",
     redirect: options.redirect,
     headers: { "Content-Type": "application/json", ...options.headers },
@@ -90,7 +96,13 @@ export async function apiFetch<TResponse>(
       : options.revalidate === undefined && options.tags === undefined
         ? undefined
         : { revalidate: options.revalidate, tags: options.tags },
-  });
+    });
+    if (!retryableRead || ![500, 502, 503, 504].includes(response.status) || attempt >= 2) {
+      break;
+    }
+    await response.body?.cancel();
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
 
   if (!response.ok) {
     // Temporary diagnostics: do not log query values, credentials, or response bodies.
