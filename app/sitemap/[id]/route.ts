@@ -10,6 +10,8 @@ import {
 } from "@/lib/services";
 
 export const revalidate = 3_600;
+// Generate on request instead of depending on WordPress at build time.
+export const dynamic = "force-dynamic";
 const PRODUCT_CHUNK_SIZE = 48;
 
 function xmlEscape(value: string): string {
