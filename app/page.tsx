@@ -89,41 +89,41 @@ export default async function HomePage() {
       <Hero categories={navCategories} popularSearches={popularSearches.map((item) => item.searchQuery)} products={choice} config={homepageSections.hero} />
       {content.copy.popular_searches.visible && <PopularSearches searches={popularSearches} heading={content.copy.popular_searches.heading} />}
 
-      {content.copy.discovery.visible && <Container>
+      {content.copy.discovery.visible && <Container size="wide">
         <div className={styles.section}>
           <DiscoveryGrid tiles={content.discoveryTiles} copy={content.copy.discovery} />
         </div>
       </Container>}
 
       {content.copy.hatti_choice.visible && <div className={styles.band}>
-        <Container>
+        <Container size="wide">
           <div className={styles.section}>
             <HattiChoice products={choice} copy={content.copy.hatti_choice} />
           </div>
         </Container>
       </div>}
 
-      {content.copy.character_categories.visible && <Container>
+      {content.copy.character_categories.visible && <Container size="wide">
         <div className={styles.section}>
           <CharacterCategories categories={characters} copy={content.copy.character_categories} />
         </div>
       </Container>}
 
-      {content.copy.popular_freebies.visible && <Container>
+      {content.copy.popular_freebies.visible && <Container size="wide">
         <div className={styles.section}>
           <PopularFreebies products={popularFreeCharacters} copy={content.copy.popular_freebies} />
         </div>
       </Container>}
 
       {content.copy.featured_packs.visible && <div className={styles.band}>
-        <Container>
+        <Container size="wide">
           <div className={styles.section}>
             <FeaturedPacks packs={featuredPacks} copy={content.copy.featured_packs} />
           </div>
         </Container>
       </div>}
 
-      <Container>
+      <Container size="wide">
         {content.copy.seasonal_collections.visible && <div className={styles.section}><SeasonalCollections items={content.seasonalCollections} copy={content.copy.seasonal_collections} /></div>}
         {content.copy.popular_themes.visible && <div className={`${styles.section} ${styles.tight}`}><TrendingKeywords keywords={content.keywords} heading={content.copy.popular_themes.heading} eyebrow={content.copy.popular_themes.eyebrow} description={content.copy.popular_themes.description} /></div>}
         {content.copy.trusted_clients.visible && <div className={`${styles.section} ${styles.tight}`}><TrustedBy brands={content.trustedBrands} copy={content.copy.trusted_clients} /></div>}

@@ -134,7 +134,7 @@ export default async function CategoryPage({
   const parent = parentSlug ? getGroup(parentSlug) : null;
 
   return (
-    <Container>
+    <Container size="wide">
       <div className={listingStyles.page}>
         <Breadcrumbs
           items={[

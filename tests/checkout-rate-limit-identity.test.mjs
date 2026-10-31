@@ -22,7 +22,7 @@ async function loadProxy() {
   const mod = new Module("proxy.ts");
   mod.require = (name) => name === "next/server" ? { NextResponse } : require(name);
   mod._compile(compiled, "proxy.ts");
-  return { proxy: mod.exports.proxy, get forwarded() { return forwarded; }, get cookie() { return cookie; } };
+  return { proxy: mod.exports.proxy, config: mod.exports.config, get forwarded() { return forwarded; }, get cookie() { return cookie; } };
 }
 
 async function loadOriginGuard() {
@@ -39,6 +39,27 @@ async function loadOriginGuard() {
           : name === "@/lib/types" ? {} : require(name);
   mod._compile(compiled, "lib/auth.ts");
   return { assertSameOriginRequest: mod.exports.assertSameOriginRequest, setHeaders(value) { current = value; } };
+}
+
+async function loadCheckoutService(rateToken) {
+  const source = await readFile(new URL("../lib/services/checkoutService.ts", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  let apiCalls = 0;
+  let forwarded;
+  const mod = new Module("checkoutService.ts");
+  mod.require = (name) => name === "server-only" ? {}
+    : name === "next/headers" ? { headers: async () => new Headers(rateToken ? { "x-ch-checkout-rate-token": rateToken } : {}) }
+      : name === "@/lib/api/endpoints" ? { apiEndpoints: { checkoutQuote: "/quote", checkoutPrepare: "/prepare" } }
+        : name === "./guestSafeRequest" ? { guestSafeApiFetch: async (_path, options) => {
+            apiCalls++;
+            forwarded = options.headers;
+            return { data: { currency: "INR", subtotal: { amount: 0 }, discount: { amount: 0 }, tax: { amount: 0 }, total: { amount: 0 }, taxes_enabled: false } };
+          } }
+          : name === "./apiMode" ? { isLiveApiEnabled: () => true } : require(name);
+  mod._compile(compiled, "checkoutService.ts");
+  return { service: mod.exports.getCheckoutService(), get apiCalls() { return apiCalls; }, get forwarded() { return forwarded; } };
 }
 
 test("checkout proxy replaces spoofed headers, signs a browser token, and reuses only valid cookies", async () => {
@@ -67,6 +88,38 @@ test("checkout proxy replaces spoofed headers, signs a browser token, and reuses
     if (priorSecret === undefined) delete process.env.CH_AUTH_BRIDGE_SECRET;
     else process.env.CH_AUTH_BRIDGE_SECRET = priorSecret;
   }
+});
+
+test("checkout proxy injects its signed rate token on every shared ProductCard listing route", async () => {
+  const { config } = await loadProxy();
+  for (const path of [
+    "/",
+    "/category/:path*",
+    "/collections",
+    "/collections/:path*",
+    "/free-downloads",
+    "/new-arrivals",
+    "/popular",
+    "/product/:path*",
+    "/checkout/:path*",
+  ]) {
+    assert.ok(config.matcher.includes(path), `${path} must pass through the checkout rate-token proxy`);
+  }
+});
+
+test("missing proxy token is the local source of the invalid checkout session message", async () => {
+  const checkout = await loadCheckoutService(undefined);
+  await assert.rejects(
+    checkout.service.quote({ cart: { items: [{ productId: "12", priceId: null, quantity: 1, available: true }] }, billing: { country: "IN", region: "" } }),
+    /Your checkout session is invalid\. Refresh the page and try again\./,
+  );
+  assert.equal(checkout.apiCalls, 0, "failure occurs before a WordPress API request");
+
+  const token = `${"a".repeat(64)}.${"b".repeat(64)}`;
+  const recovered = await loadCheckoutService(token);
+  await recovered.service.quote({ cart: { items: [{ productId: "12", priceId: null, quantity: 1, available: true }] }, billing: { country: "IN", region: "" } });
+  assert.equal(recovered.apiCalls, 1);
+  assert.equal(recovered.forwarded["X-CH-Checkout-Rate-Token"], token);
 });
 
 test("state-changing account, cart, checkout, and free-checkout actions require explicit same-origin validation", async () => {

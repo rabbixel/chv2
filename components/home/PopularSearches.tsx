@@ -12,7 +12,7 @@ export interface PopularSearchesProps {
 export function PopularSearches({ searches, heading = "Popular Searches" }: PopularSearchesProps) {
   return (
     <section aria-labelledby="popular-searches-heading" className={styles.section}>
-      <div className="ch-container">
+      <div className="ch-container ch-container--wide">
         <div className={styles.inner}>
           <h2 id="popular-searches-heading" className={styles.heading}>
             <Icon name="trend" size={18} />

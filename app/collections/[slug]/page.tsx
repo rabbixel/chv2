@@ -110,7 +110,7 @@ export default async function CollectionPage({
   const { items, pagination } = result;
 
   return (
-    <Container>
+    <Container size="wide">
       <div className={listingStyles.page}>
         <Breadcrumbs
           items={[{ label: "Home", href: "/" }, { label: collection.title }]}

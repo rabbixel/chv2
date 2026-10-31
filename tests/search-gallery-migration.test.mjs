@@ -82,3 +82,39 @@ test("shared search suggestions override inherited alignment and keep rows compa
   assert.match(css, /\.optionLabel\s*\{[^}]*flex:\s*1[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/s);
   assert.match(css, /\.panel\s*\{[^}]*left:\s*0[^}]*right:\s*0/s);
 });
+
+test("header rows reuse the wide search-results container and shared gutters", async () => {
+  const [header, nav, search] = await Promise.all([
+    readFile(new URL("../components/layout/SiteHeader.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/layout/PrimaryNav.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
+  ]);
+  const globalCss = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const tokens = await readFile(new URL("../styles/tokens.css", import.meta.url), "utf8");
+
+  assert.match(header, /ch-container ch-container--wide \$\{styles\.mainInner\}/);
+  assert.match(nav, /className="ch-container ch-container--wide"/);
+  assert.match(search, /<Container size="wide">/);
+  assert.match(globalCss, /\.ch-container--wide\s*\{[^}]*max-width:\s*var\(--ch-container-xl\)/s);
+  assert.match(tokens, /--ch-container-xl:\s*1360px/);
+  assert.match(globalCss, /padding-inline:\s*var\(--ch-gutter\)/);
+});
+
+test("catalogue archive routes use the wide container and preserve the three-column desktop grid", async () => {
+  const [category, collection, collectionDirectory, listingCss, gridCss] = await Promise.all([
+    readFile(new URL("../app/category/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/collections/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/collections/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/search/ListingPage.module.css", import.meta.url), "utf8"),
+    readFile(new URL("../components/product/ProductGrid.module.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(category, /<Container size="wide">/);
+  assert.match(collection, /<Container size="wide">/);
+  assert.match(collectionDirectory, /<Container size="wide">/);
+  assert.match(listingCss, /grid-template-columns:\s*16rem minmax\(0, 1fr\)/);
+  assert.match(listingCss, /column-gap:\s*var\(--ch-space-10\)/);
+  assert.match(gridCss, /@container product-grid \(min-width:\s*48rem\)[\s\S]*?repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(gridCss, /@container product-grid \(min-width:\s*64rem\)[\s\S]*?repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.equal(1360 - 48 - 256 - 40, 1016, "max-width category results remain below the four-column threshold");
+});

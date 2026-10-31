@@ -2,6 +2,8 @@
 export interface HomepageHeroImage<TImage> {
   mode: "default" | "custom";
   image?: TImage | null;
+  destinationType: "default_product" | "search" | "custom_url";
+  searchKeyword: string;
   href?: string;
 }
 
@@ -31,7 +33,13 @@ export interface HomepageHeroOverride<TImage> {
   description?: { mode?: string; value?: string | null };
   search_placeholder?: { mode?: string; value?: string | null };
   search_button_text?: { mode?: string; value?: string | null };
-  images?: Array<{ mode?: string; image?: TImage | null; link_url?: string }>;
+  images?: Array<{
+    mode?: string;
+    image?: TImage | null;
+    link_url?: string;
+    destination_type?: string;
+    search_keyword?: string;
+  }>;
   stats?: Array<{ mode?: string; value?: string | null; label?: string | null; visible?: boolean }>;
 }
 
@@ -56,8 +64,20 @@ function customValue<T>(field: { mode?: string; value?: T | null } | undefined, 
 export function resolveHomepageHero<TImage>(override?: HomepageHeroOverride<TImage> | null): HomepageHeroConfig<TImage> {
   const images = Array.from({ length: 4 }, (_, index) => {
     const item = override?.images?.[index];
-    if (item?.mode !== "custom") return { mode: "default" as const };
-    return { mode: "custom" as const, image: item.image ?? null, href: item.link_url || undefined };
+    const legacyCustomUrl = Boolean(item?.link_url);
+    const validDestination = item?.destination_type === "search"
+      || item?.destination_type === "custom_url"
+      || item?.destination_type === "default_product";
+    const destinationType = validDestination
+      ? item.destination_type as HomepageHeroImage<TImage>["destinationType"]
+      : legacyCustomUrl ? "custom_url" : "default_product";
+    const base = {
+      destinationType,
+      searchKeyword: destinationType === "search" ? item?.search_keyword ?? "" : "",
+      href: destinationType === "custom_url" ? item?.link_url || undefined : undefined,
+    };
+    if (item?.mode !== "custom") return { mode: "default" as const, ...base };
+    return { mode: "custom" as const, image: item.image ?? null, ...base };
   });
   const stats = defaultHero.stats.map((fallback, index) => {
     const item = override?.stats?.[index];

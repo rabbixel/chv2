@@ -222,18 +222,41 @@ final class CH_Home_Sections {
 			$image_input = is_array( $image_input ) ? $image_input : array();
 			$mode = ( $image_input['mode'] ?? 'default' ) === 'custom' ? 'custom' : 'default';
 			$image_id = absint( $image_input['attachment_id'] ?? 0 );
-			if ( $image_id && ! self::image_dto( $image_id ) ) {
+			if ( $image_id && ! self::hero_image_dto( $image_id ) ) {
 				add_settings_error( self::OPTION, 'invalid_hero_image_' . $index, __( 'A Hero image was ignored because it is not a usable image attachment.', 'creative-hatti-home-sections' ) );
 				$image_id = 0;
 			}
-			$link_url = self::sanitize_pack_url( $image_input['link_url'] ?? '' );
-			if ( 'custom' === $mode && ! empty( $image_input['link_url'] ) && ! $link_url ) {
+			$raw_link_url_input = $image_input['link_url'] ?? '';
+			$raw_link_url = is_scalar( $raw_link_url_input ) ? (string) $raw_link_url_input : '';
+			$link_url = self::sanitize_pack_url( $raw_link_url );
+			if ( ! empty( $raw_link_url ) && ! $link_url ) {
 				add_settings_error( self::OPTION, 'invalid_hero_link_' . $index, __( 'A Hero image destination must be an http(s) URL or a site-relative path.', 'creative-hatti-home-sections' ) );
+				$old_image = is_array( $existing_hero['images'][ $index ] ?? null ) ? $existing_hero['images'][ $index ] : array();
+				$link_url = self::sanitize_pack_url( $old_image['link_url'] ?? '' );
+			}
+			$valid_destination_types = array( 'default_product', 'search', 'custom_url' );
+			$destination_type = $image_input['destination_type'] ?? null;
+			if ( null === $destination_type || '' === $destination_type ) {
+				// Older configurations used link_url as the custom destination.
+				$destination_type = $link_url ? 'custom_url' : 'default_product';
+			} elseif ( ! in_array( $destination_type, $valid_destination_types, true ) ) {
+				add_settings_error( self::OPTION, 'invalid_hero_destination_' . $index, __( 'A Hero image destination type was invalid and was reset to the default product.', 'creative-hatti-home-sections' ) );
+				$destination_type = 'default_product';
+			}
+			$raw_search_keyword = $image_input['search_keyword'] ?? '';
+			$search_keyword = is_scalar( $raw_search_keyword ) ? sanitize_text_field( (string) $raw_search_keyword ) : '';
+			if ( 'search' === $destination_type && '' === $search_keyword ) {
+				add_settings_error( self::OPTION, 'missing_hero_search_keyword_' . $index, __( 'Enter a search keyword for each Hero image that links to search results.', 'creative-hatti-home-sections' ) );
+			}
+			if ( 'custom_url' === $destination_type && '' === $link_url ) {
+				add_settings_error( self::OPTION, 'missing_hero_custom_url_' . $index, __( 'Enter a custom URL for each Hero image that uses a custom destination.', 'creative-hatti-home-sections' ) );
 			}
 			$hero['images'][] = array(
 				'mode' => $mode,
 				'attachment_id' => 'custom' === $mode ? $image_id : 0,
-				'link_url' => 'custom' === $mode ? $link_url : '',
+				'destination_type' => $destination_type,
+				'search_keyword' => $search_keyword,
+				'link_url' => $link_url,
 			);
 		}
 		$hero['stats'] = array();
@@ -700,9 +723,10 @@ final class CH_Home_Sections {
 		$default_previews = array();
 		foreach ( (array) $featured_products as $product_id ) {
 			$image_id = get_post_thumbnail_id( absint( $product_id ) );
-			$preview_url = self::admin_attachment_preview_url( $image_id, 'medium' );
+			$preview_url = self::available_attachment_image_url( $image_id, 'medium' );
 			if ( $preview_url ) {
-				$default_previews[] = array( 'id' => $image_id, 'url' => $preview_url );
+				$slug = sanitize_title( get_post_field( 'post_name', absint( $product_id ) ) );
+				$default_previews[] = array( 'id' => $image_id, 'url' => $preview_url, 'href' => $slug ? '/product/' . $slug : '' );
 			}
 			if ( count( $default_previews ) >= 4 ) { break; }
 		}
@@ -741,14 +765,23 @@ final class CH_Home_Sections {
 				</div>
 				<p class="description"><?php esc_html_e( 'Default previews match the current featured-product artwork. Custom with no image intentionally clears that slot.', 'creative-hatti-home-sections' ); ?></p>
 				<div class="ch-home-hero-images">
-					<?php for ( $index = 0; $index < 4; $index++ ) : $image = $hero['images'][ $index ] ?? array(); $image = is_array( $image ) ? $image : array(); $mode = $image['mode'] ?? 'default'; $image_id = absint( $image['attachment_id'] ?? 0 ); $custom_preview_url = self::admin_attachment_preview_url( $image_id, 'medium' ); $default_preview = $default_previews[ $index ] ?? array(); $preview_url = 'custom' === $mode ? $custom_preview_url : ( $default_preview['url'] ?? '' ); ?>
-						<div class="ch-home-hero-image" data-mode="<?php echo esc_attr( $mode ); ?>" data-default-id="<?php echo esc_attr( $default_preview['id'] ?? 0 ); ?>" data-default-src="<?php echo esc_url( $default_preview['url'] ?? '' ); ?>">
+				<?php for ( $index = 0; $index < 4; $index++ ) : $image = $hero['images'][ $index ] ?? array(); $image = is_array( $image ) ? $image : array(); $mode = $image['mode'] ?? 'default'; $image_id = absint( $image['attachment_id'] ?? 0 ); $custom_preview_url = self::available_attachment_image_url( $image_id, 'medium' ); $default_preview = $default_previews[ $index ] ?? array(); $preview_url = 'custom' === $mode ? $custom_preview_url : ( $default_preview['url'] ?? '' ); $destination_type = $image['destination_type'] ?? ( ! empty( $image['link_url'] ) ? 'custom_url' : 'default_product' ); if ( ! in_array( $destination_type, array( 'default_product', 'search', 'custom_url' ), true ) ) { $destination_type = 'default_product'; } $raw_search_keyword = $image['search_keyword'] ?? ''; $search_keyword = is_scalar( $raw_search_keyword ) ? sanitize_text_field( (string) $raw_search_keyword ) : ''; $raw_saved_link = $image['link_url'] ?? ''; $link_url = self::sanitize_pack_url( is_scalar( $raw_saved_link ) ? (string) $raw_saved_link : '' ); $destination_preview = 'search' === $destination_type && $search_keyword ? '/search?q=' . rawurlencode( $search_keyword ) : ( 'custom_url' === $destination_type ? $link_url : ( $default_preview['href'] ?? '' ) ); ?>
+						<div class="ch-home-hero-image" data-mode="<?php echo esc_attr( $mode ); ?>" data-default-id="<?php echo esc_attr( $default_preview['id'] ?? 0 ); ?>" data-default-src="<?php echo esc_url( $default_preview['url'] ?? '' ); ?>" data-default-href="<?php echo esc_attr( $default_preview['href'] ?? '' ); ?>">
 							<div class="ch-home-hero-image-head"><strong><?php echo esc_html( sprintf( __( 'Hero image %d', 'creative-hatti-home-sections' ), $index + 1 ) ); ?></strong><?php self::render_v2_mode_select( 'hero][images][' . $index, $mode, 'Override' ); ?></div>
 							<div class="ch-home-hero-preview-frame"><img class="ch-home-image-preview" src="<?php echo esc_url( $preview_url ); ?>" alt="" <?php echo $preview_url ? '' : 'hidden'; ?>><span class="ch-home-image-empty" <?php echo $preview_url ? 'hidden' : ''; ?>><?php echo esc_html( 'custom' === $mode && $image_id && ! $custom_preview_url ? 'Saved image preview unavailable; selection retained.' : 'No image selected for this slot.' ); ?></span></div>
 							<p class="description ch-home-image-state"><?php echo esc_html( 'custom' === $mode ? ( $custom_preview_url ? 'Custom image override' : ( $image_id ? 'Saved image unavailable; selection retained' : 'Custom image cleared' ) ) : ( $preview_url ? 'Effective default image' : 'No default image available' ) ); ?></p>
 							<input type="hidden" class="ch-home-image-id" name="ch_home_sections[v2][hero][images][<?php echo esc_attr( $index ); ?>][attachment_id]" value="<?php echo esc_attr( $image_id ); ?>">
-							<label class="ch-home-destination"><?php esc_html_e( 'Optional destination URL', 'creative-hatti-home-sections' ); ?><input class="widefat" type="text" inputmode="url" name="ch_home_sections[v2][hero][images][<?php echo esc_attr( $index ); ?>][link_url]" value="<?php echo esc_attr( $image['link_url'] ?? '' ); ?>" placeholder="https:// or /path"></label>
-							<div class="ch-home-artwork-actions"><button type="button" class="button button-primary ch-home-select-hero-image"><?php esc_html_e( 'Choose image', 'creative-hatti-home-sections' ); ?></button><button type="button" class="button ch-home-remove-hero-image" <?php echo 'custom' === $mode && $custom_preview ? '' : 'hidden'; ?>><?php esc_html_e( 'Clear image', 'creative-hatti-home-sections' ); ?></button><button type="button" class="button-link ch-home-restore-image" <?php echo 'custom' === $mode ? '' : 'hidden'; ?>><?php esc_html_e( 'Restore Default', 'creative-hatti-home-sections' ); ?></button></div>
+							<div class="ch-home-destination-controls">
+								<label class="ch-home-destination-type"><?php esc_html_e( 'Click destination', 'creative-hatti-home-sections' ); ?><select class="widefat ch-home-destination-select" name="ch_home_sections[v2][hero][images][<?php echo esc_attr( $index ); ?>][destination_type]">
+									<option value="default_product" <?php selected( $destination_type, 'default_product' ); ?>><?php esc_html_e( 'Default Product', 'creative-hatti-home-sections' ); ?></option>
+									<option value="search" <?php selected( $destination_type, 'search' ); ?>><?php esc_html_e( 'Search Results', 'creative-hatti-home-sections' ); ?></option>
+									<option value="custom_url" <?php selected( $destination_type, 'custom_url' ); ?>><?php esc_html_e( 'Custom URL', 'creative-hatti-home-sections' ); ?></option>
+								</select></label>
+								<label class="ch-home-destination-field" data-destination-field="search" <?php echo 'search' === $destination_type ? '' : 'hidden'; ?>><?php esc_html_e( 'Search keyword', 'creative-hatti-home-sections' ); ?><input class="widefat ch-home-search-keyword" type="text" name="ch_home_sections[v2][hero][images][<?php echo esc_attr( $index ); ?>][search_keyword]" value="<?php echo esc_attr( $search_keyword ); ?>" placeholder="Diwali"></label>
+								<label class="ch-home-destination-field" data-destination-field="custom_url" <?php echo 'custom_url' === $destination_type ? '' : 'hidden'; ?>><?php esc_html_e( 'Custom destination URL', 'creative-hatti-home-sections' ); ?><input class="widefat ch-home-custom-url" type="text" inputmode="url" name="ch_home_sections[v2][hero][images][<?php echo esc_attr( $index ); ?>][link_url]" value="<?php echo esc_attr( $image['link_url'] ?? '' ); ?>" placeholder="https:// or /path"></label>
+								<div class="ch-home-destination-preview"><span><?php esc_html_e( 'Destination preview', 'creative-hatti-home-sections' ); ?></span><output data-destination-preview aria-live="polite"><?php echo esc_html( $destination_preview ?: ( 'default_product' === $destination_type ? __( 'Uses the matching featured product', 'creative-hatti-home-sections' ) : __( 'Enter a value to preview the destination', 'creative-hatti-home-sections' ) ) ); ?></output></div>
+							</div>
+							<div class="ch-home-artwork-actions"><button type="button" class="button button-primary ch-home-select-hero-image"><?php echo esc_html( $image_id ? __( 'Replace image', 'creative-hatti-home-sections' ) : __( 'Choose image', 'creative-hatti-home-sections' ) ); ?></button><button type="button" class="button ch-home-remove-hero-image" <?php echo 'custom' === $mode && $custom_preview_url ? '' : 'hidden'; ?>><?php esc_html_e( 'Clear image', 'creative-hatti-home-sections' ); ?></button><button type="button" class="button-link ch-home-restore-image" <?php echo 'custom' === $mode ? '' : 'hidden'; ?>><?php esc_html_e( 'Restore Default', 'creative-hatti-home-sections' ); ?></button></div>
 						</div>
 					<?php endfor; ?>
 				</div>
@@ -1070,10 +1103,17 @@ final class CH_Home_Sections {
 			$image = is_array( $hero['images'][ $index ] ?? null ) ? $hero['images'][ $index ] : array();
 			$custom = ( $image['mode'] ?? 'default' ) === 'custom';
 			$image_id = absint( $image['attachment_id'] ?? 0 );
+			$link_url = self::sanitize_pack_url( $image['link_url'] ?? '' );
+			$destination_type = $image['destination_type'] ?? ( $link_url ? 'custom_url' : 'default_product' );
+			if ( ! in_array( $destination_type, array( 'default_product', 'search', 'custom_url' ), true ) ) {
+				$destination_type = 'default_product';
+			}
 			$images[] = array(
 				'mode' => $custom ? 'custom' : 'default',
-				'image' => $custom && $image_id ? self::image_dto( $image_id ) : null,
-				'link_url' => $custom ? self::sanitize_pack_url( $image['link_url'] ?? '' ) : '',
+				'image' => $custom && $image_id ? self::hero_image_dto( $image_id ) : null,
+				'destination_type' => $destination_type,
+				'search_keyword' => sanitize_text_field( $image['search_keyword'] ?? '' ),
+				'link_url' => $link_url,
 			);
 		}
 		$stats = array();
@@ -1315,21 +1355,21 @@ final class CH_Home_Sections {
 	}
 
 	/**
-	 * Return a real local image URL for an admin preview, falling back to the
-	 * original attachment when WordPress metadata points at an omitted size.
+	 * Return an existing attachment image URL, falling back to the original
+	 * when WordPress metadata points at an omitted intermediate size.
 	 *
 	 * @param int    $attachment_id Attachment ID.
 	 * @param string $size          Preferred image size.
 	 * @return string
 	 */
-	private static function admin_attachment_preview_url( $attachment_id, $size = 'medium' ) {
+	private static function available_attachment_image_url( $attachment_id, $size = 'medium' ) {
 		$attachment_id = absint( $attachment_id );
 		if ( ! $attachment_id || ! wp_attachment_is_image( $attachment_id ) ) {
 			return '';
 		}
 
 		$original_path = get_attached_file( $attachment_id );
-		if ( ! $original_path || ! is_file( $original_path ) ) {
+		if ( ! $original_path ) {
 			return '';
 		}
 
@@ -1342,7 +1382,28 @@ final class CH_Home_Sections {
 			}
 		}
 
-		return wp_get_attachment_url( $attachment_id ) ?: '';
+		return is_file( $original_path ) ? ( wp_get_attachment_url( $attachment_id ) ?: '' ) : '';
+	}
+
+	/** Build a Hero-specific image DTO that tolerates intentionally omitted sizes. */
+	private static function hero_image_dto( $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+		if ( 'attachment' !== get_post_type( $attachment_id ) || ! wp_attachment_is_image( $attachment_id ) ) {
+			return null;
+		}
+		$url = self::available_attachment_image_url( $attachment_id, 'large' );
+		if ( ! $url ) {
+			return null;
+		}
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+		$source = wp_get_attachment_image_src( $attachment_id, 'large' );
+		return array(
+			'id'     => $attachment_id,
+			'url'    => esc_url_raw( $url ),
+			'width'  => absint( $metadata['width'] ?? ( $source[1] ?? 0 ) ),
+			'height' => absint( $metadata['height'] ?? ( $source[2] ?? 0 ) ),
+			'alt'    => sanitize_text_field( get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) ),
+		);
 	}
 
 	/**

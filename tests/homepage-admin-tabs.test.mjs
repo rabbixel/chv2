@@ -14,13 +14,29 @@ test("admin assets are cache-busted from their own file modification times", () 
 });
 
 test("Hero previews fall back to existing originals without dropping saved attachments", () => {
-  assert.match(php, /private static function admin_attachment_preview_url/);
-  assert.match(php, /if \( ! \$original_path \|\| ! is_file\( \$original_path \) \)/);
+  assert.match(php, /private static function available_attachment_image_url/);
+  assert.match(php, /return is_file\( \$original_path \) \? \( wp_get_attachment_url/);
   assert.match(php, /if \( is_file\( \$intermediate_path \) \) \{\s*return \$source\[0\];/);
-  assert.match(php, /return wp_get_attachment_url\( \$attachment_id \) \?: ''/);
-  assert.match(php, /self::admin_attachment_preview_url\( \$image_id, 'medium' \)/);
+  assert.match(php, /is_file\( \$original_path \).*wp_get_attachment_url\( \$attachment_id \)/);
+  assert.match(php, /self::available_attachment_image_url\( \$image_id, 'medium' \)/);
+  assert.match(php, /private static function hero_image_dto/);
+  assert.match(php, /'image' => \$custom && \$image_id \? self::hero_image_dto\( \$image_id \) : null/);
   assert.match(js, /var source = attachment\.url/);
   assert.match(js, /saved selection retained/i);
+});
+
+test("Hero image destinations are independent, backwards compatible and serialized for Next.js", () => {
+  assert.match(php, /'destination_type' => \$destination_type/);
+  assert.match(php, /'search_keyword' => \$search_keyword/);
+  assert.match(php, /\$destination_type = \$link_url \? 'custom_url' : 'default_product'/);
+  assert.match(php, /\$raw_search_keyword[\s\S]*?sanitize_text_field\( \(string\) \$raw_search_keyword \)/);
+  assert.match(php, /\]\[destination_type\]"/);
+  assert.match(php, /data-destination-preview/);
+  assert.doesNotMatch(php, /\$custom_preview\s*\?/);
+  assert.match(js, /function syncHeroDestination\(\$slot\)/);
+  assert.match(js, /encodeURIComponent\(keyword\)/);
+  const imageSync = js.match(/function syncHeroImageSlot\(\$slot, nextMode, previousMode\) \{([\s\S]*?)\n  \}/)?.[1] ?? "";
+  assert.doesNotMatch(imageSync, /link_url|\$link/);
 });
 
 test("Hero sub-tabs delegate click handling and activate Content on entry", () => {

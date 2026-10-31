@@ -26,6 +26,45 @@ function scaledPrice(base: Money, multiplier: number): Money {
   };
 }
 
+function LicenseDetails({ licenses }: { licenses: License[] }) {
+  if (licenses.length === 0) return null;
+
+  if (licenses.length === 1) {
+    const [license] = licenses;
+    return (
+      <section className={styles.licenseDetails} aria-label="License details">
+        <p className={styles.licenseSummary}>
+          <strong>{license.name} license</strong> · {license.description}
+        </p>
+        {(license.allowedUses ?? []).length > 0 && (
+          <p className={styles.licenseUsesSummary}>
+            Permitted uses: {license.allowedUses.join(" · ")}
+          </p>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className={styles.licenseDetails} aria-labelledby="purchase-license-heading">
+      <h2 id="purchase-license-heading" className={styles.licenseHeading}>License details</h2>
+      <div className={styles.licenseList}>
+        {licenses.map((license) => (
+          <article key={license.code} className={styles.licenseItem}>
+            <h3 className={styles.licenseName}>{license.name}</h3>
+            <p className={styles.licenseDescription}>{license.description}</p>
+            {(license.allowedUses ?? []).length > 0 && (
+              <p className={styles.licenseUsesSummary}>
+                Permitted uses: {license.allowedUses.join(" · ")}
+              </p>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /**
  * Buy box: license picker ("Choose your desired option", like the live
  * site's variable pricing), price, purchase actions and the customization
@@ -111,6 +150,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     return <div className={styles.panel} data-product-id={product.id}>
       <p className={styles.soldOut}>Sold Out</p>
       <p className={styles.licenseNote}>This product has reached its purchase limit.</p>
+      <LicenseDetails licenses={licenses} />
     </div>;
   }
 
@@ -118,6 +158,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     return <div className={styles.panel} data-product-id={product.id}>
       <p className={styles.soldOut}>Temporarily unavailable</p>
       <p className={styles.licenseNote}>Please refresh shortly to check availability again.</p>
+      <LicenseDetails licenses={licenses} />
     </div>;
   }
 
@@ -128,9 +169,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
     return (
       <div className={styles.panel} data-product-id={product.id}>
         <p className={styles.free}>Free download</p>
-        <p className={styles.licenseNote}>
-          {selectedPriceOption?.name ?? (selected ? `${selected.name} license · ${selected.description}` : "")}
-        </p>
+        {selectedPriceOption?.name && <p className={styles.licenseNote}>{selectedPriceOption.name}</p>}
         {freePriceOptions.length > 1 && (
           <fieldset className={styles.options}>
             <legend className={styles.optionsLegend}>Choose your desired option</legend>
@@ -150,6 +189,7 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
             ))}
           </fieldset>
         )}
+        <LicenseDetails licenses={licenses} />
         {actionError && <p role="alert" className={styles.error}>{actionError}</p>}
         <Button onClick={handleFreeCheckout} size="lg" fullWidth loading={pending} disabled={pending}>
           Get free download
@@ -184,12 +224,8 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
           </Badge>
         )}
       </div>
-      {product.priceOptions?.length ? (
-        <p className={styles.licenseNote}>{selectedPriceOption?.name}</p>
-      ) : selected && (
-        <p className={styles.licenseNote}>
-          {selected.name} license · {selected.description}
-        </p>
+      {(product.priceOptions?.length ?? 0) > 0 && selectedPriceOption?.name && (
+        <p className={styles.licenseNote}>{selectedPriceOption.name}</p>
       )}
 
       {product.priceOptions && product.priceOptions.length > 0 ? (
@@ -225,6 +261,8 @@ export function PurchasePanel({ product, licenses }: PurchasePanelProps) {
           ))}
         </fieldset>
       )}
+
+      <LicenseDetails licenses={licenses} />
 
       {actionError && (
         <p role="alert" className={styles.error}>

@@ -1,5 +1,7 @@
 export { ProductCard } from "./ProductCard";
 export type { ProductCardProps } from "./ProductCard";
+export { FreeDownloadAction } from "./FreeDownloadAction";
+export type { FreeDownloadActionProps } from "./FreeDownloadAction";
 export { ProductGallery } from "./ProductGallery";
 export type { ProductGalleryProps } from "./ProductGallery";
 export { ProductGrid } from "./ProductGrid";

@@ -21,16 +21,20 @@ export function Hero({ categories, popularSearches, products, config }: HeroProp
     ? products.filter((product) => product.images.some((image) => image.url)).slice(0, 4)
     : [];
   const gallery = config.showImages ? config.images.flatMap((slot, index) => {
-    if (slot.mode === "custom") {
-      return slot.image ? [{ image: slot.image, product: previews[index], href: slot.href || (previews[index] ? routes.product(previews[index].slug) : undefined), key: `custom-${index}` }] : [];
-    }
     const product = previews[index];
-    const image = product?.images.find((entry) => entry.url);
-    return product && image ? [{ image, product, href: routes.product(product.slug), key: product.id }] : [];
+    const productImage = product?.images.find((entry) => entry.url);
+    const image = slot.mode === "custom" ? slot.image : productImage;
+    if (!image) return [];
+    const href = slot.destinationType === "search"
+      ? (slot.searchKeyword.trim() ? routes.search(slot.searchKeyword) : undefined)
+      : slot.destinationType === "custom_url"
+        ? slot.href
+        : (product ? routes.product(product.slug) : undefined);
+    return [{ image, product, href, key: slot.mode === "custom" ? `custom-${index}` : product?.id ?? `default-${index}` }];
   }) : [];
   return (
     <section className={cn(styles.hero, !config.showImages && styles.centeredHero)} aria-labelledby="hero-heading">
-      <div className="ch-container">
+      <div className="ch-container ch-container--wide">
         <div className={cn(styles.layout, gallery.length > 0 ? styles.withArtwork : styles.centered)}>
         <div className={styles.inner}>
           {config.eyebrow && <Badge variant="accent" size="md" className={styles.eyebrow}>{config.eyebrow}</Badge>}

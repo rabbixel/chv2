@@ -51,7 +51,7 @@ const SECTIONS: FooterSection[] = [
 export function SiteFooter() {
   return (
     <footer className={styles.footer}>
-      <div className={`ch-container ${styles.grid}`}>
+      <div className={`ch-container ch-container--wide ${styles.grid}`}>
         <div className={styles.brand}>
           <Link href={routes.home()} aria-label={`${SITE.name} — home`} className={styles.logoLink}>
             <Image src="/brand/creative-hatti-logo.png" alt={SITE.name} width={200} height={49} className={styles.logo} />
@@ -75,7 +75,7 @@ export function SiteFooter() {
         ))}
       </div>
       <div className={styles.bottom}>
-        <div className={`ch-container ${styles.bottomInner}`}>
+        <div className={`ch-container ch-container--wide ${styles.bottomInner}`}>
           <p>© 2026 {SITE.name}. All rights reserved.</p>
           <p>Digital Downloads · Secure Checkout</p>
         </div>

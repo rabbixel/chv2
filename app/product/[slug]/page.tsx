@@ -11,7 +11,7 @@ import {
   WishlistButton,
 } from "@/components/product";
 import { JsonLd } from "@/components/seo";
-import { Badge, Icon } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { SHOW_PRODUCT_SOCIAL_PROOF, SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import {
@@ -30,7 +30,7 @@ import {
 } from "@/lib/services";
 import { categoryDisplayName } from "@/lib/taxonomy";
 import type { Collection, Product, ProductKind } from "@/lib/types";
-import { formatCompact, formatMoney } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 import styles from "./page.module.css";
 
 interface ProductPageProps {
@@ -124,7 +124,7 @@ function findRelatedCollections(
 /**
  * Product detail page mirroring the live Creative Hatti experience:
  * gallery + buy box (license picker, purchase actions, wishlist,
- * customization quote), description, Product Information, license,
+ * customization quote and license details), description, Product Information,
  * keywords and related products / collection / category.
  */
 export default async function ProductPage({ params }: ProductPageProps) {
@@ -175,7 +175,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     .join(" · ");
 
   return (
-    <Container>
+    <Container size="wide">
       <div className={styles.page}>
         <Breadcrumbs
           items={[
@@ -261,46 +261,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
         )}
 
         <ProductInfoTable product={product} />
-
-        {licenses.length > 0 && (
-          <section aria-labelledby="license" className={styles.section}>
-            <h2 id="license" className={styles.sectionHeading}>
-              License
-            </h2>
-            <div className={styles.licenseGrid}>
-              {licenses.map((license) => (
-                <article key={license.code} className={styles.licenseCard}>
-                  <h3 className={styles.licenseName}>{license.name}</h3>
-                  {!product.isFree && (
-                    <p className={styles.licensePrice}>
-                      {formatMoney({
-                        amount: Math.round(
-                          product.price.amount * license.priceMultiplier,
-                        ),
-                        currency: product.price.currency,
-                      })}
-                    </p>
-                  )}
-                  <p className={styles.licenseDescription}>
-                    {license.description}
-                  </p>
-                  <ul className={styles.licenseUses}>
-                    {license.allowedUses.map((use) => (
-                      <li key={use}>
-                        <Icon name="check" size={16} />
-                        <span>{use}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
-            <p className={styles.licenseContact}>
-              For any queries related to this document or license please{" "}
-              <Link href={routes.contact()}>contact our team</Link>.
-            </p>
-          </section>
-        )}
 
         {product.keywords.length > 0 && (
           <section aria-labelledby="keywords" className={styles.section}>

@@ -47,6 +47,7 @@
   line-height: 1.15;
   color: var(--ch-color-text);
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 @media (min-width: 1024px) {
@@ -103,78 +104,6 @@
 .description {
   max-width: 70ch;
   margin: 0;
-  color: var(--ch-color-text-muted);
-}
-
-.licenseGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--ch-space-4);
-}
-
-@media (min-width: 768px) {
-  .licenseGrid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.licenseCard {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ch-space-2);
-  padding: var(--ch-space-5);
-  background-color: var(--ch-color-surface);
-  border: 1px solid var(--ch-color-border);
-  border-radius: var(--ch-radius-lg);
-}
-
-.licenseName {
-  margin: 0;
-  font-size: var(--ch-text-lg);
-  font-weight: var(--ch-weight-semibold);
-  color: var(--ch-color-text);
-}
-
-.licensePrice {
-  margin: 0;
-  font-family: var(--ch-font-display);
-  font-size: var(--ch-text-xl);
-  font-weight: var(--ch-weight-semibold);
-  color: var(--ch-color-text);
-}
-
-.licenseDescription {
-  margin: 0;
-  font-size: var(--ch-text-sm);
-  color: var(--ch-color-text-muted);
-}
-
-.licenseUses {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ch-space-1);
-  padding: 0;
-  margin: var(--ch-space-2) 0 0;
-  font-size: var(--ch-text-sm);
-  color: var(--ch-color-text-muted);
-  list-style: none;
-}
-
-.licenseUses li {
-  display: flex;
-  gap: var(--ch-space-2);
-  align-items: flex-start;
-}
-
-.licenseUses svg {
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-  color: var(--ch-color-success);
-}
-
-.licenseContact {
-  margin: 0;
-  font-size: var(--ch-text-sm);
   color: var(--ch-color-text-muted);
 }
 

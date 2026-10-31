@@ -16,6 +16,7 @@ export type IconName =
   | "clock"
   | "trend"
   | "check"
+  | "download"
   | "expand";
 
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -77,6 +78,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   check: <path d="M5 13l4 4L19 7" />,
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 20h14" />
+    </>
+  ),
   expand: (
     <>
       <path d="M9 4H4v5" />

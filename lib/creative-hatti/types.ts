@@ -197,7 +197,13 @@ export interface ChApiHomepageConfigV2 {
     description: { mode: "default" | "custom"; value: string | null };
     search_placeholder: { mode: "default" | "custom"; value: string | null };
     search_button_text: { mode: "default" | "custom"; value: string | null };
-    images: Array<{ mode: "default" | "custom"; image: ChApiImage | null; link_url: string }>;
+    images: Array<{
+      mode: "default" | "custom";
+      image: ChApiImage | null;
+      link_url: string;
+      destination_type?: "default_product" | "search" | "custom_url";
+      search_keyword?: string;
+    }>;
     stats: Array<{ mode: "default" | "custom"; value: string | null; label: string | null; visible: boolean }>;
   };
 }

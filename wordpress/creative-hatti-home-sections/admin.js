@@ -59,13 +59,11 @@
 
   function syncHeroImageSlot($slot, nextMode, previousMode) {
     var $id = $slot.find(".ch-home-image-id");
-    var $link = $slot.find('input[name$="[link_url]"]');
     var $preview = $slot.find(".ch-home-image-preview");
     var defaultId = Number($slot.attr("data-default-id")) || 0;
     var defaultSrc = $slot.attr("data-default-src") || "";
     if (nextMode === "default") {
       $id.val("");
-      $link.val("");
       $preview.attr("src", defaultSrc).prop("hidden", !defaultSrc);
       $slot.find(".ch-home-image-empty").text("No default image available.");
       $slot.find(".ch-home-image-empty").prop("hidden", Boolean(defaultSrc));
@@ -86,6 +84,20 @@
       $slot.find(".ch-home-restore-image").prop("hidden", false);
     }
     $slot.attr("data-mode", nextMode);
+  }
+
+  function syncHeroDestination($slot) {
+    var type = $slot.find(".ch-home-destination-select").val() || "default_product";
+    var keyword = ($slot.find(".ch-home-search-keyword").val() || "").trim();
+    var customUrl = ($slot.find(".ch-home-custom-url").val() || "").trim();
+    $slot.find('[data-destination-field="search"]').prop("hidden", type !== "search");
+    $slot.find('[data-destination-field="custom_url"]').prop("hidden", type !== "custom_url");
+    var preview = type === "search"
+      ? (keyword ? "/search?q=" + encodeURIComponent(keyword) : "Enter a keyword to preview the search URL")
+      : type === "custom_url"
+        ? (customUrl || "Enter a URL to preview the destination")
+        : ($slot.attr("data-default-href") || "Uses the matching featured product");
+    $slot.find("[data-destination-preview]").text(preview);
   }
 
   function refreshRowSummary($row) {
@@ -199,10 +211,16 @@
       }
     });
 
-    $form.find('.ch-home-hero-image input[name$="[link_url]"]').each(function () {
-      var $field = $(this);
-      var value = ($field.val() || "").trim();
-      if (value && !validPackUrl(value)) error($field, "Use an http(s) URL or a site-relative path beginning with one slash.");
+    $form.find(".ch-home-hero-image").each(function () {
+      var $slot = $(this);
+      var type = $slot.find(".ch-home-destination-select").val();
+      var $keyword = $slot.find(".ch-home-search-keyword");
+      var $url = $slot.find(".ch-home-custom-url");
+      var keyword = ($keyword.val() || "").trim();
+      var url = ($url.val() || "").trim();
+      if (type === "search" && !keyword) error($keyword, "Enter a search keyword.");
+      if (type === "custom_url" && !url) error($url, "Enter a custom destination URL.");
+      else if (type === "custom_url" && !validHomepageDestination(url)) error($url, "Use a site-relative path or an HTTPS creativehatti.com URL.");
     });
 
     $form.find('.ch-home-copy-field input[type="url"]').each(function () {
@@ -282,6 +300,7 @@
     window.setTimeout(function () { $field.trigger("focus"); }, 0);
   }
   $(function () {
+    $(".ch-home-hero-image").each(function () { syncHeroDestination($(this)); });
     var params = new URLSearchParams(window.location.search);
     var tab = params.get("ch_tab") || (window.location.hash || "").replace(/^#/, "") || "";
     if (!$('.ch-home-tab[data-tab="' + tab + '"]').length) {
@@ -346,6 +365,14 @@
   $(document).on("change", ".ch-home-hero-image .ch-home-override-mode select", function () {
     var $slot = $(this).closest(".ch-home-hero-image");
     syncHeroImageSlot($slot, $(this).val(), $slot.attr("data-mode"));
+  });
+  $(document).on("change", ".ch-home-destination-select", function () {
+    syncHeroDestination($(this).closest(".ch-home-hero-image"));
+    $(".ch-home-savebar").addClass("is-dirty");
+  });
+  $(document).on("input", ".ch-home-search-keyword, .ch-home-custom-url", function () {
+    syncHeroDestination($(this).closest(".ch-home-hero-image"));
+    $(".ch-home-savebar").addClass("is-dirty");
   });
   $(document).on("change", ".ch-home-hero-artwork-visibility .ch-home-override-mode select", function () {
     if ($(this).val() === "default") {

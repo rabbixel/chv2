@@ -12,6 +12,7 @@ import {
   formatMoney,
 } from "@/lib/utils";
 import { ProductImage as ProductImageView } from "./ProductImage";
+import { FreeDownloadAction } from "./FreeDownloadAction";
 import { QuickAddButton } from "./QuickAddButton";
 import { WishlistButton } from "./WishlistButton";
 import styles from "./ProductCard.module.css";
@@ -69,6 +70,13 @@ export function ProductCard({
   ]
     .filter(Boolean)
     .join(" · ");
+  const titleElement = (
+    <Title className={cn(styles.title, product.isFree && styles.freeTitle)}>
+      <Link href={href} className={styles.titleLink} title={product.title} aria-label={product.title}>
+        {product.title}
+      </Link>
+    </Title>
+  );
 
   return (
     <Card padding="none" interactive className={cn(styles.card, artworkPreview && styles.artworkPreview)}>
@@ -97,7 +105,7 @@ export function ProductCard({
           {product.soldOut && <Badge variant="danger" size="sm">Sold Out</Badge>}
           {product.purchasable === false && !product.soldOut && <Badge variant="danger" size="sm">Temporarily unavailable</Badge>}
           {product.isFree && (
-            <Badge variant="success" size="sm">
+            <Badge variant="brand" size="sm" className={styles.freeBadge}>
               Free
             </Badge>
           )}
@@ -128,13 +136,25 @@ export function ProductCard({
           <QuickAddButton product={product} />
         </div>
       </div>
-      <div className={styles.body}>
-        <p className={styles.kicker}>{kicker}</p>
-        <Title className={styles.title}>
-          <Link href={href} className={styles.titleLink}>
-            {product.title}
-          </Link>
-        </Title>
+      <div className={cn(styles.body, product.isFree && styles.freeBody)}>
+        {product.isFree ? (
+          <div className={styles.freeInfoRow}>
+            <div className={styles.freeTextGroup}>
+              <p className={styles.kicker}>{kicker}</p>
+              {titleElement}
+            </div>
+            <FreeDownloadAction
+              slug={product.slug}
+              title={product.title}
+              priceOptions={product.priceOptions}
+            />
+          </div>
+        ) : (
+          <>
+            <p className={styles.kicker}>{kicker}</p>
+            {titleElement}
+          </>
+        )}
         {(product.bestseller || product.isNew) && (
           <span className="ch-visually-hidden">
             {product.bestseller ? "Bestseller. " : ""}
@@ -164,12 +184,8 @@ export function ProductCard({
               )}
             </p>
           )}
-        <p className={styles.priceRow}>
-          {product.isFree ? (
-            <Link href={href} className={styles.free} aria-label={`View ${product.title} free download`}>
-              Free download
-            </Link>
-          ) : product.priceClass === "mixed" ? (
+        {!product.isFree && <p className={styles.priceRow}>
+          {product.priceClass === "mixed" ? (
             <span className={styles.price}>Options from {Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
           ) : (
             <>
@@ -181,7 +197,7 @@ export function ProductCard({
               )}
             </>
           )}
-        </p>
+        </p>}
       </div>
     </Card>
   );

@@ -65,12 +65,18 @@ test("checkout action requires the HttpOnly capability and backend-confirmed com
   assert.doesNotMatch(form, /clearCart\(/);
 });
 
-test("free download card label is a product-page link, not a checkout action", async () => {
+test("free download card action uses the existing checkout flow without changing the cart icon", async () => {
   const card = await read("../components/product/ProductCard.tsx");
+  const action = await read("../components/product/FreeDownloadAction.tsx");
   const css = await read("../components/product/ProductCard.module.css");
-  assert.match(card, /<Link href=\{href\} className=\{styles\.free\}/);
-  assert.match(card, /Free download/);
+  assert.match(card, /<FreeDownloadAction/);
+  assert.match(card, /<QuickAddButton product=\{product\} \/>/);
+  assert.match(action, /startFreeCheckout\(slug, priceId\)/);
+  assert.match(action, /event\.stopPropagation\(\)/);
+  assert.match(action, /name="download"/);
+  assert.match(action, /aria-label=\{`Download \$\{title\}`\}/);
+  assert.match(action, /title="Download"/);
+  assert.doesNotMatch(action, /downloadFile|requestUrl|customerDownload/);
   assert.match(css, /\.free:hover/);
   assert.match(css, /\.free:focus-visible/);
-  assert.doesNotMatch(card, /onClick=.*checkout|href=\{routes\.checkout\(\)\}/);
 });

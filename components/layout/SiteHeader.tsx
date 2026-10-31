@@ -38,7 +38,7 @@ export async function SiteHeader() {
         Festive sale is live — up to 40% off invitations, patterns &amp; fonts.
       </p>
       <div className={styles.main}>
-        <div className={`ch-container ${styles.mainInner}`}>
+        <div className={`ch-container ch-container--wide ${styles.mainInner}`}>
           <MobileMenu
             categories={categories}
             popularSearches={popularSearches}
