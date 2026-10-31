@@ -8,16 +8,17 @@ import { TileArtwork } from "./TileArtwork";
 
 export interface SeasonalCollectionsProps {
   items: Collection[];
+  copy?: { eyebrow?: string; heading?: string; description?: string };
 }
 
-export function SeasonalCollections({ items }: SeasonalCollectionsProps) {
+export function SeasonalCollections({ items, copy }: SeasonalCollectionsProps) {
   if (!items.length) return null;
   return (
     <section aria-labelledby="seasonal-heading">
       <SectionHeading
-        eyebrow="Seasonal & topical"
-        title="Collections for every celebration"
-        copy="Diwali to Bollywood — topical shelves that refresh with the Indian festive calendar."
+        eyebrow={copy?.eyebrow ?? "Seasonal & topical"}
+        title={copy?.heading ?? "Collections for every celebration"}
+        copy={copy?.description ?? "Diwali to Bollywood — topical shelves that refresh with the Indian festive calendar."}
       />
       <h2 id="seasonal-heading" className="ch-visually-hidden">
         Seasonal collections

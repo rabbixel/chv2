@@ -18,6 +18,7 @@
   aspect-ratio: 4 / 3;
   background-color: var(--ch-neutral-100);
   overflow: hidden;
+  isolation: isolate;
 }
 
 .media:hover {
@@ -27,14 +28,9 @@
 .image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center top;
-}
-
-/* Keep the complete product artwork visible in catalogue/search cards. */
-.containImage {
   object-fit: contain;
   object-position: center;
+  z-index: 0;
 }
 
 .artworkPreview .media { aspect-ratio: 1; background-color: var(--ch-color-surface); }
@@ -73,6 +69,7 @@
 
 .badges {
   position: absolute;
+  z-index: 2;
   top: var(--ch-space-2);
   left: var(--ch-space-2);
   right: 3.25rem;
@@ -86,7 +83,7 @@
   position: absolute;
   top: var(--ch-space-2);
   right: var(--ch-space-2);
-  z-index: 2;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;

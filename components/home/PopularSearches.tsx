@@ -6,16 +6,17 @@ import type { SearchChip } from "@/lib/seasonal-searches";
 
 export interface PopularSearchesProps {
   searches: SearchChip[];
+  heading?: string;
 }
 
-export function PopularSearches({ searches }: PopularSearchesProps) {
+export function PopularSearches({ searches, heading = "Popular Searches" }: PopularSearchesProps) {
   return (
     <section aria-labelledby="popular-searches-heading" className={styles.section}>
       <div className="ch-container">
         <div className={styles.inner}>
           <h2 id="popular-searches-heading" className={styles.heading}>
             <Icon name="trend" size={18} />
-            Popular Searches
+            {heading}
           </h2>
           <ul className={styles.chips}>
             {searches.map((term) => (

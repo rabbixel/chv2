@@ -1,0 +1,21 @@
+.page { padding-block: var(--ch-space-8) var(--ch-space-12); }
+.header { max-width: 48rem; margin-bottom: var(--ch-space-6); }
+.eyebrow { margin: 0 0 var(--ch-space-2); color: var(--ch-color-brand-strong); font-size: var(--ch-text-xs); font-weight: var(--ch-weight-bold); letter-spacing: 0.08em; text-transform: uppercase; }
+.header h1 { margin: 0; color: var(--ch-color-text); font-family: var(--ch-font-display); font-size: clamp(var(--ch-text-2xl), 4vw, var(--ch-text-4xl)); line-height: 1.12; }
+.intro { max-width: 42rem; margin: var(--ch-space-3) 0 0; color: var(--ch-color-text-muted); font-size: var(--ch-text-base); line-height: var(--ch-leading-relaxed); }
+.activeFilters { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ch-space-2); margin: 0 0 var(--ch-space-4); }
+.chip { display: inline-flex; align-items: center; gap: var(--ch-space-2); min-height: 1.9rem; padding: 0 var(--ch-space-2); color: var(--ch-color-brand-strong); background: var(--ch-color-surface-muted); border: 1px solid var(--ch-color-border); border-radius: 999px; font-size: var(--ch-text-xs); font-weight: var(--ch-weight-semibold); text-decoration: none; }
+.chip:hover { background: var(--ch-color-surface); text-decoration: none; }
+.chip span:first-of-type { font-size: var(--ch-text-base); line-height: 1; }
+.clearAll { padding: var(--ch-space-1) var(--ch-space-2); color: var(--ch-color-text-muted); font-size: var(--ch-text-xs); font-weight: var(--ch-weight-semibold); }
+.rollback a:focus-visible, .chip:focus-visible, .clearAll:focus-visible, .state a:focus-visible { outline: 2px solid var(--ch-focus-ring-color); outline-offset: 2px; }
+.count { margin: 0 0 var(--ch-space-3); color: var(--ch-color-text-faint); font-size: var(--ch-text-sm); scroll-margin-top: calc(var(--ch-header-height) + var(--ch-space-4)); }
+.state { margin-block: var(--ch-space-6); padding: var(--ch-space-6); background: var(--ch-color-surface-muted); border: 1px solid var(--ch-color-border); border-radius: var(--ch-radius-md); }
+.state h2 { margin: 0 0 var(--ch-space-2); font-family: var(--ch-font-display); font-size: var(--ch-text-xl); }
+.state p { margin: 0; color: var(--ch-color-text-muted); }
+.rollback a { color: var(--ch-color-brand-strong); font: inherit; font-weight: var(--ch-weight-semibold); }
+.rollback { margin: var(--ch-space-8) 0 0; color: var(--ch-color-text-faint); font-size: var(--ch-text-sm); text-align: center; }
+
+@media (max-width: 640px) {
+  .page { padding-block: var(--ch-space-5) var(--ch-space-8); }
+}

@@ -8,13 +8,18 @@ const component = await readFile(new URL("../components/home/PopularFreebies.tsx
 const styles = await readFile(new URL("../components/home/PopularFreebies.module.css", import.meta.url), "utf8");
 const selection = await readFile(new URL("../lib/creative-hatti/popular-free-characters.mjs", import.meta.url), "utf8");
 const { selectPopularFreeCharacters } = await import("../lib/creative-hatti/popular-free-characters.mjs");
+const { popularFreebieArtwork } = await import("../lib/creative-hatti/popular-freebies-artwork.mjs");
 
 test("homepage inserts the data-backed gallery between character categories and featured packs", () => {
-  const categories = homepage.indexOf("<CharacterCategories categories={characters} />");
-  const freebies = homepage.indexOf("<PopularFreebies products={popularFreeCharacters} />");
-  const packs = homepage.indexOf("<FeaturedPacks packs={featuredPacks} />");
+  const categories = homepage.indexOf("<CharacterCategories");
+  const freebies = homepage.indexOf("<PopularFreebies");
+  const packs = homepage.indexOf("<FeaturedPacks");
   assert.ok(categories >= 0 && categories < freebies && freebies < packs);
   assert.match(homepage, /listPopularFreeCharacters\(8\)/);
+  assert.match(homepage, /productSelections\.popularFreebies\.mode === "manual"/);
+  assert.match(homepage, /productSelections\.hattiChoice\.mode === "manual"/);
+  assert.match(service, /async getProductsByIds\(ids: string\[\]\)/);
+  assert.match(service, /return refreshed\.filter\(\(product\) => product\.status === "active"\)/);
 });
 
 test("service requests only free character bundles in indexed best-selling order", () => {
@@ -57,6 +62,18 @@ test("gallery is artwork-only, limited to eight, and links to valid product rout
   assert.match(component, /unoptimized=\{process\.env\.NODE_ENV !== "production" && isLocalWordPressMediaUrl\(image\.url\)\}/);
   assert.doesNotMatch(component, /Add to cart|wishlist|formatMoney|price\.amount/);
   assert.match(component, /if \(items\.length === 0\) return null/);
+});
+
+test("automatic card images and manual detail galleries use the same primary thumbnail contract", () => {
+  const thumbnail = { url: "https://media.test/card-thumb.jpg", width: 300, height: 300 };
+  const fullGallery = { url: "https://media.test/full-gallery.jpg", width: 1600, height: 1200 };
+  assert.equal(popularFreebieArtwork([thumbnail]), thumbnail);
+  assert.equal(popularFreebieArtwork([thumbnail, fullGallery]), thumbnail);
+  assert.equal(popularFreebieArtwork([{ url: " " }, fullGallery]), fullGallery);
+  assert.match(component, /popularFreebieArtwork\(product\.images\)/);
+  assert.doesNotMatch(component, /bestArtwork|width \?\? 0\).*height/);
+  assert.match(homepage, /productSelections\.popularFreebies\.mode === "manual"[\s\S]*?: products\.listPopularFreeCharacters\(8\)/);
+  assert.match(homepage, /<PopularFreebies products=\{popularFreeCharacters\}/);
 });
 
 test("gallery supports an eight-item desktop row, touch-scroll tablet/mobile rails and reduced motion", () => {

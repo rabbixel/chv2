@@ -1,0 +1,63 @@
+.pagination {
+  display: grid;
+  justify-items: center;
+  gap: var(--ch-space-2);
+  margin-top: var(--ch-space-6);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--ch-space-1);
+  max-width: 100%;
+}
+
+.mobilePages { display: none; }
+
+.control,
+.pageNumber {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding-inline: var(--ch-space-2);
+  border: 1px solid var(--ch-color-border);
+  border-radius: var(--ch-radius-sm);
+  color: var(--ch-color-text);
+  background: var(--ch-color-surface);
+  font-size: var(--ch-text-sm);
+  font-weight: var(--ch-weight-medium);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.control { gap: var(--ch-space-1); }
+.control:hover,
+.pageNumber:hover { color: var(--ch-color-brand-strong); background: var(--ch-color-surface-muted); text-decoration: none; }
+.current { color: var(--ch-color-text-inverse); background: var(--ch-color-brand); border-color: var(--ch-color-brand); font-weight: var(--ch-weight-bold); }
+.current:hover { color: var(--ch-color-text-inverse); background: var(--ch-color-brand); }
+.disabled { color: var(--ch-color-text-faint); background: var(--ch-color-surface-muted); cursor: not-allowed; }
+.ellipsis { display: inline-grid; place-items: center; width: 1rem; color: var(--ch-color-text-faint); }
+.pageSummary { color: var(--ch-color-text-muted); font-size: var(--ch-text-sm); }
+
+.controls a:focus-visible { outline: 2px solid var(--ch-focus-ring-color); outline-offset: 2px; }
+.current:focus-visible { outline: 2px solid var(--ch-focus-ring-color); outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .desktopPages { display: none; }
+  .mobilePages { display: flex; }
+  .control,
+  .pageNumber { min-width: 2.5rem; min-height: 2.75rem; padding-inline: var(--ch-space-2); }
+  .controlText { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+}
+
+@media (max-width: 360px) {
+  .controls { gap: 2px; }
+  .control,
+  .pageNumber { min-width: 2.25rem; padding-inline: var(--ch-space-1); }
+}

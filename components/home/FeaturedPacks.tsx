@@ -11,9 +11,10 @@ import { getProductService } from "@/lib/services";
 
 export interface FeaturedPacksProps {
   packs: Collection[];
+  copy?: { eyebrow?: string; heading?: string; description?: string };
 }
 
-export async function FeaturedPacks({ packs }: FeaturedPacksProps) {
+export async function FeaturedPacks({ packs, copy }: FeaturedPacksProps) {
   if (packs.length === 0) return null;
   const productService = getProductService();
   const packsWithImages = await Promise.all(
@@ -72,9 +73,9 @@ export async function FeaturedPacks({ packs }: FeaturedPacksProps) {
   return (
     <section aria-labelledby="packs-heading">
       <SectionHeading
-        eyebrow="Handpicked packs"
-        title="Featured Graphics & Illustration Packs"
-        copy="Festival-ready illustration packs, curated the Hatti way — themed, consistent and ready to ship."
+        eyebrow={copy?.eyebrow ?? "Handpicked packs"}
+        title={copy?.heading ?? "Featured Graphics & Illustration Packs"}
+        copy={copy?.description ?? "Festival-ready illustration packs, curated the Hatti way — themed, consistent and ready to ship."}
       />
       <h2 id="packs-heading" className="ch-visually-hidden">
         Featured graphics packs

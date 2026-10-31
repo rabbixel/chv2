@@ -13,6 +13,7 @@ export interface HomepageHeroStat {
 
 export interface HomepageHeroConfig<TImage> {
   enabled: boolean;
+  showImages: boolean;
   eyebrow: string;
   heading: string;
   description: string;
@@ -24,6 +25,7 @@ export interface HomepageHeroConfig<TImage> {
 
 export interface HomepageHeroOverride<TImage> {
   enabled?: { mode?: string; value?: boolean | null };
+  show_images?: { mode?: string; value?: boolean | null };
   eyebrow?: { mode?: string; value?: string | null };
   heading?: { mode?: string; value?: string | null };
   description?: { mode?: string; value?: string | null };
@@ -41,8 +43,8 @@ const defaultHero = {
   searchButtonText: "Search",
   stats: [
     { value: "44,000+", label: "Ready-to-use assets" },
-    { value: "100+", label: "Festival collections" },
-    { value: "Instant", label: "Download & licence" },
+    { value: "470+", label: "Freebies" },
+    { value: "926+", label: "Bundles" },
   ],
 };
 
@@ -64,6 +66,7 @@ export function resolveHomepageHero<TImage>(override?: HomepageHeroOverride<TIma
   });
   return {
     enabled: override?.enabled?.mode === "custom" ? override.enabled.value === true : true,
+    showImages: override?.show_images?.mode === "custom" ? override.show_images.value === true : true,
     eyebrow: customValue(override?.eyebrow, defaultHero.eyebrow),
     heading: customValue(override?.heading, defaultHero.heading),
     description: customValue(override?.description, defaultHero.description),

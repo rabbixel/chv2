@@ -216,6 +216,10 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
     return Number.isFinite(amount) && amount >= 0 ? amount : null;
   };
   const rawOptions = variable ? detail.variable_prices ?? [] : [];
+  const hasInvalidOption = rawOptions.some((option, index) => {
+    const id = Number(option.id ?? index);
+    return parseAmount(option.amount) === null || !Number.isSafeInteger(id) || id < 0;
+  });
   const priceOptions = rawOptions.flatMap((option, index) => {
     const amount = parseAmount(option.amount);
     const id = Number(option.id ?? index);
@@ -228,12 +232,30 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
     }];
   });
   const fixedAmount = parseAmount(apiProduct.price.amount);
-  const validPrice = variable ? priceOptions.length > 0 : fixedAmount !== null;
-  const isFree = variable
-    ? validPrice && priceOptions.every((option) => option.price.amount === 0)
+  const inferredClass = variable
+    ? priceOptions.length === 0 || hasInvalidOption
+      ? "invalid"
+      : priceOptions.some((option) => option.price.amount < 0)
+        ? "invalid"
+        : priceOptions.every((option) => option.price.amount === 0)
+          ? "free"
+          : priceOptions.some((option) => option.price.amount === 0)
+            ? "mixed"
+            : "paid"
     : fixedAmount === null
-      ? false
-      : fixedAmount === 0 && apiProduct.price.class !== "mixed" && apiProduct.price.class !== "invalid";
+      ? "invalid"
+      : fixedAmount === 0
+        ? "free"
+        : "paid";
+  // Variable option rows are the purchase choices and must not be contradicted
+  // by a stale class field. Preserve an explicit backend invalid classification.
+  const priceClass = apiProduct.price.class === "invalid"
+    ? "invalid"
+    : variable
+      ? inferredClass
+      : apiProduct.price.class ?? inferredClass;
+  const validPrice = variable ? priceOptions.length > 0 && priceClass !== "invalid" : fixedAmount !== null && priceClass !== "invalid";
+  const isFree = priceClass === "free" && validPrice;
 
   return {
     id: String(apiProduct.id),
@@ -250,6 +272,7 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
     },
     priceOptions: variable ? priceOptions : undefined,
     priceValid: validPrice,
+    priceClass,
     status: detail.status === "publish" || !detail.status ? "active" : "draft",
     soldOut: apiProduct.availability?.sold_out === true,
     purchasable: validPrice ? apiProduct.availability?.available : false,

@@ -21,17 +21,21 @@ import { getSeasonalSearches, type SearchChip } from "@/lib/seasonal-searches";
 import { getProductService } from "./productService";
 import { getCollectionDirectoryService } from "./collectionDirectoryService";
 import { resolveHomepageHero, type HomepageHeroConfig, type HomepageHeroOverride } from "@/lib/homepage-config";
+import { resolveHomepageCopy, type HomepageCopy } from "@/lib/homepage-copy";
 
 export interface TrustedBrand { id: string; name: string; image: ProductImage }
+export interface HomepageProductSelection { mode: "automatic" | "manual"; productIds: string[] }
 
 export interface HomepageSections {
   hero: HomepageHeroConfig<ProductImage>;
+  copy: HomepageCopy;
   characterCategories: HomepageCharacterCategory[] | null;
   featuredPacks: Collection[] | null;
   discoveryTiles: DiscoveryTile[];
   seasonalCollections: Collection[];
   keywords: string[];
   trustedBrands: TrustedBrand[];
+  productSelections: { hattiChoice: HomepageProductSelection; popularFreebies: HomepageProductSelection };
 }
 
 export interface HomepageService {
@@ -98,7 +102,9 @@ class MockHomepageService implements HomepageService {
     return getSeasonalSearches(now);
   }
   async getSections(): Promise<HomepageSections> {
-    return updateDiscoveryDestinations({ hero: resolveHomepageHero<ProductImage>(), characterCategories: null, featuredPacks: null, ...defaultHomepageContent() });
+    return updateDiscoveryDestinations({ hero: resolveHomepageHero<ProductImage>(), copy: resolveHomepageCopy(), characterCategories: null, featuredPacks: null,
+      productSelections: { hattiChoice: { mode: "automatic", productIds: [] }, popularFreebies: { mode: "automatic", productIds: [] } },
+      ...defaultHomepageContent() });
   }
 }
 
@@ -127,6 +133,16 @@ class ApiHomepageService implements HomepageService {
 
     const defaults = defaultHomepageContent();
     const rawHero = response.data.homepage_config_v2?.hero;
+    const rawSections = response.data.homepage_config_v2?.sections;
+    const copy = resolveHomepageCopy(rawSections as Parameters<typeof resolveHomepageCopy>[0]);
+    const selection = (key: "hatti_choice" | "popular_freebies"): HomepageProductSelection => {
+      const raw = rawSections?.[key]?.products;
+      if (!raw || !("product_ids" in raw)) return { mode: "automatic", productIds: [] };
+      return {
+        mode: raw.mode === "manual" ? "manual" : "automatic",
+        productIds: Array.from(new Set(raw.product_ids.filter((id) => Number.isSafeInteger(id) && id > 0).map(String))).slice(0, 8),
+      };
+    };
     const heroOverride: HomepageHeroOverride<ProductImage> | undefined = rawHero ? {
       ...rawHero,
       images: rawHero.images.map((item) => ({ ...item, image: imageFromApi(item.image) ?? null })),
@@ -136,6 +152,8 @@ class ApiHomepageService implements HomepageService {
       ? routes.category(frontendCategorySlug(item.category_slug)) : routes.search(item.query));
     return updateDiscoveryDestinations({
       hero: resolveHomepageHero(heroOverride),
+      copy,
+      productSelections: { hattiChoice: selection("hatti_choice"), popularFreebies: selection("popular_freebies") },
       discoveryTiles: response.data.discovery_tiles?.slice(0, 12).map((item) => ({
         label: item.title, caption: item.caption ?? "", query: item.query,
         hue: item.hue ?? 150, icon: item.icon, image: imageFromApi(item.image), href: destination(item),

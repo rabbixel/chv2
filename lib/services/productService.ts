@@ -56,6 +56,8 @@ export interface ProductListParams extends PaginationParams {
 export interface ProductService {
   listProducts(params?: ProductListParams): Promise<Paginated<Product>>;
   getProductById(id: string): Promise<Product | null>;
+  /** Resolve a bounded ordered manual homepage selection, then refresh availability in one batch. */
+  getProductsByIds(ids: string[]): Promise<Product[]>;
   getProductBySlug(slug: Slug): Promise<Product | null>;
   /** Fresh product/variation data for server-side cart mutations. */
   getProductForQuickAdd(slug: Slug): Promise<Product | null>;
@@ -171,6 +173,14 @@ class MockProductService implements ProductService {
 
   async getProductById(id: string): Promise<Product | null> {
     return products.find((product) => product.id === id) ?? null;
+  }
+
+  async getProductsByIds(ids: string[]): Promise<Product[]> {
+    const selected = new Set(ids.slice(0, 8));
+    return ids.slice(0, 8).flatMap((id) => {
+      const product = products.find((item) => item.id === id);
+      return product && selected.has(product.id) ? [product] : [];
+    });
   }
 
   async listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {
@@ -320,6 +330,25 @@ class ApiProductService implements ProductService {
       if (error instanceof ApiError && error.status === 404) return null;
       throw error;
     }
+  }
+
+  async getProductsByIds(ids: string[]): Promise<Product[]> {
+    const orderedIds = Array.from(new Set(ids.filter((id) => /^[1-9][0-9]{0,9}$/.test(id)))).slice(0, 8);
+    const resolved = await mapWithConcurrency(orderedIds, 4, async (id) => {
+      try {
+        const result = await apiFetch<ChApiEnvelope<ChApiProductDetail>>(apiEndpoints.products.byId(id), {
+          revalidate: REVALIDATE_SECONDS.product,
+          tags: [cacheTags.product(id)],
+        });
+        return productFromApi(result.data);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    });
+    const productsInOrder = resolved.filter((product): product is Product => product !== null);
+    const refreshed = await refreshProductAvailability(productsInOrder);
+    return refreshed.filter((product) => product.status === "active");
   }
 
   async listRelatedProducts(slug: Slug, limit = 8): Promise<Product[]> {

@@ -16,20 +16,22 @@ export interface HeroProps {
 }
 
 export function Hero({ categories, popularSearches, products, config }: HeroProps) {
-  const previews = products.filter((product) => product.images.some((image) => image.url)).slice(0, 4);
   if (!config.enabled) return null;
-  const gallery = config.images.flatMap((slot, index) => {
+  const previews = config.showImages
+    ? products.filter((product) => product.images.some((image) => image.url)).slice(0, 4)
+    : [];
+  const gallery = config.showImages ? config.images.flatMap((slot, index) => {
     if (slot.mode === "custom") {
       return slot.image ? [{ image: slot.image, product: previews[index], href: slot.href || (previews[index] ? routes.product(previews[index].slug) : undefined), key: `custom-${index}` }] : [];
     }
     const product = previews[index];
     const image = product?.images.find((entry) => entry.url);
     return product && image ? [{ image, product, href: routes.product(product.slug), key: product.id }] : [];
-  });
+  }) : [];
   return (
-    <section className={styles.hero} aria-labelledby="hero-heading">
+    <section className={cn(styles.hero, !config.showImages && styles.centeredHero)} aria-labelledby="hero-heading">
       <div className="ch-container">
-        <div className={cn(styles.layout, gallery.length > 0 && styles.withArtwork)}>
+        <div className={cn(styles.layout, gallery.length > 0 ? styles.withArtwork : styles.centered)}>
         <div className={styles.inner}>
           {config.eyebrow && <Badge variant="accent" size="md" className={styles.eyebrow}>{config.eyebrow}</Badge>}
           <h1 id="hero-heading" className={styles.title}>

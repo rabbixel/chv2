@@ -6,6 +6,7 @@ define( 'WEEK_IN_SECONDS', 604800 );
 class WP_Error { public $code; public function __construct( $code = '' ) { $this->code = $code; } }
 class WP_REST_Server { const READABLE = 'GET'; }
 class WP_REST_Response { public $data; public $status; public function __construct( $data, $status = 200 ) { $this->data = $data; $this->status = $status; } }
+class CH_Indexed_Search { public static function product_price_classification( $id ) { return $GLOBALS['price_classifications'][ (int) $id ] ?? array( 'class' => 'invalid', 'display' => 0, 'valid' => false ); } }
 
 function add_action() {}
 function register_setting() {}
@@ -13,6 +14,12 @@ function register_rest_route() {}
 function wp_enqueue_media() { $GLOBALS['media_enqueue_count'] = ( $GLOBALS['media_enqueue_count'] ?? 0 ) + 1; }
 function wp_enqueue_style( $handle, $src, $deps = array(), $version = false ) { $GLOBALS['admin_style_enqueue'] = array( $handle, $src, $deps, $version ); }
 function wp_enqueue_script( $handle, $src, $deps = array(), $version = false, $in_footer = false ) { $GLOBALS['admin_script_enqueue'] = array( $handle, $src, $deps, $version, $in_footer ); }
+function wp_localize_script( $handle, $name, $data ) { $GLOBALS['admin_localized_script'] = array( $handle, $name, $data ); }
+function wp_create_nonce( $action ) { return 'test-nonce-' . $action; }
+function get_post( $id ) { return (int) $id > 0 ? (object) array( 'ID' => (int) $id, 'post_type' => 'download', 'post_status' => 'publish', 'post_name' => 'test-product-' . (int) $id ) : null; }
+function get_the_title( $post ) { return 'Test product ' . ( is_object( $post ) ? $post->ID : (int) $post ); }
+function get_the_terms( $id, $taxonomy ) { return array(); }
+function maybe_unserialize( $value ) { return $value; }
 function plugin_dir_url( $file ) { return '/wp-content/plugins/creative-hatti-home-sections/'; }
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
 function absint( $value ) { return abs( (int) $value ); }
@@ -26,13 +33,14 @@ function esc_url( $value ) { return esc_attr( $value ); }
 function esc_textarea( $value ) { return esc_html( $value ); }
 function checked( $checked, $current = true, $display = true ) { $result = $checked === $current ? 'checked="checked"' : ''; if ( $display ) { echo $result; } return $result; }
 function selected( $selected, $current = true, $display = true ) { $result = (string) $selected === (string) $current ? 'selected="selected"' : ''; if ( $display ) { echo $result; } return $result; }
-function esc_url_raw( $url ) {
+function esc_url_raw( $url, $protocols = null ) {
 	$url = trim( (string) $url );
 	return preg_match( '#^(https?://|/[^/])#i', $url ) ? $url : '';
 }
+function wp_parse_url( $url ) { return parse_url( $url ); }
 function get_term( $id, $taxonomy = '' ) { return $GLOBALS['terms'][ (int) $id ] ?? false; }
 function get_term_by( $field, $value, $taxonomy = '' ) { return false; }
-function get_post_type( $id ) { return 100 === (int) $id ? 'attachment' : ( 0 < (int) $id ? 'download' : false ); }
+function get_post_type( $id ) { $id = is_object( $id ) ? ( $id->ID ?? 0 ) : $id; return 100 === (int) $id ? 'attachment' : ( 0 < (int) $id ? 'download' : false ); }
 function get_post_status( $id ) { return 'publish'; }
 function wp_attachment_is_image( $id ) { return 100 === (int) $id; }
 function wp_get_attachment_image_src( $id, $size = '' ) { if ( 100 === (int) $id ) { return array( 'https://media.example.test/pack.jpg', 1200, 720 ); } if ( 110 <= (int) $id && 114 >= (int) $id ) { return array( 'https://media.example.test/default-' . (int) $id . '.jpg', 640, 420 ); } return false; }
@@ -40,6 +48,7 @@ function get_post_meta( $id, $key, $single = true ) { return 'Seasonal cover'; }
 function add_settings_error( $setting, $code, $message ) { $GLOBALS['settings_errors'][] = $code; }
 function delete_transient() {}
 function taxonomy_exists( $taxonomy ) { return true; }
+function get_terms( $args = array() ) { return array_values( $GLOBALS['terms'] ?? array() ); }
 function get_option( $key, $default = array() ) { return $GLOBALS['options'][ $key ] ?? $default; }
 function get_transient() { return array(); }
 function set_transient() {}
@@ -52,6 +61,7 @@ function __( $text, $domain = '' ) { return $text; }
 function sanitize_key( $value ) { return strtolower( preg_replace( '/[^a-z0-9_-]/', '', (string) $value ) ); }
 function sanitize_title( $value ) { return trim( strtolower( preg_replace( '/[^a-z0-9]+/i', '-', (string) $value ) ), '-' ); }
 function wp_strip_all_tags( $value ) { return strip_tags( (string) $value ); }
+function number_format_i18n( $value, $decimals = 0 ) { return number_format( (float) $value, $decimals ); }
 
 $GLOBALS['terms'] = array(
 	1 => (object) array( 'term_id' => 1, 'slug' => 'social-media', 'name' => 'Social Media', 'description' => 'Social templates', 'count' => 10 ),
@@ -61,6 +71,12 @@ $GLOBALS['terms'] = array(
 	5 => (object) array( 'term_id' => 5, 'slug' => 'banners', 'name' => 'Banners', 'description' => 'Banner templates', 'count' => 9 ),
 );
 $GLOBALS['settings_errors'] = array();
+$GLOBALS['price_classifications'] = array(
+	109070 => array( 'class' => 'invalid', 'display' => 0, 'valid' => false ),
+	109066 => array( 'class' => 'invalid', 'display' => 0, 'valid' => false ),
+	109062 => array( 'class' => 'invalid', 'display' => 0, 'valid' => false ),
+	109059 => array( 'class' => 'invalid', 'display' => 0, 'valid' => false ),
+);
 require_once __DIR__ . '/../wordpress/creative-hatti-home-sections/creative-hatti-home-sections.php';
 
 function check( $condition, $message ) {
@@ -73,6 +89,13 @@ CH_Home_Sections::enqueue_admin_assets( 'settings_page_ch-home-sections' );
 check( array( 'jquery' ) === $GLOBALS['admin_script_enqueue'][2], 'Hero tabs retain jQuery as the admin script dependency' );
 check( (string) filemtime( __DIR__ . '/../wordpress/creative-hatti-home-sections/admin.js' ) === $GLOBALS['admin_script_enqueue'][3], 'admin JavaScript URL version tracks its file modification time' );
 check( (string) filemtime( __DIR__ . '/../wordpress/creative-hatti-home-sections/admin.css' ) === $GLOBALS['admin_style_enqueue'][3], 'admin stylesheet URL version tracks its file modification time' );
+check( 'CHHomeSectionsAdmin' === $GLOBALS['admin_localized_script'][1] && 'admin-ajax.php' === $GLOBALS['admin_localized_script'][2]['ajaxUrl'], 'product search receives the authenticated WordPress AJAX URL and nonce' );
+$summary_method = new ReflectionMethod( 'CH_Home_Sections', 'product_summary' );
+$summary_method->setAccessible( true );
+foreach ( array( 109070, 109066, 109062, 109059 ) as $example_product_id ) {
+	$summary = $summary_method->invoke( null, $example_product_id, true );
+	check( 'Pricing metadata invalid' === $summary['price_label'] && ! $summary['eligible'] && false !== strpos( $summary['reason'], 'cannot be confirmed free' ), 'missing EDD price metadata is not labeled Free or eligible (' . $example_product_id . ')' );
+}
 $legacy = CH_Home_Sections::sanitize_settings( array(
 	'packs_enabled' => '1',
 	'packs' => array( array( 'category_id' => 1, 'title' => 'Social Media', 'blurb' => 'Social templates', 'image_id' => 100 ) ),
@@ -199,6 +222,7 @@ check( 'https://example.test/creative/' === $external_response['url'] && '' === 
 $hero_input = array(
 	'v2' => array( 'hero' => array(
 		'enabled' => array( 'mode' => 'custom', 'value' => '0' ),
+	'show_images' => array( 'mode' => 'custom', 'value' => '0' ),
 		'eyebrow' => array( 'mode' => 'custom', 'value' => 'Created for designers' ),
 		'heading' => array( 'mode' => 'custom', 'value' => '' ),
 		'images' => array(
@@ -213,6 +237,7 @@ update_option( 'ch_home_sections', $hero_saved );
 $hero_refreshed = get_option( 'ch_home_sections', array() );
 check( 2 === $hero_refreshed['v2']['version'] && 'custom' === $hero_refreshed['v2']['hero']['heading']['mode'] && '' === $hero_refreshed['v2']['hero']['heading']['value'], 'Hero keeps an explicitly empty custom heading through save and refresh' );
 check( 'custom' === $hero_refreshed['v2']['hero']['enabled']['mode'] && false === $hero_refreshed['v2']['hero']['enabled']['value'], 'Hero persists an explicit disabled state' );
+check( 'custom' === $hero_refreshed['v2']['hero']['show_images']['mode'] && false === $hero_refreshed['v2']['hero']['show_images']['value'], 'Hero persists an explicit hidden-product-images state' );
 check( 100 === $hero_refreshed['v2']['hero']['images'][0]['attachment_id'] && 0 === $hero_refreshed['v2']['hero']['images'][1]['attachment_id'], 'Hero saves one selected image and a separately cleared image slot' );
 check( false === $hero_refreshed['v2']['hero']['stats'][0]['visible'], 'Hero statistics support explicit visibility state' );
 $hero_render = new ReflectionMethod( 'CH_Home_Sections', 'render_hero_section' );
@@ -222,9 +247,10 @@ ob_start();
 $hero_render->invoke( null, $hero_refreshed );
 $hero_admin_html = ob_get_clean();
 $GLOBALS['hero_default_posts'] = array();
-foreach ( array( '[heading][mode]', '[images][0][attachment_id]', '[images][3][link_url]', '[stats][0][visible]', 'ch-home-hero-restore', 'Saved headline', 'role="tablist"', 'data-hero-tab="artwork"' ) as $control ) {
+foreach ( array( '[heading][mode]', '[images][0][attachment_id]', '[images][3][link_url]', '[stats][0][visible]', '[show_images][mode]', '[show_images][value]', 'Show Hero Product Images', 'ch-home-hero-restore', 'Saved headline', 'role="tablist"', 'data-hero-tab="artwork"' ) as $control ) {
 	check( false !== strpos( $hero_admin_html, $control ), 'Hero admin panel renders ' . $control );
 }
+check( false !== strpos( $hero_admin_html, 'data-ch-default="470+"' ) && false !== strpos( $hero_admin_html, 'data-ch-default="926+"' ), 'Hero statistics display the indexed Freebies and categorized Bundles defaults' );
 check( false !== strpos( $hero_admin_html, 'aria-selected="true" tabindex="0" data-hero-tab="content"' ), 'Content is the accessible default Hero tab' );
 check( false !== strpos( $hero_admin_html, 'data-hero-panel="content" aria-hidden="false" tabindex="0">' ), 'Content fields are visible in server-rendered Hero markup' );
 check( false !== strpos( $hero_admin_html, 'data-hero-panel="artwork" aria-hidden="true" tabindex="0" hidden>' ) && false !== strpos( $hero_admin_html, 'data-hero-panel="statistics" aria-hidden="true" tabindex="0" hidden>' ), 'inactive Hero panels start hidden and marked as such for assistive technology' );
@@ -232,13 +258,44 @@ check( false !== strpos( $hero_admin_html, 'default-112.jpg' ), 'Hero artwork pa
 check( false !== strpos( $hero_admin_html, 'ch-home-restore-image' ), 'custom artwork slots expose a Restore Default action' );
 $hero_response = CH_Home_Sections::get_homepage_sections()->data['data']['homepage_config_v2'];
 check( '' === $hero_response['hero']['heading']['value'] && false === $hero_response['hero']['enabled']['value'], 'public REST config preserves empty custom text and disabled section state' );
+check( 'custom' === $hero_response['hero']['show_images']['mode'] && false === $hero_response['hero']['show_images']['value'], 'public REST config exposes the saved Hero image visibility override' );
 check( 'https://media.example.test/pack.jpg' === $hero_response['hero']['images'][0]['image']['url'] && null === $hero_response['hero']['images'][1]['image'], 'public REST config includes safe attachment DTOs and explicit cleared slots' );
+$public_config_method = new ReflectionMethod( 'CH_Home_Sections', 'public_config_v2' );
+$public_config_method->setAccessible( true );
+$legacy_config = $public_config_method->invoke( null, array( 'hero' => array() ) );
+check( 'default' === $legacy_config['hero']['show_images']['mode'] && null === $legacy_config['hero']['show_images']['value'], 'legacy homepage configuration returns the image visibility default without an override' );
+
+$selection_saved = CH_Home_Sections::sanitize_settings( array( 'v2' => array( 'sections' => array(
+	'hatti_choice' => array( 'products' => array( 'mode' => 'manual', 'product_ids' => array( '41', '42', '41' ) ) ),
+	'popular_freebies' => array( 'products' => array( 'mode' => 'manual', 'product_ids' => array() ) ),
+) ) ) );
+check( array( 'mode' => 'manual', 'product_ids' => array( 41, 42 ) ) === $selection_saved['v2']['sections']['hatti_choice']['products'], 'manual Hatti Choice IDs are deduplicated and retain administrator order' );
+check( array( 'mode' => 'manual', 'product_ids' => array() ) === $selection_saved['v2']['sections']['popular_freebies']['products'], 'empty manual Freebies selection persists without automatic fill-in' );
+update_option( 'ch_home_sections', $selection_saved );
+$selection_response = CH_Home_Sections::get_homepage_sections()->data['data']['homepage_config_v2']['sections'];
+check( array( 41, 42 ) === $selection_response['hatti_choice']['products']['product_ids'] && 'manual' === $selection_response['hatti_choice']['products']['mode'], 'public homepage REST config exposes only the ordered public product IDs' );
+$automatic_selection = CH_Home_Sections::sanitize_settings( array( 'v2' => array( 'sections' => array(
+	'hatti_choice' => array( 'products' => array( 'mode' => 'automatic', 'product_ids' => array( '41', '42' ) ) ),
+) ) ) );
+check( 'automatic' === $automatic_selection['v2']['sections']['hatti_choice']['products']['mode'] && array( 41, 42 ) === $automatic_selection['v2']['sections']['hatti_choice']['products']['product_ids'], 'switching back to Automatic preserves manual IDs for later use' );
 
 // Older forms without the v2 field must not discard stored Homepage Manager data.
+$GLOBALS['options']['ch_home_sections'] = $hero_saved;
 $legacy_post = array( 'packs_enabled' => '1', 'packs' => array(), 'characters_enabled' => '0', 'characters' => array() );
 $legacy_resave = CH_Home_Sections::sanitize_settings( $legacy_post );
 check( $hero_refreshed['v2'] === $legacy_resave['v2'], 'legacy settings submissions preserve the v2 configuration' );
 $partial_resave = CH_Home_Sections::sanitize_settings( array( 'v2' => array( 'hero' => array( 'heading' => array( 'mode' => 'custom', 'value' => 'Changed heading' ) ) ) ) );
 check( 'Changed heading' === $partial_resave['v2']['hero']['heading']['value'] && 'Created for designers' === $partial_resave['v2']['hero']['eyebrow']['value'], 'a field-only v2 update preserves unrelated Hero overrides' );
+$section_saved = CH_Home_Sections::sanitize_settings( array( 'v2' => array( 'sections' => array(
+	'hatti_choice' => array( 'visible' => array( 'mode' => 'custom', 'value' => '0' ), 'heading' => array( 'mode' => 'custom', 'value' => '' ), 'browse_url' => array( 'mode' => 'custom', 'value' => '/popular' ) ),
+	'popular_themes' => array( 'heading' => array( 'mode' => 'custom', 'value' => 'Themes for creators' ) ),
+) ) ) );
+update_option( 'ch_home_sections', $section_saved );
+check( false === $section_saved['v2']['sections']['hatti_choice']['visible']['value'] && '' === $section_saved['v2']['sections']['hatti_choice']['heading']['value'], 'section overrides preserve intentional empty copy and hidden state' );
+check( '/popular' === $section_saved['v2']['sections']['hatti_choice']['browse_url']['value'] && 'Themes for creators' === $section_saved['v2']['sections']['popular_themes']['heading']['value'], 'section browse destinations and optional headings persist' );
+$section_response = CH_Home_Sections::get_homepage_sections()->data['data']['homepage_config_v2']['sections'];
+check( false === $section_response['hatti_choice']['visible']['value'] && '' === $section_response['hatti_choice']['heading']['value'], 'public REST config includes sparse section values without replacing other sections' );
+$unsafe_section = CH_Home_Sections::sanitize_settings( array( 'v2' => array( 'sections' => array( 'trusted_clients' => array( 'browse_url' => array( 'mode' => 'custom', 'value' => 'https://evil.example/path' ) ) ) ) ) );
+check( '' === $unsafe_section['v2']['sections']['trusted_clients']['browse_url']['value'] && in_array( 'invalid_trusted_clients_url', $GLOBALS['settings_errors'], true ), 'external untrusted section destinations are rejected with an admin error' );
 
 echo 'PASS: ' . $GLOBALS['assertions'] . " Handpicked Packs assertions\n";

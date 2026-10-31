@@ -15,6 +15,7 @@ const media = await loadSource("../lib/creative-hatti/media.ts");
 const html = await loadSource("../lib/creative-hatti/html.ts");
 const adapters = await loadSource("../lib/creative-hatti/adapters.ts", [['"./media"', JSON.stringify(media)], ['"./html"', JSON.stringify(html)]]);
 const search = await import(await loadSource("../lib/creative-hatti/search.ts", [['"./adapters"', JSON.stringify(adapters)]]));
+const orientation = await import(new URL("../lib/creative-hatti/orientation.mjs", import.meta.url));
 const { productFromApi } = await import(adapters);
 const { apiFetch, ApiError } = await import(await loadSource("../lib/api/client.ts"));
 
@@ -29,6 +30,26 @@ test("indexed search forwards the query, every filter and sort without losing mu
     cat: "miscellaneous-character-bundles,profession", min: 19900, max: 99900, avail: "paid", rating: 4,
     file: "EPS,PNG", app: "illustrator,photoshop", collection: "diwali", license: "commercial", sale: true,
   });
+});
+
+test("orientation filters are optional and pass through indexed search", () => {
+  assert.equal(search.searchRequestParams({ query: "", page: 1, pageSize: 24 }).orientation, undefined);
+  for (const orientation of ["all", "landscape", "portrait", "square"]) {
+    const request = search.searchRequestParams({ query: "festival", page: 2, pageSize: 12, sort: "newest", filters: { orientation } });
+    assert.equal(request.orientation, orientation);
+    assert.equal(request.page, 2);
+    assert.equal(request.sort, "newest");
+  }
+});
+
+test("orientation classification honors inclusive square boundaries and unknown dimensions", () => {
+  assert.equal(orientation.orientationFromDimensions(300, 200), "landscape");
+  assert.equal(orientation.orientationFromDimensions(211, 200), "landscape");
+  assert.equal(orientation.orientationFromDimensions(21, 20), "square");
+  assert.equal(orientation.orientationFromDimensions(19, 20), "square");
+  assert.equal(orientation.orientationFromDimensions(18, 20), "portrait");
+  assert.equal(orientation.orientationFromDimensions(0, 20), "unknown");
+  assert.equal(orientation.orientationFromDimensions("invalid", 20), "unknown");
 });
 
 test("best-selling indexed results preserve descending EDD sales order and pagination", async () => {
@@ -73,7 +94,7 @@ test("product cards classify mixed-price details as paid rather than free", () =
     id: 1, title: "Fixture", slug: "fixture", price: { amount: price, currency: "INR" }, categories: [], variable_prices,
   });
   assert.equal(product(0, [{ amount: 0 }, { amount: 250 }]).isFree, false);
-  assert.equal(product(0, [{ amount: 0 }, { amount: "invalid" }]).isFree, true);
+  assert.equal(product(0, [{ amount: 0 }, { amount: "invalid" }]).isFree, false);
   assert.equal(product(0, [{ amount: "invalid" }]).isFree, false);
   assert.equal(product(0, undefined).isFree, true);
 });
@@ -91,8 +112,9 @@ test("EDD detail price types distinguish fixed free, variable, mixed and invalid
   assert.deepEqual(free.priceOptions.map((option) => option.id), [0, 2]);
   const mixed = product({ type: "variable", class: "free" }, [{ id: 0, amount: 0 }, { id: 2, amount: 100 }]);
   assert.equal(mixed.isFree, false);
+  assert.equal(mixed.priceClass, "mixed");
   assert.deepEqual(mixed.priceOptions.map((option) => option.price.amount), [0, 10000]);
-  const filtered = product({ type: "variable" }, [{ id: 0, amount: null }, { id: 2, amount: 100 }]);
+  const filtered = product({ type: "variable", class: "invalid" }, [{ id: 0, amount: null }, { id: 2, amount: 100 }]);
   assert.equal(filtered.isFree, false);
   assert.deepEqual(filtered.priceOptions.map((option) => option.id), [2]);
   for (const amount of [null, undefined, "", "bad", -1, Infinity, false]) {

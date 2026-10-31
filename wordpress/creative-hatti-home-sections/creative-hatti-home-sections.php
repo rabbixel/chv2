@@ -19,6 +19,9 @@ final class CH_Home_Sections {
 	const NAMESPACE = 'ch/v1';
 	const TAXONOMY = 'download_category';
 	const MAX_ROWS = 8;
+	const MAX_HATTI_CHOICE_PRODUCTS = 8;
+	const MAX_POPULAR_FREEBIE_PRODUCTS = 8;
+	const PRODUCT_SEARCH_LIMIT = 10;
 
 	/**
 	 * Register plugin hooks.
@@ -27,6 +30,7 @@ final class CH_Home_Sections {
 		add_action( 'admin_menu', array( __CLASS__, 'add_settings_page' ) );
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_admin_assets' ) );
+		add_action( 'wp_ajax_ch_home_product_search', array( __CLASS__, 'ajax_search_products' ) );
 		add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
 	}
 
@@ -86,6 +90,10 @@ final class CH_Home_Sections {
 			$admin_js_version,
 			true
 		);
+		wp_localize_script( 'ch-home-sections-admin', 'CHHomeSectionsAdmin', array(
+			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'nonce' => wp_create_nonce( 'ch_home_product_search' ),
+		) );
 	}
 
 	/**
@@ -133,8 +141,80 @@ final class CH_Home_Sections {
 		}
 		$hero = array();
 		$hero['enabled'] = self::sanitize_override( $hero_input['enabled'] ?? null, 'boolean', true );
+		$hero['show_images'] = self::sanitize_override( $hero_input['show_images'] ?? null, 'boolean', true );
 		foreach ( array( 'eyebrow', 'heading', 'description', 'search_placeholder', 'search_button_text' ) as $field ) {
 			$hero[ $field ] = self::sanitize_override( $hero_input[ $field ] ?? null, 'text' );
+		}
+		$existing_sections = is_array( $existing['sections'] ?? null ) ? $existing['sections'] : array();
+		$submitted_sections = is_array( $submitted['sections'] ?? null ) ? $submitted['sections'] : array();
+		$section_fields = array(
+			'popular_searches' => array( 'heading' ),
+			'discovery' => array( 'eyebrow', 'heading', 'description' ),
+			'hatti_choice' => array( 'eyebrow', 'heading', 'description', 'browse_label', 'browse_url' ),
+			'character_categories' => array( 'eyebrow', 'heading', 'description' ),
+			'popular_freebies' => array( 'eyebrow', 'heading', 'description', 'browse_label', 'browse_url' ),
+			'featured_packs' => array( 'eyebrow', 'heading', 'description' ),
+			'seasonal_collections' => array( 'eyebrow', 'heading', 'description' ),
+			'popular_themes' => array( 'eyebrow', 'heading', 'description' ),
+			'trusted_clients' => array( 'eyebrow', 'heading', 'description', 'browse_label', 'browse_url' ),
+		);
+		$sections = $existing_sections;
+		foreach ( $section_fields as $section_key => $fields ) {
+			$old_section = is_array( $existing_sections[ $section_key ] ?? null ) ? $existing_sections[ $section_key ] : array();
+			$post_section = is_array( $submitted_sections[ $section_key ] ?? null ) ? $submitted_sections[ $section_key ] : array();
+			$clean_section = $old_section;
+			if ( array_key_exists( 'visible', $post_section ) ) {
+				$visible = is_array( $post_section['visible'] ) ? $post_section['visible'] : array();
+				if ( 'custom' === ( $visible['mode'] ?? 'default' ) ) {
+					$clean_section['visible'] = array( 'mode' => 'custom', 'value' => ! empty( $visible['value'] ) );
+				} else {
+					unset( $clean_section['visible'] );
+				}
+			}
+			foreach ( $fields as $field_key ) {
+				if ( ! array_key_exists( $field_key, $post_section ) ) { continue; }
+				$field = is_array( $post_section[ $field_key ] ) ? $post_section[ $field_key ] : array();
+				if ( 'custom' !== ( $field['mode'] ?? 'default' ) ) { unset( $clean_section[ $field_key ] ); continue; }
+				$value = 'browse_url' === $field_key ? self::sanitize_section_url( $field['value'] ?? '' ) : ( 'description' === $field_key ? sanitize_textarea_field( $field['value'] ?? '' ) : sanitize_text_field( $field['value'] ?? '' ) );
+				if ( 'browse_url' === $field_key && ! empty( $field['value'] ) && '' === $value ) {
+					add_settings_error( self::OPTION, 'invalid_' . $section_key . '_url', __( 'A section browse destination must be a site-relative path or an HTTPS URL on creativehatti.com.', 'creative-hatti-home-sections' ) );
+					$value = is_array( $old_section[ $field_key ] ?? null ) ? ( $old_section[ $field_key ]['value'] ?? '' ) : '';
+				}
+				$clean_section[ $field_key ] = array( 'mode' => 'custom', 'value' => $value );
+			}
+			if ( in_array( $section_key, array( 'hatti_choice', 'popular_freebies' ), true ) && array_key_exists( 'products', $post_section ) ) {
+				$product_input = is_array( $post_section['products'] ) ? $post_section['products'] : array();
+				$mode = ( $product_input['mode'] ?? 'automatic' ) === 'manual' ? 'manual' : 'automatic';
+				$limit = 'popular_freebies' === $section_key ? self::MAX_POPULAR_FREEBIE_PRODUCTS : self::MAX_HATTI_CHOICE_PRODUCTS;
+				$posted_ids = is_array( $product_input['product_ids'] ?? null ) ? $product_input['product_ids'] : array();
+				$old_products = is_array( $old_section['products'] ?? null ) ? $old_section['products'] : array();
+				$old_ids = array();
+				foreach ( (array) ( $old_products['product_ids'] ?? array() ) as $old_id ) {
+					if ( is_scalar( $old_id ) && preg_match( '/^[1-9][0-9]{0,9}$/', (string) $old_id ) ) { $old_ids[] = (int) $old_id; }
+				}
+				$ids = array();
+				$invalid_id = false;
+				foreach ( $posted_ids as $raw_id ) {
+					if ( ! is_scalar( $raw_id ) || ! preg_match( '/^[1-9][0-9]{0,9}$/', (string) $raw_id ) ) { $invalid_id = true; continue; }
+					$id = (int) $raw_id;
+					$post = get_post( $id );
+					if ( $post && 'download' !== get_post_type( $id ) ) { $invalid_id = true; continue; }
+					// Keep saved IDs even after their product is deleted or unpublished, so admins can review it.
+					if ( ! $post && ! in_array( $id, $old_ids, true ) ) { $invalid_id = true; continue; }
+					if ( ! in_array( $id, $ids, true ) ) { $ids[] = $id; }
+				}
+				if ( $invalid_id ) { add_settings_error( self::OPTION, 'invalid_' . $section_key . '_product_id', __( 'One or more selected product IDs were invalid and were skipped.', 'creative-hatti-home-sections' ) ); }
+				if ( count( $ids ) > $limit ) {
+					$ids = array_slice( $ids, 0, $limit );
+					add_settings_error( self::OPTION, 'too_many_' . $section_key . '_products', sprintf( __( 'This section supports up to %d manually selected products.', 'creative-hatti-home-sections' ), $limit ) );
+				}
+				if ( 'manual' === $mode || $ids ) {
+					$clean_section['products'] = array( 'mode' => $mode, 'product_ids' => $ids );
+				} else {
+					unset( $clean_section['products'] );
+				}
+			}
+			$sections[ $section_key ] = $clean_section;
 		}
 		$hero['images'] = array();
 		for ( $index = 0; $index < 4; $index++ ) {
@@ -168,7 +248,18 @@ final class CH_Home_Sections {
 				'visible' => ! array_key_exists( 'visible', $stat_input ) || ! empty( $stat_input['visible'] ),
 			);
 		}
-		return array_merge( $existing, array( 'version' => 2, 'hero' => array_merge( $existing_hero, $hero ) ) );
+		return array_merge( $existing, array( 'version' => 2, 'hero' => array_merge( $existing_hero, $hero ), 'sections' => $sections ) );
+	}
+
+	/** Allow only same-site paths or HTTPS URLs on the storefront domain. */
+	private static function sanitize_section_url( $url ) {
+		$url = trim( (string) $url );
+		if ( '' === $url ) { return ''; }
+		if ( preg_match( '/[\\x00-\\x20\\\\]/', $url ) ) { return ''; }
+		if ( '/' === $url[0] ) { return 0 === strpos( $url, '//' ) ? '' : esc_url_raw( $url, array( 'https' ) ); }
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || 'https' !== strtolower( $parts['scheme'] ?? '' ) || ! in_array( strtolower( $parts['host'] ?? '' ), array( 'creativehatti.com', 'www.creativehatti.com' ), true ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || isset( $parts['port'] ) ) { return ''; }
+		return esc_url_raw( $url, array( 'https' ) );
 	}
 
 	/** Sanitize explicit default/custom field state; empty custom values stay empty. */
@@ -373,11 +464,14 @@ final class CH_Home_Sections {
 			<form id="ch-home-settings-form" class="ch-home-settings-form" method="post" action="options.php" novalidate>
 				<?php settings_fields( 'ch_home_sections_group' ); ?>
 			<nav class="ch-home-tabs" role="tablist" aria-label="Homepage sections">
-				<?php foreach ( array( 'hero' => 'Hero', 'characters' => 'Character Categories', 'packs' => 'Handpicked Packs', 'discovery' => 'Collections', 'celebrations' => 'Celebrations', 'keywords' => 'Popular Themes', 'trusted' => 'Trusted Clients' ) as $tab => $label ) : ?>
+				<?php foreach ( array( 'hero' => 'Hero', 'popular_searches' => 'Popular Searches', 'discovery' => 'Collections', 'choice' => 'Hatti Choice', 'characters' => 'Character Categories', 'popular_freebies' => 'Popular Freebies', 'packs' => 'Handpicked Packs', 'celebrations' => 'Seasonal Collections', 'keywords' => 'Popular Themes', 'trusted' => 'Trusted Clients' ) as $tab => $label ) : ?>
 					<button type="button" class="ch-home-tab" role="tab" id="ch-tab-<?php echo esc_attr( $tab ); ?>" aria-controls="ch-panel-<?php echo esc_attr( $tab ); ?>" data-tab="<?php echo esc_attr( $tab ); ?>"><?php echo esc_html( $label ); ?></button>
 				<?php endforeach; ?>
 			</nav>
 			<?php self::render_hero_section( $settings ); ?>
+			<?php self::render_copy_panel( 'popular_searches', __( 'Popular Searches', 'creative-hatti-home-sections' ), array( 'heading' => __( 'Popular Searches', 'creative-hatti-home-sections' ) ), $settings ); ?>
+			<?php self::render_copy_panel( 'choice', __( 'Hatti Choice', 'creative-hatti-home-sections' ), array( 'eyebrow' => 'Handpicked', 'heading' => "Creative Hatti's Choice", 'description' => "Creative Hatti's handpicked collection. Discover the perfect creative resource for your next project.", 'browse_label' => 'Browse bestsellers', 'browse_url' => '/popular' ), $settings, 'hatti_choice' ); ?>
+			<?php self::render_copy_panel( 'popular_freebies', __( 'Popular Freebies', 'creative-hatti-home-sections' ), array( 'eyebrow' => 'Free character illustrations', 'heading' => 'Popular Freebies', 'description' => 'Explore free character artwork loved by the Hatti community.', 'browse_label' => 'Browse all free downloads', 'browse_url' => '/free-downloads' ), $settings ); ?>
 			<?php self::render_section( 'characters', __( 'Character Categories', 'creative-hatti-home-sections' ), $settings, $terms ); ?>
 			<?php self::render_packs_section( $settings, $terms ); ?>
 				<?php CH_Home_Content::render( $settings, $terms ); ?>
@@ -393,6 +487,189 @@ final class CH_Home_Sections {
 		<?php
 	}
 
+	/** Render Content controls while leaving all existing item editors intact. */
+	private static function render_copy_panel( $tab, $title, $defaults, $settings, $section_key = '' ) {
+		$section_key = $section_key ?: $tab;
+		$has_products = in_array( $section_key, array( 'hatti_choice', 'popular_freebies' ), true );
+		?>
+		<section class="ch-home-panel" id="ch-panel-<?php echo esc_attr( $tab ); ?>" role="tabpanel" aria-labelledby="ch-tab-<?php echo esc_attr( $tab ); ?>" data-panel="<?php echo esc_attr( $tab ); ?>" hidden>
+			<header class="ch-home-panel-head"><div><h2><?php echo esc_html( $title ); ?></h2><p><?php esc_html_e( 'Control section visibility and text overrides. Default values stay owned by the storefront.', 'creative-hatti-home-sections' ); ?></p></div></header>
+			<?php if ( $has_products ) : ?>
+				<?php self::render_inner_tabs( $tab, 'Products', 'products' ); ?>
+				<div id="ch-section-<?php echo esc_attr( $tab ); ?>-pane-content" data-section-pane="content" data-section-target="<?php echo esc_attr( $tab ); ?>"><?php self::render_section_content_controls( $section_key, $defaults, $settings ); ?></div>
+				<div id="ch-section-<?php echo esc_attr( $tab ); ?>-pane-products" data-section-pane="products" data-section-target="<?php echo esc_attr( $tab ); ?>" hidden><?php self::render_product_selection_controls( $tab, $section_key, $settings ); ?></div>
+			<?php else : ?>
+				<?php self::render_section_content_controls( $section_key, $defaults, $settings ); ?>
+			<?php endif; ?>
+		</section>
+		<?php
+	}
+
+	/** Reusable sparse v2 controls for a homepage section. */
+	public static function render_section_content_controls( $section_key, $defaults, $settings ) {
+		$section = is_array( $settings['v2']['sections'][ $section_key ] ?? null ) ? $settings['v2']['sections'][ $section_key ] : array();
+		$visible = is_array( $section['visible'] ?? null ) ? $section['visible'] : array();
+		?>
+		<div class="ch-home-content-controls" data-copy-section="<?php echo esc_attr( $section_key ); ?>">
+			<div class="ch-home-content-visibility"><strong><?php esc_html_e( 'Section visibility', 'creative-hatti-home-sections' ); ?></strong><?php self::render_v2_mode_select( 'sections][' . $section_key . '][visible', $visible['mode'] ?? 'default', 'Visibility' ); ?><input type="hidden" name="ch_home_sections[v2][sections][<?php echo esc_attr( $section_key ); ?>][visible][value]" value="0"><label><input type="checkbox" name="ch_home_sections[v2][sections][<?php echo esc_attr( $section_key ); ?>][visible][value]" value="1" <?php checked( ( $visible['mode'] ?? 'default' ) !== 'custom' || ! empty( $visible['value'] ) ); ?>> <?php esc_html_e( 'Show section', 'creative-hatti-home-sections' ); ?></label></div>
+			<div class="ch-home-copy-grid">
+			<?php foreach ( $defaults as $field => $default ) :
+				$saved = is_array( $section[ $field ] ?? null ) ? $section[ $field ] : array();
+				$mode = $saved['mode'] ?? 'default';
+				$value = 'custom' === $mode ? ( $saved['value'] ?? '' ) : $default;
+				$id = 'ch-copy-' . sanitize_key( $section_key . '-' . $field );
+				$label = ucwords( str_replace( '_', ' ', $field ) );
+				?>
+				<div class="ch-home-copy-field"><div class="ch-home-hero-field-head"><label for="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $label ); ?></label><?php self::render_v2_mode_select( 'sections][' . $section_key . '][' . $field, $mode, 'Override' ); ?></div>
+					<?php if ( 'description' === $field ) : ?><textarea id="<?php echo esc_attr( $id ); ?>" class="widefat" rows="3" data-ch-default="<?php echo esc_attr( $default ); ?>" name="ch_home_sections[v2][sections][<?php echo esc_attr( $section_key . '][' . $field ); ?>][value]"><?php echo esc_textarea( $value ); ?></textarea>
+					<?php else : ?><input id="<?php echo esc_attr( $id ); ?>" class="widefat" type="<?php echo 'browse_url' === $field ? 'url' : 'text'; ?>" data-ch-default="<?php echo esc_attr( $default ); ?>" name="ch_home_sections[v2][sections][<?php echo esc_attr( $section_key . '][' . $field ); ?>][value]" value="<?php echo esc_attr( $value ); ?>" <?php echo 'browse_url' === $field ? 'placeholder="/popular or https://www.creativehatti.com/…"' : ''; ?>><?php endif; ?>
+				</div>
+			<?php endforeach; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	public static function render_inner_tabs( $key, $second_label = 'Items', $second_tab = 'items' ) {
+		?><nav class="ch-home-subtabs ch-home-section-subtabs" role="tablist" aria-label="<?php esc_attr_e( 'Section settings', 'creative-hatti-home-sections' ); ?>">
+			<button type="button" class="ch-home-subtab is-active" role="tab" aria-controls="ch-section-<?php echo esc_attr( $key ); ?>-pane-content" aria-selected="true" tabindex="0" data-section-subtab="content" data-section-target="<?php echo esc_attr( $key ); ?>"><?php esc_html_e( 'Content', 'creative-hatti-home-sections' ); ?></button>
+			<button type="button" class="ch-home-subtab" role="tab" aria-controls="ch-section-<?php echo esc_attr( $key ); ?>-pane-<?php echo esc_attr( $second_tab ); ?>" aria-selected="false" tabindex="-1" data-section-subtab="<?php echo esc_attr( $second_tab ); ?>" data-section-target="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $second_label ); ?></button>
+		</nav><?php
+	}
+
+	/** Render the bounded, accessible EDD product selector for either homepage shelf. */
+	private static function render_product_selection_controls( $panel_key, $section_key, $settings ) {
+		$section = is_array( $settings['v2']['sections'][ $section_key ] ?? null ) ? $settings['v2']['sections'][ $section_key ] : array();
+		$selection = is_array( $section['products'] ?? null ) ? $section['products'] : array();
+		$mode = ( $selection['mode'] ?? 'automatic' ) === 'manual' ? 'manual' : 'automatic';
+		$ids = array_slice( array_values( array_unique( array_filter( array_map( 'absint', (array) ( $selection['product_ids'] ?? array() ) ) ) ) ), 0, 8 );
+		$is_freebies = 'popular_freebies' === $section_key;
+		?>
+		<div class="ch-home-product-picker" data-product-picker data-panel-key="<?php echo esc_attr( $panel_key ); ?>" data-config-key="<?php echo esc_attr( $section_key ); ?>" data-product-kind="<?php echo $is_freebies ? 'freebies' : 'choice'; ?>" data-limit="8">
+			<input type="hidden" name="ch_home_sections[v2][sections][<?php echo esc_attr( $section_key ); ?>][products][submitted]" value="1">
+			<label class="ch-home-product-mode"><?php esc_html_e( 'Selection mode', 'creative-hatti-home-sections' ); ?>
+				<select name="ch_home_sections[v2][sections][<?php echo esc_attr( $section_key ); ?>][products][mode]" data-product-mode>
+					<option value="automatic" <?php selected( $mode, 'automatic' ); ?>><?php esc_html_e( 'Automatic', 'creative-hatti-home-sections' ); ?></option>
+					<option value="manual" <?php selected( $mode, 'manual' ); ?>><?php esc_html_e( 'Manual', 'creative-hatti-home-sections' ); ?></option>
+				</select>
+			</label>
+			<p class="description" data-product-mode-help><?php echo 'manual' === $mode ? esc_html__( 'Selected products appear in this exact order. Automatic selections are not added to fill missing slots.', 'creative-hatti-home-sections' ) : esc_html__( 'The existing storefront product selection and ranking remain in use. Saved manual IDs are kept for when you switch back.', 'creative-hatti-home-sections' ); ?></p>
+			<div class="ch-home-product-search">
+				<label for="ch-product-search-<?php echo esc_attr( $panel_key ); ?>"><?php esc_html_e( 'Search EDD products by title or exact ID', 'creative-hatti-home-sections' ); ?></label>
+				<input id="ch-product-search-<?php echo esc_attr( $panel_key ); ?>" class="widefat" type="search" autocomplete="off" data-product-search placeholder="<?php esc_attr_e( 'Enter a product title or ID', 'creative-hatti-home-sections' ); ?>">
+				<p class="description"><?php echo $is_freebies ? esc_html__( 'Popular Freebies accepts only published, free-only character artwork with a public preview image.', 'creative-hatti-home-sections' ) : esc_html__( 'Only published EDD products can be newly selected.', 'creative-hatti-home-sections' ); ?></p>
+				<div class="ch-home-product-results" data-product-results role="list" aria-live="polite"></div>
+			</div>
+			<div class="ch-home-product-selection-head"><strong><?php esc_html_e( 'Selected products', 'creative-hatti-home-sections' ); ?></strong><span data-product-count><?php echo esc_html( sprintf( __( '%d of 8 selected', 'creative-hatti-home-sections' ), count( $ids ) ) ); ?></span></div>
+			<p class="description" data-product-empty <?php echo $ids ? 'hidden' : ''; ?>><?php esc_html_e( 'No manual products are selected. Manual mode will show no products until you add them.', 'creative-hatti-home-sections' ); ?></p>
+			<ol class="ch-home-selected-products" data-selected-products>
+				<?php foreach ( $ids as $id ) : self::render_selected_product( $id, $section_key ); endforeach; ?>
+			</ol>
+			<button type="button" class="button ch-home-product-restore" data-product-restore><?php esc_html_e( 'Restore Default Selection', 'creative-hatti-home-sections' ); ?></button>
+		</div>
+		<?php
+	}
+
+	private static function render_selected_product( $id, $section_key ) {
+		$summary = self::product_summary( $id, 'popular_freebies' === $section_key );
+		self::product_row_markup( $summary, $section_key );
+	}
+
+	private static function product_row_markup( $product, $section_key ) {
+		$id = absint( $product['id'] ?? 0 );
+		$reason = $product['eligible'] ? '' : ( $product['reason'] ?? __( 'Product is no longer eligible.', 'creative-hatti-home-sections' ) );
+		?>
+		<li class="ch-home-selected-product<?php echo $reason ? ' is-invalid' : ''; ?>" data-selected-product data-product-id="<?php echo esc_attr( $id ); ?>">
+			<input type="hidden" name="ch_home_sections[v2][sections][<?php echo esc_attr( $section_key ); ?>][products][product_ids][]" value="<?php echo esc_attr( $id ); ?>">
+			<?php if ( ! empty( $product['image'] ) ) : ?><img src="<?php echo esc_url( $product['image']['url'] ); ?>" alt="" loading="lazy"><?php else : ?><span class="ch-home-product-no-image" aria-hidden="true"></span><?php endif; ?>
+			<span class="ch-home-selected-product-copy"><strong><?php echo esc_html( $product['title'] ?: __( 'Unavailable product', 'creative-hatti-home-sections' ) ); ?></strong><span><?php echo esc_html( sprintf( __( 'ID %1$d · %2$s', 'creative-hatti-home-sections' ), $id, $product['price_label'] ?? __( 'Price unavailable', 'creative-hatti-home-sections' ) ) ); ?></span><?php if ( $reason ) : ?><span class="ch-home-product-warning" role="status"><?php echo esc_html( $reason ); ?></span><?php endif; ?></span>
+			<span class="ch-home-product-actions"><button type="button" class="button-link ch-home-product-up" aria-label="<?php esc_attr_e( 'Move product up', 'creative-hatti-home-sections' ); ?>">↑</button><button type="button" class="button-link ch-home-product-down" aria-label="<?php esc_attr_e( 'Move product down', 'creative-hatti-home-sections' ); ?>">↓</button><button type="button" class="button-link-delete ch-home-product-remove"><?php esc_html_e( 'Remove', 'creative-hatti-home-sections' ); ?></button></span>
+		</li>
+		<?php
+	}
+
+	/** AJAX-only bounded product search. */
+	public static function ajax_search_products() {
+		check_ajax_referer( 'ch_home_product_search', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) { wp_send_json_error( array( 'message' => __( 'You do not have permission to search products.', 'creative-hatti-home-sections' ) ), 403 ); }
+		$query_text = isset( $_POST['q'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['q'] ) ) ) : '';
+		$freebies_only = isset( $_POST['kind'] ) && 'freebies' === sanitize_key( wp_unslash( $_POST['kind'] ) );
+		if ( '' === $query_text ) { wp_send_json_success( array( 'products' => array(), 'more' => false ) ); }
+		$posts = array();
+		$more = false;
+		if ( preg_match( '/^[1-9][0-9]{0,9}$/', $query_text ) ) {
+			$post = get_post( (int) $query_text );
+			if ( $post && 'download' === get_post_type( $post ) ) { $posts[] = $post; }
+		} else {
+			$results = new WP_Query( array(
+				'post_type' => 'download', 'post_status' => 'publish', 'posts_per_page' => self::PRODUCT_SEARCH_LIMIT,
+				'paged' => 1, 's' => $query_text, 'search_columns' => array( 'post_title' ),
+				'fields' => 'all', 'no_found_rows' => false, 'ignore_sticky_posts' => true,
+				'update_post_meta_cache' => true, 'update_post_term_cache' => true,
+			) );
+			$posts = $results->posts;
+			$more = (int) $results->found_posts > self::PRODUCT_SEARCH_LIMIT;
+		}
+		$products = array();
+		foreach ( $posts as $post ) {
+			$summary = self::product_summary( absint( $post->ID ), $freebies_only );
+			$products[] = $summary;
+		}
+		wp_send_json_success( array( 'products' => $products, 'more' => $more ) );
+	}
+
+	/** Build a safe picker summary without private download files or customer data. */
+	private static function product_summary( $product_id, $freebies_only = false ) {
+		$post = get_post( absint( $product_id ) );
+		$exists = $post && 'download' === get_post_type( $post );
+		$published = $exists && 'publish' === get_post_status( $post );
+		$title = $exists ? get_the_title( $post ) : '';
+		$slug = $exists ? sanitize_title( $post->post_name ) : '';
+		$image = $exists ? self::image_dto( get_post_thumbnail_id( $product_id ) ) : null;
+		$gallery = array();
+		if ( $exists ) {
+			$gallery_ids = get_post_meta( $product_id, 'vdw_gallery_id', true );
+			$gallery_ids = is_array( $gallery_ids ) ? $gallery_ids : maybe_unserialize( $gallery_ids );
+			foreach ( array_slice( is_array( $gallery_ids ) ? $gallery_ids : array(), 0, 8 ) as $gallery_id ) {
+				$gallery_image = self::image_dto( absint( $gallery_id ) );
+				if ( $gallery_image ) { $gallery[] = $gallery_image; }
+			}
+		}
+		$preview = $image ?: ( $gallery[0] ?? null );
+		$categories = $exists ? get_the_terms( $product_id, self::TAXONOMY ) : array();
+		$categories = is_array( $categories ) ? $categories : array();
+		$category_slugs = array_map( static function( $term ) { return sanitize_title( $term->slug ?? '' ); }, $categories );
+		$tags = $exists && taxonomy_exists( 'download_tag' ) ? get_the_terms( $product_id, 'download_tag' ) : array();
+		$tag_names = array_map( static function( $term ) { return (string) ( $term->name ?? '' ); }, is_array( $tags ) ? $tags : array() );
+		$classification = class_exists( 'CH_Indexed_Search' ) ? CH_Indexed_Search::product_price_classification( $product_id ) : array( 'class' => 'invalid', 'display' => null, 'valid' => false );
+		$amount = is_numeric( $classification['display'] ?? null ) ? (float) $classification['display'] : null;
+		$currency = function_exists( 'edd_get_currency' ) ? edd_get_currency() : 'INR';
+		$price_class = $classification['class'] ?? 'invalid';
+		$formatted_amount = null === $amount ? '' : ( function_exists( 'edd_currency_filter' ) && function_exists( 'edd_format_amount' ) ? wp_strip_all_tags( edd_currency_filter( edd_format_amount( $amount ), $currency ) ) : $currency . ' ' . number_format_i18n( $amount, 2 ) );
+		$price_label = 'free' === $price_class ? __( 'Free', 'creative-hatti-home-sections' ) : ( 'mixed' === $price_class ? sprintf( __( 'Options from %s', 'creative-hatti-home-sections' ), $formatted_amount ) : ( 'paid' === $price_class ? $formatted_amount : __( 'Pricing metadata invalid', 'creative-hatti-home-sections' ) ) );
+		$reason = '';
+		if ( ! $exists ) { $reason = __( 'Product record is unavailable.', 'creative-hatti-home-sections' ); }
+		elseif ( ! $published ) { $reason = __( 'Product is unpublished and will be omitted from the storefront.', 'creative-hatti-home-sections' ); }
+		elseif ( ! preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug ) ) { $reason = __( 'Product has no valid storefront route.', 'creative-hatti-home-sections' ); }
+		elseif ( $freebies_only && 'invalid' === $price_class ) { $reason = __( 'Pricing metadata is missing or invalid; the product cannot be confirmed free.', 'creative-hatti-home-sections' ); }
+		elseif ( $freebies_only && 'mixed' === $price_class ) { $reason = __( 'Product contains paid price options.', 'creative-hatti-home-sections' ); }
+		elseif ( $freebies_only && 'paid' === $price_class ) { $reason = __( 'Product is paid.', 'creative-hatti-home-sections' ); }
+		elseif ( $freebies_only && ! $preview ) { $reason = __( 'Product has no usable public preview image.', 'creative-hatti-home-sections' ); }
+		elseif ( $freebies_only && ! in_array( 'freebies', $category_slugs, true ) ) { $reason = __( 'Product must belong to the Freebies category.', 'creative-hatti-home-sections' ); }
+		elseif ( $freebies_only && ! self::is_character_freebie( $category_slugs, $title, $tag_names ) ) { $reason = __( 'Product must be character or portrait artwork.', 'creative-hatti-home-sections' ); }
+		return array(
+			'id' => absint( $product_id ), 'title' => $title, 'slug' => $slug, 'image' => $preview,
+			'price_label' => $price_label, 'price_class' => $price_class,
+			'published' => (bool) $published, 'eligible' => '' === $reason, 'reason' => $reason,
+		);
+	}
+
+	private static function is_character_freebie( $category_slugs, $title, $tag_names ) {
+		$character_categories = array( 'actors', 'actress', 'business-person', 'politician', 'singers', 'spiritual-mentor', 'sports', 'youtuber' );
+		if ( array_intersect( $character_categories, $category_slugs ) ) { return true; }
+		return (bool) preg_match( '/\\b(?:actor|actress|character|celebrity|cricketer|god|goddess|people|person|politician|portrait|singer|youtuber)\\b/i', $title . ' ' . implode( ' ', $tag_names ) );
+	}
+
 	/** Hero settings are sparse overrides: Default always resolves in Next.js. */
 	private static function render_hero_section( $settings ) {
 		$hero = $settings['v2']['hero'] ?? array();
@@ -406,8 +683,8 @@ final class CH_Home_Sections {
 		);
 		$stats = array(
 			array( '44,000+', 'Ready-to-use assets' ),
-			array( '100+', 'Festival collections' ),
-			array( 'Instant', 'Download & licence' ),
+			array( '470+', 'Freebies' ),
+			array( '926+', 'Bundles' ),
 		);
 		$featured_products = get_posts( array(
 			'post_type' => 'download',
@@ -423,9 +700,9 @@ final class CH_Home_Sections {
 		$default_previews = array();
 		foreach ( (array) $featured_products as $product_id ) {
 			$image_id = get_post_thumbnail_id( absint( $product_id ) );
-			$source = $image_id ? wp_get_attachment_image_src( $image_id, 'medium' ) : false;
-			if ( $source ) {
-				$default_previews[] = array( 'id' => $image_id, 'url' => $source[0] );
+			$preview_url = self::admin_attachment_preview_url( $image_id, 'medium' );
+			if ( $preview_url ) {
+				$default_previews[] = array( 'id' => $image_id, 'url' => $preview_url );
 			}
 			if ( count( $default_previews ) >= 4 ) { break; }
 		}
@@ -457,13 +734,18 @@ final class CH_Home_Sections {
 				<button type="button" class="button ch-home-hero-restore"><?php esc_html_e( 'Restore all Hero defaults', 'creative-hatti-home-sections' ); ?></button>
 			</div>
 			<div id="ch-hero-panel-artwork" class="ch-home-hero-subpanel" role="tabpanel" aria-labelledby="ch-hero-tab-artwork" data-hero-panel="artwork" aria-hidden="true" tabindex="0" hidden>
+				<div class="ch-home-hero-artwork-visibility">
+					<div><strong><?php esc_html_e( 'Show Hero Product Images', 'creative-hatti-home-sections' ); ?></strong><p class="description"><?php esc_html_e( 'When disabled, the Hero text, search and statistics are centered. Your image selections remain saved.', 'creative-hatti-home-sections' ); ?></p></div>
+					<?php $show_images = is_array( $hero['show_images'] ?? null ) ? $hero['show_images'] : array(); $show_images_mode = $show_images['mode'] ?? 'default'; self::render_v2_mode_select( 'hero][show_images', $show_images_mode, 'Image visibility' ); ?>
+					<label class="ch-home-show-images-control"><input type="hidden" name="ch_home_sections[v2][hero][show_images][value]" value="0"><input class="ch-home-show-images-value" type="checkbox" name="ch_home_sections[v2][hero][show_images][value]" value="1" <?php checked( $show_images_mode !== 'custom' || ! empty( $show_images['value'] ) ); ?>> <?php esc_html_e( 'Show Hero Product Images', 'creative-hatti-home-sections' ); ?></label>
+				</div>
 				<p class="description"><?php esc_html_e( 'Default previews match the current featured-product artwork. Custom with no image intentionally clears that slot.', 'creative-hatti-home-sections' ); ?></p>
 				<div class="ch-home-hero-images">
-					<?php for ( $index = 0; $index < 4; $index++ ) : $image = $hero['images'][ $index ] ?? array(); $image = is_array( $image ) ? $image : array(); $mode = $image['mode'] ?? 'default'; $image_id = absint( $image['attachment_id'] ?? 0 ); $custom_preview = $image_id ? wp_get_attachment_image_src( $image_id, 'medium' ) : false; $default_preview = $default_previews[ $index ] ?? array(); $preview_url = 'custom' === $mode ? ( $custom_preview ? $custom_preview[0] : '' ) : ( $default_preview['url'] ?? '' ); ?>
+					<?php for ( $index = 0; $index < 4; $index++ ) : $image = $hero['images'][ $index ] ?? array(); $image = is_array( $image ) ? $image : array(); $mode = $image['mode'] ?? 'default'; $image_id = absint( $image['attachment_id'] ?? 0 ); $custom_preview_url = self::admin_attachment_preview_url( $image_id, 'medium' ); $default_preview = $default_previews[ $index ] ?? array(); $preview_url = 'custom' === $mode ? $custom_preview_url : ( $default_preview['url'] ?? '' ); ?>
 						<div class="ch-home-hero-image" data-mode="<?php echo esc_attr( $mode ); ?>" data-default-id="<?php echo esc_attr( $default_preview['id'] ?? 0 ); ?>" data-default-src="<?php echo esc_url( $default_preview['url'] ?? '' ); ?>">
 							<div class="ch-home-hero-image-head"><strong><?php echo esc_html( sprintf( __( 'Hero image %d', 'creative-hatti-home-sections' ), $index + 1 ) ); ?></strong><?php self::render_v2_mode_select( 'hero][images][' . $index, $mode, 'Override' ); ?></div>
-							<div class="ch-home-hero-preview-frame"><img class="ch-home-image-preview" src="<?php echo esc_url( $preview_url ); ?>" alt="" <?php echo $preview_url ? '' : 'hidden'; ?>><span class="ch-home-image-empty" <?php echo $preview_url ? 'hidden' : ''; ?>><?php esc_html_e( 'No image selected for this slot.', 'creative-hatti-home-sections' ); ?></span></div>
-							<p class="description ch-home-image-state"><?php echo esc_html( 'custom' === $mode ? ( $custom_preview ? 'Custom image override' : 'Custom image cleared' ) : ( $preview_url ? 'Effective default image' : 'No default image available' ) ); ?></p>
+							<div class="ch-home-hero-preview-frame"><img class="ch-home-image-preview" src="<?php echo esc_url( $preview_url ); ?>" alt="" <?php echo $preview_url ? '' : 'hidden'; ?>><span class="ch-home-image-empty" <?php echo $preview_url ? 'hidden' : ''; ?>><?php echo esc_html( 'custom' === $mode && $image_id && ! $custom_preview_url ? 'Saved image preview unavailable; selection retained.' : 'No image selected for this slot.' ); ?></span></div>
+							<p class="description ch-home-image-state"><?php echo esc_html( 'custom' === $mode ? ( $custom_preview_url ? 'Custom image override' : ( $image_id ? 'Saved image unavailable; selection retained' : 'Custom image cleared' ) ) : ( $preview_url ? 'Effective default image' : 'No default image available' ) ); ?></p>
 							<input type="hidden" class="ch-home-image-id" name="ch_home_sections[v2][hero][images][<?php echo esc_attr( $index ); ?>][attachment_id]" value="<?php echo esc_attr( $image_id ); ?>">
 							<label class="ch-home-destination"><?php esc_html_e( 'Optional destination URL', 'creative-hatti-home-sections' ); ?><input class="widefat" type="text" inputmode="url" name="ch_home_sections[v2][hero][images][<?php echo esc_attr( $index ); ?>][link_url]" value="<?php echo esc_attr( $image['link_url'] ?? '' ); ?>" placeholder="https:// or /path"></label>
 							<div class="ch-home-artwork-actions"><button type="button" class="button button-primary ch-home-select-hero-image"><?php esc_html_e( 'Choose image', 'creative-hatti-home-sections' ); ?></button><button type="button" class="button ch-home-remove-hero-image" <?php echo 'custom' === $mode && $custom_preview ? '' : 'hidden'; ?>><?php esc_html_e( 'Clear image', 'creative-hatti-home-sections' ); ?></button><button type="button" class="button-link ch-home-restore-image" <?php echo 'custom' === $mode ? '' : 'hidden'; ?>><?php esc_html_e( 'Restore Default', 'creative-hatti-home-sections' ); ?></button></div>
@@ -539,6 +821,7 @@ final class CH_Home_Sections {
 		?>
 		<section class="ch-home-panel" id="ch-panel-packs" role="tabpanel" aria-labelledby="ch-tab-packs" data-panel="packs" hidden>
 			<header class="ch-home-panel-head"><div><h2><?php esc_html_e( 'Handpicked Packs', 'creative-hatti-home-sections' ); ?></h2><p><?php esc_html_e( 'Prepare seasonal campaigns and evergreen collections in advance.', 'creative-hatti-home-sections' ); ?></p></div><label class="ch-home-enable"><input type="checkbox" name="ch_home_sections[packs_enabled]" value="1" <?php checked( ! empty( $settings['packs_enabled'] ) ); ?>> <?php esc_html_e( 'Enabled', 'creative-hatti-home-sections' ); ?></label></header>
+			<?php self::render_inner_tabs( 'packs' ); ?><div id="ch-section-packs-pane-content" data-section-pane="content" data-section-target="packs"><?php self::render_section_content_controls( 'featured_packs', array( 'eyebrow' => 'Handpicked packs', 'heading' => 'Featured Graphics & Illustration Packs', 'description' => 'Festival-ready illustration packs, curated the Hatti way — themed, consistent and ready to ship.' ), $settings ); ?></div><div id="ch-section-packs-pane-items" data-section-pane="items" data-section-target="packs" hidden>
 			<?php self::render_pack_preview( $settings ); ?>
 			<div class="ch-home-pack-controls">
 				<label><?php esc_html_e( 'Display mode', 'creative-hatti-home-sections' ); ?><select name="ch_home_sections[packs_mode]"><option value="manual" <?php selected( $mode, 'manual' ); ?>><?php esc_html_e( 'Manual order', 'creative-hatti-home-sections' ); ?></option><option value="automatic" <?php selected( $mode, 'automatic' ); ?>><?php esc_html_e( 'Automatic seasonal rotation', 'creative-hatti-home-sections' ); ?></option></select></label>
@@ -550,6 +833,7 @@ final class CH_Home_Sections {
 			</div>
 			<?php if ( ! is_wp_error( $terms ) ) : ?><button type="button" class="button ch-home-add-row" data-section="packs"><?php esc_html_e( 'Add collection', 'creative-hatti-home-sections' ); ?></button><?php endif; ?>
 			<script type="text/html" id="ch-home-row-template-packs"><?php self::render_pack_row( '__INDEX__', array(), $terms ); ?></script>
+			</div>
 		</section>
 		<?php
 	}
@@ -604,6 +888,7 @@ final class CH_Home_Sections {
 		?>
 		<section class="ch-home-panel" id="ch-panel-<?php echo esc_attr( $key ); ?>" role="tabpanel" aria-labelledby="ch-tab-<?php echo esc_attr( $key ); ?>" data-panel="<?php echo esc_attr( $key ); ?>" <?php echo 'characters' === $key ? '' : 'hidden'; ?>>
 			<header class="ch-home-panel-head"><div><h2><?php echo esc_html( $title ); ?></h2><p><?php esc_html_e( 'Choose the categories and artwork shown in this homepage section.', 'creative-hatti-home-sections' ); ?></p></div><label class="ch-home-enable"><input type="checkbox" name="<?php echo esc_attr( self::OPTION . '[' . $key . '_enabled]' ); ?>" value="1" <?php checked( $enabled ); ?>> <?php esc_html_e( 'Enabled', 'creative-hatti-home-sections' ); ?></label></header>
+			<?php self::render_inner_tabs( $key ); ?><div id="ch-section-<?php echo esc_attr( $key ); ?>-pane-content" data-section-pane="content" data-section-target="<?php echo esc_attr( $key ); ?>"><?php self::render_section_content_controls( 'character_categories', array( 'eyebrow' => 'Same character, every pose', 'heading' => 'Featured Character Categories', 'description' => 'Consistent characters in varied actions and poses — mythology, professions, culture and festivals.' ), $settings ); ?></div><div id="ch-section-<?php echo esc_attr( $key ); ?>-pane-items" data-section-pane="items" data-section-target="<?php echo esc_attr( $key ); ?>" hidden>
 			<div class="ch-home-rows" data-section="<?php echo esc_attr( $key ); ?>">
 				<?php foreach ( array_values( $rows ) as $index => $row ) : ?>
 					<?php self::render_row( $key, $index, $row, $terms ); ?>
@@ -615,6 +900,7 @@ final class CH_Home_Sections {
 			<script type="text/html" id="<?php echo esc_attr( 'ch-home-row-template-' . $key ); ?>">
 				<?php self::render_row( '__SECTION__', '__INDEX__', array(), $terms ); ?>
 			</script>
+			</div>
 		</section>
 		<?php
 	}
@@ -767,7 +1053,7 @@ final class CH_Home_Sections {
 		);
 	}
 
-	/** Return only allow-listed public Hero overrides and public image DTOs. */
+	/** Return only allow-listed public Homepage v2 overrides and image DTOs. */
 	private static function public_config_v2( $config ) {
 		$config = is_array( $config ) ? $config : array();
 		$hero = is_array( $config['hero'] ?? null ) ? $config['hero'] : array();
@@ -778,6 +1064,7 @@ final class CH_Home_Sections {
 			$fields[ $key ] = array( 'mode' => $custom ? 'custom' : 'default', 'value' => $custom ? sanitize_textarea_field( $field['value'] ?? '' ) : null );
 		}
 		$enabled = is_array( $hero['enabled'] ?? null ) ? $hero['enabled'] : array();
+		$show_images = is_array( $hero['show_images'] ?? null ) ? $hero['show_images'] : array();
 		$images = array();
 		for ( $index = 0; $index < 4; $index++ ) {
 			$image = is_array( $hero['images'][ $index ] ?? null ) ? $hero['images'][ $index ] : array();
@@ -795,10 +1082,41 @@ final class CH_Home_Sections {
 			$custom = ( $stat['mode'] ?? 'default' ) === 'custom';
 			$stats[] = array( 'mode' => $custom ? 'custom' : 'default', 'value' => $custom ? sanitize_text_field( $stat['value'] ?? '' ) : null, 'label' => $custom ? sanitize_text_field( $stat['label'] ?? '' ) : null, 'visible' => ! array_key_exists( 'visible', $stat ) || ! empty( $stat['visible'] ) );
 		}
+		$section_fields = array(
+			'popular_searches' => array( 'heading' ), 'discovery' => array( 'eyebrow', 'heading', 'description' ),
+			'hatti_choice' => array( 'eyebrow', 'heading', 'description', 'browse_label', 'browse_url' ),
+			'character_categories' => array( 'eyebrow', 'heading', 'description' ), 'popular_freebies' => array( 'eyebrow', 'heading', 'description', 'browse_label', 'browse_url' ),
+			'featured_packs' => array( 'eyebrow', 'heading', 'description' ), 'seasonal_collections' => array( 'eyebrow', 'heading', 'description' ),
+			'popular_themes' => array( 'eyebrow', 'heading', 'description' ), 'trusted_clients' => array( 'eyebrow', 'heading', 'description', 'browse_label', 'browse_url' ),
+		);
+		$sections = array();
+		foreach ( $section_fields as $section_key => $allowed_fields ) {
+			$section = is_array( $config['sections'][ $section_key ] ?? null ) ? $config['sections'][ $section_key ] : array();
+			$visibility = is_array( $section['visible'] ?? null ) ? $section['visible'] : array();
+			$sections[ $section_key ] = array( 'visible' => array( 'mode' => ( $visibility['mode'] ?? 'default' ) === 'custom' ? 'custom' : 'default', 'value' => ( $visibility['mode'] ?? 'default' ) === 'custom' ? ! empty( $visibility['value'] ) : null ) );
+			foreach ( $allowed_fields as $field_key ) {
+				$field = is_array( $section[ $field_key ] ?? null ) ? $section[ $field_key ] : array();
+				$custom = ( $field['mode'] ?? 'default' ) === 'custom';
+				$sections[ $section_key ][ $field_key ] = array( 'mode' => $custom ? 'custom' : 'default', 'value' => $custom ? ( 'browse_url' === $field_key ? self::sanitize_section_url( $field['value'] ?? '' ) : ( 'description' === $field_key ? sanitize_textarea_field( $field['value'] ?? '' ) : sanitize_text_field( $field['value'] ?? '' ) ) ) : null );
+			}
+			if ( in_array( $section_key, array( 'hatti_choice', 'popular_freebies' ), true ) ) {
+				$selection = is_array( $section['products'] ?? null ) ? $section['products'] : array();
+				$selection_mode = ( $selection['mode'] ?? 'automatic' ) === 'manual' ? 'manual' : 'automatic';
+				$limit = 'popular_freebies' === $section_key ? self::MAX_POPULAR_FREEBIE_PRODUCTS : self::MAX_HATTI_CHOICE_PRODUCTS;
+				$ids = array();
+				foreach ( (array) ( $selection['product_ids'] ?? array() ) as $id ) {
+					if ( is_scalar( $id ) && preg_match( '/^[1-9][0-9]{0,9}$/', (string) $id ) && ! in_array( (int) $id, $ids, true ) ) { $ids[] = (int) $id; }
+					if ( count( $ids ) >= $limit ) { break; }
+				}
+				$sections[ $section_key ]['products'] = array( 'mode' => $selection_mode, 'product_ids' => $ids );
+			}
+		}
 		return array(
 			'version' => 2,
+			'sections' => $sections,
 			'hero' => array_merge( $fields, array(
 				'enabled' => array( 'mode' => ( $enabled['mode'] ?? 'default' ) === 'custom' ? 'custom' : 'default', 'value' => ( $enabled['mode'] ?? 'default' ) === 'custom' ? ! empty( $enabled['value'] ) : null ),
+				'show_images' => array( 'mode' => ( $show_images['mode'] ?? 'default' ) === 'custom' ? 'custom' : 'default', 'value' => ( $show_images['mode'] ?? 'default' ) === 'custom' ? ! empty( $show_images['value'] ) : null ),
 				'images' => $images,
 				'stats' => $stats,
 			) ),
@@ -994,6 +1312,37 @@ final class CH_Home_Sections {
 			);
 		}
 		return $cards;
+	}
+
+	/**
+	 * Return a real local image URL for an admin preview, falling back to the
+	 * original attachment when WordPress metadata points at an omitted size.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $size          Preferred image size.
+	 * @return string
+	 */
+	private static function admin_attachment_preview_url( $attachment_id, $size = 'medium' ) {
+		$attachment_id = absint( $attachment_id );
+		if ( ! $attachment_id || ! wp_attachment_is_image( $attachment_id ) ) {
+			return '';
+		}
+
+		$original_path = get_attached_file( $attachment_id );
+		if ( ! $original_path || ! is_file( $original_path ) ) {
+			return '';
+		}
+
+		$source       = wp_get_attachment_image_src( $attachment_id, $size );
+		$intermediate = image_get_intermediate_size( $attachment_id, $size );
+		if ( $source && $intermediate && ! empty( $intermediate['file'] ) ) {
+			$intermediate_path = trailingslashit( dirname( $original_path ) ) . wp_basename( $intermediate['file'] );
+			if ( is_file( $intermediate_path ) ) {
+				return $source[0];
+			}
+		}
+
+		return wp_get_attachment_url( $attachment_id ) ?: '';
 	}
 
 	/**

@@ -30,7 +30,8 @@ export interface ChApiSearchResult extends ChApiEnvelope<ChApiProductCard[]> {
 export interface ChApiMoney {
   type?: "single" | "variable";
   class?: "paid" | "free" | "mixed" | "invalid";
-  amount: number;
+  valid?: boolean;
+  amount: number | null;
   formatted?: string;
   currency: string;
 }
@@ -187,8 +188,10 @@ export interface ChApiHomepageSections {
 
 export interface ChApiHomepageConfigV2 {
   version: 2;
+  sections?: Record<string, Record<string, { mode: "default" | "custom"; value: string | boolean | null } | { mode: "automatic" | "manual"; product_ids: number[] }>>;
   hero: {
     enabled: { mode: "default" | "custom"; value: boolean | null };
+    show_images?: { mode: "default" | "custom"; value: boolean | null };
     eyebrow: { mode: "default" | "custom"; value: string | null };
     heading: { mode: "default" | "custom"; value: string | null };
     description: { mode: "default" | "custom"; value: string | null };

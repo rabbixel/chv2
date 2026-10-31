@@ -8,6 +8,7 @@
 
 export const routes = {
   home: () => "/",
+  galleryPreview: () => "/gallery-preview",
   search: (query?: string) =>
     query ? `/search?q=${encodeURIComponent(query)}` : "/search",
   categories: () => "/categories",

@@ -4,6 +4,19 @@
   border-bottom: 1px solid var(--ch-brand-900);
 }
 
+.centeredHero {
+  background-color: var(--ch-brand-900);
+  /* First background layer paints above the full-height, star-only texture. */
+  background-image: url("/images/creative-hatti-skyline.webp"), url("/images/creative-hatti-starfield.webp");
+  background-position: center bottom, center center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% auto, cover;
+}
+
+.centeredHero .inner {
+  padding-bottom: max(var(--ch-space-12), 5.2vw);
+}
+
 .inner {
   max-width: 52rem;
   margin-inline: auto;
@@ -83,6 +96,8 @@
 }
 
 .layout { display: grid; gap: var(--ch-space-6); }
+.centered { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.centered .inner { width: 100%; }
 .withArtwork { padding-block: var(--ch-space-8); }
 .withArtwork .inner { padding-block: 0; }
 .gallery {

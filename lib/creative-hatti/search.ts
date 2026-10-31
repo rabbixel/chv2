@@ -15,6 +15,7 @@ export function searchRequestParams(params: SearchParams) {
     min: filters.priceMin,
     max: filters.priceMax,
     avail: filters.availability,
+    ...(filters.orientation ? { orientation: filters.orientation } : {}),
     rating: filters.ratingMin,
     file: list(filters.fileTypes),
     app: list(filters.compatibleWith),

@@ -59,6 +59,9 @@ export function ProductCard({
   const href = routes.product(product.slug);
   const percent = discountPercent(product.compareAtPrice, product.price);
   const cover = product.images[0];
+  const imageSizes = artworkPreview
+    ? "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
+    : "(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw";
   const kicker = [
     KIND_LABELS[product.kind],
     categoryDisplayName(product.categorySlugs[0] ?? product.productGroup),
@@ -82,11 +85,9 @@ export function ProductCard({
             <ProductImageView
               image={cover}
               title={product.title}
-              sizes={artworkPreview
-                ? "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 300px"
-                : "(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"}
+              sizes={imageSizes}
               decorative
-              className={cn(styles.image, styles.containImage)}
+              className={styles.image}
             />
           ) : (
             <PlaceholderArt product={product} />
@@ -168,9 +169,11 @@ export function ProductCard({
             <Link href={href} className={styles.free} aria-label={`View ${product.title} free download`}>
               Free download
             </Link>
+          ) : product.priceClass === "mixed" ? (
+            <span className={styles.price}>Options from {Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
           ) : (
             <>
-              <span className={styles.price}>{Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
+              <span className={styles.price}>{product.priceClass === "invalid" || product.priceValid === false ? "Price unavailable" : Number.isFinite(product.price.amount) ? formatMoney(product.price) : "Price unavailable"}</span>
               {product.compareAtPrice && (
                 <s className={cn(styles.compareAt)}>
                   {formatMoney(product.compareAtPrice)}

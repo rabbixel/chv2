@@ -1,25 +1,21 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import { routes } from "@/lib/routes";
+import type { CSSProperties } from "react";
 import { isLocalWordPressMediaUrl } from "@/lib/creative-hatti/media";
-import type { Product, ProductImage } from "@/lib/types";
+import { popularFreebieArtwork } from "@/lib/creative-hatti/popular-freebies-artwork.mjs";
+import type { Product } from "@/lib/types";
 import { SectionHeading } from "./SectionHeading";
 import styles from "./PopularFreebies.module.css";
 
 export interface PopularFreebiesProps {
   products: Product[];
+  copy?: { eyebrow?: string; heading?: string; description?: string; browse_label?: string; browse_url?: string };
 }
 
-function bestArtwork(images: ProductImage[]): ProductImage | undefined {
-  return images
-    .filter((image) => image.url.trim().length > 0)
-    .sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))[0];
-}
-
-export function PopularFreebies({ products }: PopularFreebiesProps) {
+export function PopularFreebies({ products, copy }: PopularFreebiesProps) {
   const items = products.slice(0, 8).flatMap((product) => {
-    const image = bestArtwork(product.images);
+    const image = popularFreebieArtwork(product.images);
     return image ? [{ product, image }] : [];
   });
 
@@ -28,11 +24,11 @@ export function PopularFreebies({ products }: PopularFreebiesProps) {
   return (
     <section aria-label="Popular free character illustrations">
       <SectionHeading
-        eyebrow="Free character illustrations"
-        title="Popular Freebies"
-        copy="Explore free character artwork loved by the Hatti community."
-        actionHref={routes.freeDownloads()}
-        actionLabel="Browse all free downloads"
+        eyebrow={copy?.eyebrow ?? "Free character illustrations"}
+        title={copy?.heading ?? "Popular Freebies"}
+        copy={copy?.description ?? "Explore free character artwork loved by the Hatti community."}
+        actionHref={copy?.browse_url ?? routes.freeDownloads()}
+        actionLabel={copy?.browse_label ?? "Browse all free downloads"}
       />
       <ul
         className={styles.gallery}

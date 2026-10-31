@@ -18,6 +18,7 @@ import type {
 } from "@/lib/types";
 import { normalizePaginationParams, paginateItems } from "@/lib/utils";
 import { searchRequestParams, searchFacetsFromApi } from "@/lib/creative-hatti/search";
+import { orientationFromDimensions } from "@/lib/creative-hatti/orientation.mjs";
 import { refreshProductAvailability } from "./productService";
 
 export interface SearchService {
@@ -64,6 +65,7 @@ function applyFilters(
     ? collections.find((entry) => entry.slug === filters.collection)
     : undefined;
   return items.filter((product) => {
+    if (filters.orientation && filters.orientation !== "all" && orientationFromDimensions(product.images[0]?.width, product.images[0]?.height) !== filters.orientation) return false;
     if (
       filters.groups?.length &&
       !filters.groups.includes(product.productGroup)

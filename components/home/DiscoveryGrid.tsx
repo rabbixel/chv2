@@ -9,16 +9,17 @@ import { TileArtwork } from "./TileArtwork";
 
 export interface DiscoveryGridProps {
   tiles: DiscoveryTile[];
+  copy?: { eyebrow?: string; heading?: string; description?: string };
 }
 
-export function DiscoveryGrid({ tiles }: DiscoveryGridProps) {
+export function DiscoveryGrid({ tiles, copy }: DiscoveryGridProps) {
   if (!tiles.length) return null;
   return (
     <section aria-labelledby="discovery-heading">
       <SectionHeading
-        eyebrow="Start exploring"
-        title="What are you creating today?"
-        copy="Jump straight into the aisles of the Hatti — every tile opens a curated corner of the marketplace."
+        eyebrow={copy?.eyebrow ?? "Start exploring"}
+        title={copy?.heading ?? "What are you creating today?"}
+        copy={copy?.description ?? "Jump straight into the aisles of the Hatti — every tile opens a curated corner of the marketplace."}
       />
       <h2 id="discovery-heading" className="ch-visually-hidden">
         Discovery categories
