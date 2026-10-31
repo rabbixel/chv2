@@ -542,9 +542,17 @@ final class CH_Indexed_Search {
 		$pages = max( 1, (int) ceil( $total / $size ) );
 		$page = min( (int) $request['page'], $pages );
 		$order = $orders[ $request['sort'] ];
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT d.card, ($score) AS relevance $from ORDER BY $order,d.product_id DESC LIMIT %d OFFSET %d", $size, ( $page - 1 ) * $size ) );
+		// Sort/page narrow index rows first; fetch large serialized card payloads only
+		// for the selected page instead of carrying them through the broad filesort.
+		$page_rows = "(SELECT m.product_id,m.relevance $from ORDER BY $order,d.product_id DESC LIMIT %d OFFSET %d)";
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT d.card,page.relevance FROM $page_rows page JOIN $documents d ON d.product_id=page.product_id ORDER BY $order,page.product_id DESC", $size, ( $page - 1 ) * $size ) );
 		if ( $wpdb->last_error ) { $wpdb->query( "DROP TEMPORARY TABLE $matches" ); return self::query_error(); }
-		$counts = $wpdb->get_results( "SELECT f.kind,f.value,MAX(f.label) AS label,COUNT(*) AS count FROM $matches m JOIN $facets f ON f.product_id=m.product_id WHERE f.kind IN ('category','fileType') GROUP BY f.kind,f.value ORDER BY count DESC,f.value ASC LIMIT 256" );
+		// A facets-first range scan is measurably faster only for very broad result
+		// sets; preserve match-driven indexed lookups for narrow searches.
+		$facet_from = $total >= 40000
+			? "FROM $facets f STRAIGHT_JOIN $matches m ON f.product_id=m.product_id"
+			: "FROM $matches m JOIN $facets f ON f.product_id=m.product_id";
+		$counts = $wpdb->get_results( "SELECT f.kind,f.value,MAX(f.label) AS label,COUNT(*) AS count $facet_from WHERE f.kind IN ('category','fileType') GROUP BY f.kind,f.value ORDER BY count DESC,f.value ASC LIMIT 256" );
 		if ( $wpdb->last_error ) { $wpdb->query( "DROP TEMPORARY TABLE $matches" ); return self::query_error(); }
 		$wpdb->query( "DROP TEMPORARY TABLE $matches" );
 		$output_facets = array();

@@ -8,6 +8,7 @@ export interface SectionHeadingProps {
   copy?: string;
   actionHref?: string;
   actionLabel?: string;
+  className?: string;
 }
 
 export function SectionHeading({
@@ -16,9 +17,10 @@ export function SectionHeading({
   copy,
   actionHref,
   actionLabel,
+  className,
 }: SectionHeadingProps) {
   return (
-    <div className={styles.heading}>
+    <div className={[styles.heading, className].filter(Boolean).join(" ")}>
       <div className={styles.text}>
         {eyebrow && <p className={styles.eyebrow}>{eyebrow}</p>}
         <h2 className={styles.title}>{title}</h2>

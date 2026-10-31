@@ -11,18 +11,21 @@ export function TrustedBy({ brands, copy }: { brands: TrustedBrand[]; copy?: { e
   if (!featuredBrands.length) return null;
   return (
     <section aria-labelledby="trusted-heading">
-      <SectionHeading
-        eyebrow={copy?.eyebrow ?? "Loved across India"}
-        title={copy?.heading ?? "We are trusted by"}
-        copy={copy?.description ?? "Studios, brands and creators build with Creative Hatti assets every day."}
-      />
+      <div className={styles.header}>
+        <SectionHeading
+          className={styles.headerContent}
+          eyebrow={copy?.eyebrow ?? "Loved across India"}
+          title={copy?.heading ?? "We are trusted by"}
+          copy={copy?.description ?? "Studios, brands and creators build with Creative Hatti assets every day."}
+        />
+        {(copy?.browse_url ?? routes.trustedBy()) && (copy?.browse_label ?? "View All Clients") && <p className={styles.viewAll}>
+          <Link href={copy?.browse_url ?? routes.trustedBy()}>{copy?.browse_label ?? "View All Clients"}</Link>
+        </p>}
+      </div>
       <h2 id="trusted-heading" className="ch-visually-hidden">
         Trusted by leading brands
       </h2>
       <ClientLogoGrid brands={featuredBrands} layout="featured" />
-      {(copy?.browse_url ?? routes.trustedBy()) && (copy?.browse_label ?? "View All Clients") && <p className={styles.viewAll}>
-        <Link href={copy?.browse_url ?? routes.trustedBy()}>{copy?.browse_label ?? "View All Clients"}</Link>
-      </p>}
     </section>
   );
 }

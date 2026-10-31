@@ -14,6 +14,10 @@ const cardSource = await readFile(
   new URL("../components/product/ProductCard.tsx", import.meta.url),
   "utf8",
 );
+const productGridSource = await readFile(
+  new URL("../components/product/ProductGrid.tsx", import.meta.url),
+  "utf8",
+);
 
 test("shared product grid responds to available width and resets list indentation", () => {
   assert.match(gridCss, /container:\s*product-grid\s*\/\s*inline-size/);
@@ -32,6 +36,12 @@ test("product cards keep aligned heights and a consistent catalogue image ratio"
   assert.match(cardCss, /\.media\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s);
   assert.match(cardCss, /\.artworkPreview \.media\s*\{[^}]*aspect-ratio:\s*1/s);
   assert.doesNotMatch(cardSource, /aspectRatio:\s*`\$\{cover\.width\}/);
+});
+
+test("only the first product-grid image is prioritized as an LCP candidate", () => {
+  assert.match(productGridSource, /products\.map\(\(product, index\) => \([\s\S]*?priorityImage=\{index === 0\}/);
+  assert.match(cardSource, /priorityImage = false/);
+  assert.match(cardSource, /sizes=\{imageSizes\}\s+priority=\{priorityImage\}/);
 });
 
 test("free download card action is a compact, keyboard-focusable button", () => {

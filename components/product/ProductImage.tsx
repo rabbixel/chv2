@@ -10,7 +10,7 @@ export interface ProductImageProps {
   /** `sizes` for the slot this image fills (card vs gallery stage). */
   sizes: string;
   className?: string;
-  /** Above-the-fold hero only — every other image lazy-loads. */
+  /** Eager-load an above-the-fold LCP candidate; other images remain lazy. */
   priority?: boolean;
   decorative?: boolean;
   /** Optional image-load fallback for cards that can render a placeholder. */

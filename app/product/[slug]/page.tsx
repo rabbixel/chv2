@@ -6,6 +6,7 @@ import { Breadcrumbs, Container } from "@/components/layout";
 import {
   ProductGallery,
   ProductGrid,
+  ProductImage,
   ProductInfoTable,
   PurchasePanel,
   WishlistButton,
@@ -22,6 +23,8 @@ import {
   productSeoCanonical,
 } from "@/lib/seo";
 import {
+  getCategoryService,
+  getCollectionDirectoryService,
   getCollectionService,
   getCachedProductBySlug,
   getLicenseService,
@@ -29,8 +32,9 @@ import {
   getWishlistService,
 } from "@/lib/services";
 import { categoryDisplayName } from "@/lib/taxonomy";
-import type { Collection, Product, ProductKind } from "@/lib/types";
+import type { ProductKind } from "@/lib/types";
 import { formatCompact } from "@/lib/utils";
+import { selectRelatedCategories, selectRelatedCollections } from "@/lib/creative-hatti/related-explore.mjs";
 import styles from "./page.module.css";
 
 interface ProductPageProps {
@@ -88,40 +92,6 @@ export async function generateMetadata({
 }
 
 /**
- * Collections whose search query fully matches the product — the same
- * "every token" rule the search service uses, so a related collection
- * always links to a listing that contains this product.
- */
-function findRelatedCollections(
-  product: Product,
-  collections: Collection[],
-  limit = 2,
-): Collection[] {
-  const haystack = new Set(
-    [
-      product.title,
-      product.productGroup,
-      ...product.categorySlugs,
-      ...product.tags,
-      ...product.keywords,
-    ]
-      .join(" ")
-      .toLowerCase()
-      .split(/[^a-z0-9]+/g)
-      .filter(Boolean),
-  );
-  return collections
-    .filter((collection) =>
-      collection.query
-        .toLowerCase()
-        .split(/[^a-z0-9]+/g)
-        .filter(Boolean)
-        .every((token) => haystack.has(token)),
-    )
-    .slice(0, limit);
-}
-
-/**
  * Product detail page mirroring the live Creative Hatti experience:
  * gallery + buy box (license picker, purchase actions, wishlist,
  * customization quote and license details), description, Product Information,
@@ -138,13 +108,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // (vercel/next.js#98954).
   if (!product) notFound();
 
-  const [related, collections, licenses, wishlistState] = await Promise.all([
+  const [related, collections, availableCategories, licenses, wishlistState] = await Promise.all([
     getProductService().listRelatedProducts(slug, 8),
     getCollectionService().listCollections(),
+    getCategoryService().listCategories().catch(() => []),
     getLicenseService().getLicensesByCodes(product.licenses),
     getWishlistService().getSavedProductIds([product.id]).catch(() => new Set<string>()),
   ]);
-  const relatedCollections = findRelatedCollections(product, collections);
+  const relatedCollectionCandidates = selectRelatedCollections(product, collections, 4, [product.slug]);
+  const relatedCollectionEntries = relatedCollectionCandidates.length
+    ? await getCollectionDirectoryService()
+      .getEntriesBySlugs(relatedCollectionCandidates.map((collection) => collection.slug))
+      .catch(() => [])
+    : [];
+  const relatedCategories = selectRelatedCategories(product.categorySlugs, availableCategories, 6, [product.slug]);
   const [primarySlug, groupSlug] = product.categorySlugs;
   const trail = [
     { name: "Home", path: routes.home() },
@@ -287,48 +264,62 @@ export default async function ProductPage({ params }: ProductPageProps) {
             Related products
           </h2>
           <ProductGrid products={related} />
-          <div className={styles.relatedMeta}>
-            {relatedCollections.length > 0 && (
-              <div className={styles.relatedCategory}>
-                <h3 className={styles.relatedHeading}>Explore related collections</h3>
-                <ul className={styles.relatedCategoryLinks}>
-                  {relatedCollections.map((collection) => (
-                    <li className={styles.relatedCollectionItem} key={collection.slug}>
+        </section>
+
+        {(relatedCollectionEntries.length > 0 || relatedCategories.length > 0) && (
+          <section aria-labelledby="explore-more-heading" className={styles.exploreMore}>
+            <div className={styles.exploreIntro}>
+              <h2 id="explore-more-heading" className={styles.sectionHeading}>Explore More</h2>
+              <p className={styles.exploreDescription}>Discover similar designs and creative resources.</p>
+            </div>
+
+            {relatedCollectionEntries.length > 0 && (
+              <div className={styles.exploreGroup}>
+                <h3 className={styles.exploreGroupHeading}>Related collections</h3>
+                <ul className={styles.collectionGrid}>
+                  {relatedCollectionEntries.slice(0, 4).map((collection) => (
+                    <li key={collection.slug}>
                       <Link
-                        className={styles.relatedCollectionLink}
-                        href={routes.collection(collection.slug)}
+                        className={styles.collectionCard}
+                        href={collection.href ?? routes.collection(collection.slug)}
                       >
-                        {collection.title}
-                        <span aria-hidden="true">→</span>
+                        <span className={styles.collectionArtwork}>
+                          {collection.image?.url ? (
+                            <ProductImage
+                              image={collection.image}
+                              title={collection.title}
+                              sizes="(max-width: 639px) 45vw, (max-width: 1023px) 46vw, 24vw"
+                              className={styles.collectionImage}
+                              decorative
+                            />
+                          ) : (
+                            <span className={styles.collectionFallback}>Collection</span>
+                          )}
+                        </span>
+                        <span className={styles.collectionTitle}>{collection.title}</span>
                       </Link>
-                      {collection.tagline && (
-                        <p className={styles.relatedTagline}>
-                          {collection.tagline}
-                        </p>
-                      )}
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-            <div className={styles.relatedCategory}>
-              <h3 className={styles.relatedHeading}>Explore related categories</h3>
-              <ul className={styles.relatedCategoryLinks}>
-                {product.categorySlugs.map((categorySlug) => (
-                  <li key={categorySlug}>
-                    <Link
-                      className={styles.relatedCategoryLink}
-                      href={routes.category(categorySlug)}
-                    >
-                      {categoryDisplayName(categorySlug)}
-                      <span aria-hidden="true">→</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </section>
+
+            {relatedCategories.length > 0 && (
+              <div className={styles.exploreGroup}>
+                <h3 className={styles.exploreGroupHeading}>Related categories</h3>
+                <ul className={styles.categoryChips}>
+                  {relatedCategories.map((category) => (
+                    <li key={category.slug}>
+                      <Link className={styles.categoryChip} href={routes.category(category.slug)}>
+                        {category.name}<span aria-hidden="true">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
 
         <JsonLd
           data={productJsonLd(product, {

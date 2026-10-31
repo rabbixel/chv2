@@ -1,5 +1,36 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ch-space-4);
+  margin-bottom: var(--ch-space-5);
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.header .headerContent {
+  margin-bottom: 0;
+}
+
 .viewAll {
-  margin-top: var(--ch-space-5);
-  text-align: center;
+  flex: none;
+  margin: 0;
+  text-align: right;
   font-weight: var(--ch-weight-semibold);
+}
+
+@media (max-width: 639px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ch-space-3);
+  }
+
+  .viewAll {
+    margin: 0;
+    text-align: left;
+  }
 }

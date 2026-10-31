@@ -27,6 +27,8 @@ export interface ProductCardProps {
   product: Product;
   /** Homepage merchandising: show the entire artwork in a larger square slot. */
   artworkPreview?: boolean;
+  /** Eager-load the first above-the-fold card image in a product grid. */
+  priorityImage?: boolean;
   /** Initial wishlist state (resolved by the listing page later). */
   wishlisted?: boolean;
   /**
@@ -55,6 +57,7 @@ export function ProductCard({
   wishlisted = false,
   titleAs = "h3",
   artworkPreview = false,
+  priorityImage = false,
 }: ProductCardProps) {
   const Title = titleAs;
   const href = routes.product(product.slug);
@@ -94,6 +97,7 @@ export function ProductCard({
               image={cover}
               title={product.title}
               sizes={imageSizes}
+              priority={priorityImage}
               decorative
               className={styles.image}
             />

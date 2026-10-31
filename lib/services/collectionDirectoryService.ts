@@ -19,6 +19,7 @@ export interface CollectionDirectoryEntry {
 }
 export interface CollectionDirectoryService {
   listEntries(): Promise<CollectionDirectoryEntry[]>;
+  getEntriesBySlugs(slugs: readonly string[]): Promise<CollectionDirectoryEntry[]>;
   listSitemapSlugs(categorySlugs: readonly string[]): Promise<string[]>;
   getPreview(): Promise<ProductImage | undefined>;
   getEntry(slug: string): Promise<CollectionDirectoryEntry | null>;
@@ -62,6 +63,17 @@ function collectionSearchQueries(
 
 class MockCollectionDirectoryService implements CollectionDirectoryService {
   async listEntries() { return collections.map((c) => ({ slug: c.slug, title: c.title, image: c.coverImage, query: c.query })); }
+  async getEntriesBySlugs(slugs: readonly string[]) {
+    const requested = [...new Set(slugs.filter((slug) => /^[\w-]+$/.test(slug)))].slice(0, 4);
+    if (requested.length === 0) return [];
+    const categories = new Set((await getCategoryService().listCategories()).map((category) => category.slug));
+    const bySlug = new Map(collections.map((collection) => [collection.slug, collection]));
+    return requested.flatMap((slug) => {
+      const collection = bySlug.get(slug);
+      if (!collection || categories.has(slug)) return [];
+      return [{ slug, title: collection.title, query: collection.query, href: routes.collection(slug), image: collection.coverImage }];
+    });
+  }
   async listSitemapSlugs(categorySlugs: readonly string[]) {
     const categories = new Set(categorySlugs);
     return collections.map((entry) => entry.slug).filter((slug) => !categories.has(slug));
@@ -88,6 +100,42 @@ class WordPressCollectionDirectoryService implements CollectionDirectoryService 
     return (await this.cards())
       .map((card) => card.slug)
       .filter((slug) => !categories.has(slug));
+  }
+  async getEntriesBySlugs(slugs: readonly string[]): Promise<CollectionDirectoryEntry[]> {
+    const requested = [...new Set(slugs.filter((slug) => /^[\w-]+$/.test(slug)))].slice(0, 4);
+    if (requested.length === 0) return [];
+
+    const [cards, categories] = await Promise.all([
+      this.cards(),
+      getCategoryService().listCategories(),
+    ]);
+    const categorySlugs = new Set(categories.map((category) => category.slug));
+    const cardsBySlug = new Map(cards.map((card) => [card.slug, card]));
+    const selected = requested.flatMap((slug) => {
+      const card = cardsBySlug.get(slug);
+      return card && !categorySlugs.has(slug) ? [card] : [];
+    });
+
+    const entries: CollectionDirectoryEntry[] = [];
+    for (let offset = 0; offset < selected.length; offset += 4) {
+      const batch = selected.slice(offset, offset + 4);
+      entries.push(...await Promise.all(batch.map(async (card) => {
+        let image: ProductImage | undefined;
+        try {
+          image = this.productImage(await this.image(card.mediaId));
+        } catch {
+          // Keep a valid text-only card when an individual attachment is unavailable.
+        }
+        return {
+          slug: card.slug,
+          title: card.title,
+          query: collections.find((collection) => collection.slug === card.slug)?.query,
+          href: routes.collection(card.slug),
+          ...(image ? { image } : {}),
+        };
+      })));
+    }
+    return entries;
   }
   private async image(id: number): Promise<WordPressMedia> {
     return apiFetch<WordPressMedia>(apiEndpoints.wordpress.mediaDetail(id), {
