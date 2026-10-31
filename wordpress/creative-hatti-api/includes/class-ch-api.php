@@ -115,6 +115,17 @@ final class CH_API {
 	 * @return void
 	 */
 	public function register_routes() {
+		// Public license descriptions used by Next.js product pages. Prices and
+		// purchasability remain authoritative in Easy Digital Downloads.
+		register_rest_route(
+			self::NAMESPACE,
+			'/licenses',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'public_licenses' ),
+				'permission_callback' => array( __CLASS__, 'public_read_permission' ),
+			)
+		);
 		$this->products_controller->register_routes();
 		$this->categories_controller->register_routes();
 		$this->auth_controller->register_routes();
@@ -126,6 +137,16 @@ final class CH_API {
 		$this->checkout_controller->register_routes();
 		$this->payment_controller->register_routes();
 		$this->wishlist_controller->register_routes();
+	}
+
+	/** Public license descriptions; never authorizes or calculates checkout prices. */
+	public function public_licenses() {
+		$items = array(
+			array( 'id' => 'lic-personal', 'code' => 'personal', 'name' => 'Personal', 'description' => 'Personal, non-commercial use.', 'priceMultiplier' => 1, 'allowedUses' => array(), 'seats' => 1 ),
+			array( 'id' => 'lic-commercial', 'code' => 'commercial', 'name' => 'Commercial', 'description' => 'Commercial usage rights are governed by the purchased EDD price option and product terms.', 'priceMultiplier' => 1, 'allowedUses' => array(), 'seats' => 1 ),
+			array( 'id' => 'lic-extended', 'code' => 'extended', 'name' => 'Extended', 'description' => 'Extended usage rights are governed by the purchased EDD price option and product terms.', 'priceMultiplier' => 1, 'allowedUses' => array(), 'seats' => 1 ),
+		);
+		return new WP_REST_Response( $items, 200 );
 	}
 
 	/**
