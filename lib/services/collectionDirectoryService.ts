@@ -155,8 +155,24 @@ class WordPressCollectionDirectoryService implements CollectionDirectoryService 
     const ids = [...new Set(cards.map((c) => c.mediaId))];
     const media: WordPressMedia[] = [];
     // Individual attachment routes work on the legacy installation; cap concurrency.
-    for (let offset = 0; offset < ids.length; offset += 6) {
-      media.push(...await Promise.all(ids.slice(offset, offset + 6).map((id) => this.image(id))));
+    // Keep build-time WordPress load low and tolerate missing/temporarily unavailable media.
+    for (const id of ids) {
+      let item: WordPressMedia | undefined;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          item = await this.image(id);
+          break;
+        } catch (error) {
+          const retryable = error instanceof Error && "status" in error &&
+            typeof error.status === "number" && error.status >= 500;
+          if (!retryable || attempt === 2) {
+            console.warn("[CH collections] Media unavailable", { id, attempt: attempt + 1 });
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+        }
+      }
+      if (item) media.push(item);
     }
     const categories = await getCategoryService().listCategories();
     const collectionCards = cards.filter(
