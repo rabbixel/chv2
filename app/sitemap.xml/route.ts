@@ -2,6 +2,8 @@ import { SITE } from "@/lib/constants";
 import { getProductService } from "@/lib/services";
 
 export const revalidate = 3_600;
+// The sitemap depends on WordPress; never require its database during deployment.
+export const dynamic = "force-dynamic";
 const PRODUCT_CHUNK_SIZE = 48;
 
 /** Sitemap index covering the static/taxonomy chunk and every product chunk. */
