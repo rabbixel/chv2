@@ -8,6 +8,8 @@ import { SITE } from "@/lib/constants";
 import styles from "./page.module.css";
 
 export const revalidate = 3600;
+// Collection directory relies on WordPress and should not block deployments.
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Collections",
   description: "Browse Creative Hatti’s complete collection of festival, seasonal and everyday graphics.",
