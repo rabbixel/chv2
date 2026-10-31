@@ -32,8 +32,8 @@ export const apiEndpoints = {
     detail: (slug: string) => `/v1/collections/${encodeURIComponent(slug)}`,
   },
   licenses: {
-    list: "/v1/licenses",
-    owned: "/v1/licenses/owned",
+    list: "/licenses",
+    owned: "/licenses/owned",
   },
   payments: {
     verify: "/v1/payments/verify",
