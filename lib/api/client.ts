@@ -93,6 +93,17 @@ export async function apiFetch<TResponse>(
   });
 
   if (!response.ok) {
+    // Temporary diagnostics: do not log query values, credentials, or response bodies.
+    console.error("[CH API upstream failure]", {
+      hostname: url.hostname,
+      pathname: url.pathname,
+      method: options.method ?? "GET",
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      server: response.headers.get("server"),
+      cfRay: response.headers.get("cf-ray"),
+      redirectHostname: response.redirected ? new URL(response.url).hostname : undefined,
+    });
     const payload = await safeJson(response);
     const apiError = payload?.error;
     const message =
