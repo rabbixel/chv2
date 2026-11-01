@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/fraunces";
 import { SiteFooter, SiteHeader } from "@/components/layout";
+import { NavigationScrollReset } from "@/components/layout/NavigationScrollReset";
 import { CartEventBridge } from "@/components/cart/CartEventBridge";
 import { CartStateProvider } from "@/components/cart/CartStateProvider";
 import { SITE } from "@/lib/constants";
@@ -36,6 +37,7 @@ export default function RootLayout({
         <a href="#main-content" className="ch-skip-link">
           Skip to content
         </a>
+        <NavigationScrollReset />
         <CartStateProvider>
           <CartEventBridge>
             <div className={styles.shell}>
