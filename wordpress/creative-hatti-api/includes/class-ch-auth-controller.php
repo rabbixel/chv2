@@ -644,6 +644,14 @@ final class CH_Auth_Controller {
 		if ( ! is_array( $parts ) || empty( $parts['host'] ) || ! in_array( $parts['scheme'] ?? '', array( 'http', 'https' ), true ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || isset( $parts['query'] ) || isset( $parts['fragment'] ) || ! in_array( $parts['path'] ?? '', array( '', '/' ), true ) || ( 'production' === wp_get_environment_type() && 'https' !== $parts['scheme'] ) ) {
 			return '';
 		}
+		// The configured storefront is authoritative for emailed verification and
+		// password-reset links. Never trust an arbitrary request-supplied origin.
+		if ( defined( 'CH_FRONTEND_URL' ) && is_string( CH_FRONTEND_URL ) && '' !== trim( CH_FRONTEND_URL ) ) {
+			$configured = rtrim( trim( CH_FRONTEND_URL ), '/' );
+			if ( ! hash_equals( $configured, $url ) ) {
+				return '';
+			}
+		}
 		return $url;
 	}
 
