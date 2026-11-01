@@ -139,10 +139,18 @@ export function GalleryPreview({ products, density, overlayMode, returnTo }: Gal
     return () => observer.disconnect();
   }, [measure]);
 
-  const rows = useMemo(
-    () => buildJustifiedRows(products, containerWidth, targetHeight, gap),
-    [products, containerWidth, targetHeight],
-  );
+  const rows = useMemo(() => {
+    // Search keeps its justified gallery on larger screens. On phones, show
+    // one edge-to-edge artwork per row without narrow portrait thumbnails.
+    if (containerWidth > 0 && containerWidth <= 640) {
+      const height = Math.min(380, Math.max(220, containerWidth * 0.9));
+      return products.map((item) => ({
+        height,
+        items: [{ item, width: containerWidth }],
+      }));
+    }
+    return buildJustifiedRows(products, containerWidth, targetHeight, gap);
+  }, [products, containerWidth, targetHeight]);
 
   if (products.length === 0) return null;
 
