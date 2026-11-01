@@ -263,7 +263,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <h2 id="related" className={styles.sectionHeading}>
             Related products
           </h2>
-          <ProductGrid products={related} />
+          <ProductGrid products={related} justified />
         </section>
 
         {(relatedCollectionEntries.length > 0 || relatedCategories.length > 0) && (
