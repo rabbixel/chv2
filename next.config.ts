@@ -64,7 +64,17 @@ images: {
         value: "max-age=63072000; includeSubDomains; preload",
       });
     }
-    return [{ source: "/:path*", headers: security }];
+    return [
+      { source: "/:path*", headers: security },
+      // Keep the publicly accessible Vercel testing hostname out of search
+      // results while the legacy www.creativehatti.com storefront remains live.
+      // Host-scoped: never apply noindex to the eventual production domain.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "chv2.vercel.app" }],
+        headers: [{ key: "X-Robots-Tag", value: "noindex" }],
+      },
+    ];
   },
   async rewrites() {
     return [
