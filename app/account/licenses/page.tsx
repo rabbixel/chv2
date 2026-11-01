@@ -105,8 +105,8 @@ export default async function AccountLicensesPage({ searchParams }: AccountLicen
 function WordPressLicenses({ licenses }: { licenses: Paginated<CustomerLicense> }) {
   return (
     <div>
-      <h1 className={styles.title}>Software license records</h1>
-      <p className={styles.lede}>Software activation records are separate from design usage rights. Check the purchased product and option in your order details for the applicable agreement.</p>
+      <h1 className={styles.title}>License records</h1>
+      <p className={styles.lede}>These are optional software activation records, not the usage licenses for your purchased artwork. Your design usage rights are determined by the product terms and purchased option shown in your order details.</p>
       {licenses.items.length === 0 ? (
         <EmptyState title="No software license records" description="No software activation records are associated with your account. Design usage rights follow the terms supplied with your purchased product and option." action={<Button href={routes.accountOrders()}>View orders</Button>} />
       ) : (
@@ -126,12 +126,12 @@ function WordPressLicenses({ licenses }: { licenses: Paginated<CustomerLicense> 
                         : license.purchaseType === "legacy_payment" && license.purchaseId
                           ? `Previous payment #${license.purchaseId}`
                           : "Purchase reference unavailable"}
-                      {license.activationLimit !== null ? ` · ${license.activationCount} of ${license.activationLimit} activations` : ` · ${license.activationCount} activations`}
-                      {license.lifetime ? " · Lifetime" : license.expiresAt ? ` · Expires ${formatDate(license.expiresAt)}` : ""}
+                      {license.activationCount > 0 ? ` · ${license.activationCount} software activations` : ""}
+                      {license.lifetime ? " · Software key: lifetime" : license.expiresAt ? ` · Software key expires ${formatDate(license.expiresAt)}` : ""}
                     </p>
                   </div>
                   <div className={styles.rowSide}>
-                    <Badge variant={license.status === "active" ? "success" : "neutral"}>{license.status}</Badge>
+                    <Badge variant={license.status === "active" ? "success" : "neutral"}>{license.status === "inactive" ? "Not activated" : license.status === "active" ? "Activated" : `Software: ${license.status}`}</Badge>
                   </div>
                 </div>
               </Card>
@@ -146,7 +146,7 @@ function WordPressLicenses({ licenses }: { licenses: Paginated<CustomerLicense> 
           )}
         </>
       )}
-      <p className={styles.note}>License keys are masked. License activation and management are not available here yet.</p>
+      <p className={styles.note}>Software activation status does not indicate whether a completed artwork purchase is licensed for use. Keys are masked; activation and management are not available here. See your order details for the purchased design license.</p>
     </div>
   );
 }
