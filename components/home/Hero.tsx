@@ -35,7 +35,7 @@ export function Hero({ categories, popularSearches, products, config }: HeroProp
   return (
     <section className={cn(styles.hero, !config.showImages && styles.centeredHero)} aria-labelledby="hero-heading">
       <div className="ch-container ch-container--wide">
-        <div className={cn(styles.layout, gallery.length > 0 ? styles.withArtwork : styles.centered)}>
+        <div className={cn(styles.layout, gallery.length > 0 ? styles.cinematicLayout : styles.centered)}>
         <div className={styles.inner}>
           {config.eyebrow && <Badge variant="accent" size="md" className={styles.eyebrow}>{config.eyebrow}</Badge>}
           <h1 id="hero-heading" className={styles.title}>
@@ -61,13 +61,13 @@ export function Hero({ categories, popularSearches, products, config }: HeroProp
           </dl>
         </div>
         {gallery.length > 0 && (
-          <ul className={styles.gallery} aria-label="Explore featured artwork">
+          <ul className={styles.cinematicGallery} aria-label="Explore featured artwork">
             {gallery.map((entry, index) => (
               <li key={entry.key}>
-                {entry.href ? <Link href={entry.href} className={styles.preview} aria-label={entry.product?.title || entry.image.alt || `Featured artwork ${index + 1}`}>
+                {entry.href ? <Link href={entry.href} className={styles.cinematicPreview} aria-label={entry.product?.title || entry.image.alt || `Featured artwork ${index + 1}`}>
                   <ProductImage image={entry.image} title={entry.product?.title || entry.image.alt || "Featured artwork"}
                     sizes="(max-width: 767px) 44vw, (max-width: 1023px) 22vw, 240px"
-                    priority={index === 0} decorative className={styles.previewImage} />
+                    priority={index === 0} decorative className={styles.cinematicImage} />
                 </Link> : <div className={styles.preview}>
                   <ProductImage image={entry.image} title={entry.image.alt || "Featured artwork"}
                     sizes="(max-width: 767px) 44vw, (max-width: 1023px) 22vw, 240px"
