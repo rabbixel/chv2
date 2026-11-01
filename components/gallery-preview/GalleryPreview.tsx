@@ -143,11 +143,16 @@ export function GalleryPreview({ products, density, overlayMode, returnTo }: Gal
     // Search keeps its justified gallery on larger screens. On phones, show
     // one edge-to-edge artwork per row without narrow portrait thumbnails.
     if (containerWidth > 0 && containerWidth <= 640) {
-      const height = Math.min(380, Math.max(220, containerWidth * 0.9));
-      return products.map((item) => ({
-        height,
-        items: [{ item, width: containerWidth }],
-      }));
+      return products.map((item) => {
+        const image = item.images[0];
+        const ratio = image?.width && image?.height && image.width > 0 && image.height > 0
+          ? image.width / image.height
+          : 1;
+        // One artwork per row: size the frame to the artwork's own aspect
+        // ratio, rather than letterboxing it inside a fixed-height tile.
+        const height = Math.round(containerWidth / ratio);
+        return { height, items: [{ item, width: containerWidth }] };
+      });
     }
     return buildJustifiedRows(products, containerWidth, targetHeight, gap);
   }, [products, containerWidth, targetHeight]);
