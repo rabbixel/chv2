@@ -35,7 +35,7 @@ export async function SiteHeader() {
   return (
     <header className={styles.header}>
       <p className={styles.announcement}>
-        Festive sale is live — up to 40% off invitations, patterns &amp; fonts.
+        Festive sale is live — up to 40% off invitations, patterns &amp; illustrations.
       </p>
       <div className={styles.main}>
         <div className={`ch-container ch-container--wide ${styles.mainInner}`}>
