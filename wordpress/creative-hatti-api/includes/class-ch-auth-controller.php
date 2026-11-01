@@ -339,17 +339,30 @@ final class CH_Auth_Controller {
 		$ip          = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
 		$frontend_url = self::validated_frontend_url( $request->get_param( 'frontend_origin' ) );
 		if ( ! $this->allow_email_action( 'reset_request', $ip, $email ) ) {
+			self::auth_mail_diagnostic( 'reset', 'rate_limited' );
 			return self::rate_limited();
 		}
-		if ( is_email( $email ) ) {
-			global $wpdb;
-			$email_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(ID) FROM {$wpdb->users} WHERE LOWER(user_email) = %s", $email ) );
-			if ( 1 === $email_count ) {
-				$user = get_user_by( 'email', $email );
-				if ( $frontend_url && $user ) {
-					$this->send_capability_email( $user, 'reset', $frontend_url );
-				}
-			}
+		if ( ! is_email( $email ) ) {
+			self::auth_mail_diagnostic( 'reset', 'invalid_email' );
+			return self::reset_accepted();
+		}
+		if ( ! $frontend_url ) {
+			self::auth_mail_diagnostic( 'reset', 'frontend_origin_rejected' );
+			return self::reset_accepted();
+		}
+		global $wpdb;
+		$email_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(ID) FROM {$wpdb->users} WHERE LOWER(user_email) = %s", $email ) );
+		if ( 1 !== $email_count ) {
+			self::auth_mail_diagnostic( 'reset', 'user_lookup_not_unique' );
+			return self::reset_accepted();
+		}
+		$user = get_user_by( 'email', $email );
+		if ( ! $user ) {
+			self::auth_mail_diagnostic( 'reset', 'user_lookup_failed' );
+			return self::reset_accepted();
+		}
+		if ( $this->send_capability_email( $user, 'reset', $frontend_url ) ) {
+			self::auth_mail_diagnostic( 'reset', 'wp_mail_accepted' );
 		}
 		return self::reset_accepted();
 	}
@@ -537,13 +550,22 @@ final class CH_Auth_Controller {
 		}
 	}
 
+	/** Log stage names only, and only when explicitly enabled in wp-config.php. */
+	private static function auth_mail_diagnostic( $purpose, $stage ) {
+		if ( defined( 'CH_AUTH_MAIL_DIAGNOSTICS' ) && true === CH_AUTH_MAIL_DIAGNOSTICS ) {
+			error_log( '[CreativeHatti Auth Mail] ' . sanitize_key( $purpose ) . ': ' . sanitize_key( $stage ) );
+		}
+	}
+
 	private function send_capability_email( $user, $purpose, $frontend ) {
 		if ( ! $frontend || ! $user || empty( $user->ID ) || empty( $user->user_email ) ) {
+			self::auth_mail_diagnostic( $purpose, 'invalid_send_context' );
 			return false;
 		}
 		try {
 			$token = bin2hex( random_bytes( 32 ) );
 		} catch ( Throwable $error ) {
+			self::auth_mail_diagnostic( $purpose, 'token_generation_failed' );
 			return false;
 		}
 
@@ -560,6 +582,7 @@ final class CH_Auth_Controller {
 			$ttl
 		);
 		if ( ! $stored ) {
+			self::auth_mail_diagnostic( $purpose, 'token_storage_failed' );
 			return false;
 		}
 
@@ -579,6 +602,7 @@ final class CH_Auth_Controller {
 
 		if ( ! wp_mail( (string) $user->user_email, $subject, $message ) ) {
 			delete_transient( $transient );
+			self::auth_mail_diagnostic( $purpose, 'wp_mail_rejected' );
 			return false;
 		}
 		return true;
@@ -619,6 +643,14 @@ final class CH_Auth_Controller {
 		$parts = $url ? wp_parse_url( $url ) : false;
 		if ( ! is_array( $parts ) || empty( $parts['host'] ) || ! in_array( $parts['scheme'] ?? '', array( 'http', 'https' ), true ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || isset( $parts['query'] ) || isset( $parts['fragment'] ) || ! in_array( $parts['path'] ?? '', array( '', '/' ), true ) || ( 'production' === wp_get_environment_type() && 'https' !== $parts['scheme'] ) ) {
 			return '';
+		}
+		// The configured storefront is authoritative for emailed verification and
+		// password-reset links. Never trust an arbitrary request-supplied origin.
+		if ( defined( 'CH_FRONTEND_URL' ) && is_string( CH_FRONTEND_URL ) && '' !== trim( CH_FRONTEND_URL ) ) {
+			$configured = rtrim( trim( CH_FRONTEND_URL ), '/' );
+			if ( ! hash_equals( $configured, $url ) ) {
+				return '';
+			}
 		}
 		return $url;
 	}

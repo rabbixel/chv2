@@ -385,6 +385,16 @@ final class CH_Checkout_Controller {
 			$customer = edd_get_customer_by( 'user_id', $user_id );
 			if ( $customer && (int) $customer->user_id === (int) $user_id ) { return (int) $customer->id; }
 		}
+		// Guest checkouts must reuse an existing EDD customer for this email.
+		// EDD's customers table has a unique email index, so attempting to
+		// insert a second row makes the entire checkout transaction fail.
+		$email = $user_id ? strtolower( get_userdata( $user_id )->user_email ) : strtolower( trim( $billing['email'] ) );
+		$existing = edd_get_customer_by( 'email', $email );
+		if ( $existing && ! empty( $existing->id ) ) {
+			// Never reassign an existing customer to a different WordPress user.
+			if ( $user_id && ! empty( $existing->user_id ) && (int) $existing->user_id !== (int) $user_id ) { return 0; }
+			return (int) $existing->id;
+		}
 		$customer_id = edd_add_customer( array(
 			'user_id' => $user_id ? (int) $user_id : 0,
 			'email' => $user_id ? strtolower( get_userdata( $user_id )->user_email ) : $billing['email'],

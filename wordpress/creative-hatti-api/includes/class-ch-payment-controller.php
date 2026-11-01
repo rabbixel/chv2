@@ -7,6 +7,8 @@ final class CH_Payment_Controller {
 
 	public function __construct( $auth ) {
 		$this->auth = $auth;
+		add_action( 'admin_menu', array( $this, 'register_recovery_page' ) );
+		add_action( 'admin_post_ch_razorpay_recover', array( $this, 'recover_admin_order' ) );
 		add_filter( 'edd_file_download_has_access', array( $this, 'block_verified_full_refund_download_access' ), 10, 3 );
 	}
 
@@ -28,6 +30,77 @@ final class CH_Payment_Controller {
 		$amount = (int) edd_get_order_meta( $order_id, 'ch_razorpay_amount_paise', true );
 		$refunded = (int) edd_get_order_meta( $order_id, 'ch_razorpay_refunded_amount_paise', true );
 		return ( 'refunded' === $order->status && $amount > 0 && $refunded >= $amount ) ? false : $has_access;
+	}
+
+
+	/** Administrator-only recovery for a captured payment on an existing EDD order. */
+	public function register_recovery_page() {
+		add_submenu_page( 'edit.php?post_type=download', 'Razorpay Recovery', 'Razorpay Recovery', 'manage_options', 'ch-razorpay-recovery', array( $this, 'render_recovery_page' ) );
+	}
+
+	public function render_recovery_page() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( 'Unauthorized.' ); }
+		$state = isset( $_GET['ch_recovery'] ) ? sanitize_key( wp_unslash( $_GET['ch_recovery'] ) ) : '';
+		echo '<div class="wrap"><h1>Razorpay Payment Recovery</h1><p>Recheck an existing captured Razorpay payment and complete its matching EDD order. No new payment is created.</p>';
+		if ( $state ) { echo '<div class="notice notice-info"><p>' . esc_html( str_replace( '_', ' ', $state ) ) . '</p></div>'; }
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		wp_nonce_field( 'ch_razorpay_recover' );
+		echo '<input type="hidden" name="action" value="ch_razorpay_recover"><p><label for="ch_order_id">EDD order ID</label> <input required type="number" min="1" id="ch_order_id" name="order_id"></p><p><button class="button button-primary" type="submit">Verify captured payment and recover order</button></p></form></div>';
+	}
+
+	public function recover_admin_order() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( 'Unauthorized.', 403 ); }
+		check_admin_referer( 'ch_razorpay_recover' );
+		$order_id = isset( $_POST['order_id'] ) ? absint( wp_unslash( $_POST['order_id'] ) ) : 0;
+		$result = 'invalid_order';
+		$order = $order_id ? edd_get_order( $order_id ) : false;
+		if ( $order && 'sale' === $order->type && 'ch_razorpay' === (string) $order->gateway && in_array( $order->status, array( 'pending', 'complete' ), true ) && 'INR' === strtoupper( (string) $order->currency ) ) {
+			global $wpdb;
+			$lock = 'ch_rzpv_' . $order_id;
+			if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock ) ) ) {
+				$result = 'order_busy';
+			} else {
+				try {
+					$payment_id = (string) edd_get_order_meta( $order_id, 'ch_razorpay_verified_payment_id', true );
+					if ( ! preg_match( '/^pay_[A-Za-z0-9]+$/D', $payment_id ) && function_exists( 'edd_get_order_transactions' ) ) {
+						$transactions = edd_get_order_transactions( array( 'object_id' => $order_id, 'number' => 20 ) );
+						foreach ( (array) $transactions as $transaction ) {
+							$id = (string) ( $transaction->transaction_id ?? '' );
+							if ( preg_match( '/^pay_[A-Za-z0-9]+$/D', $id ) ) { $payment_id = $id; break; }
+						}
+					}
+					$razorpay_order_id = (string) edd_get_order_meta( $order_id, 'ch_razorpay_order_id', true );
+					$amount = $this->to_paise( $order->total );
+					$result = 'missing_payment_reference';
+					if ( preg_match( '/^pay_[A-Za-z0-9]+$/D', $payment_id ) && preg_match( '/^order_[A-Za-z0-9]+$/D', $razorpay_order_id ) && false !== $amount && $amount > 0 && $amount === (int) edd_get_order_meta( $order_id, 'ch_razorpay_amount_paise', true ) ) {
+						$payment = $this->razorpay_get( 'payments/' . rawurlencode( $payment_id ) );
+						$result = 'provider_verification_failed';
+						if ( ! is_wp_error( $payment ) ) {
+							$result = 'payment_not_captured_or_mismatched';
+							if ( (string) ( $payment['id'] ?? '' ) === $payment_id && (string) ( $payment['order_id'] ?? '' ) === $razorpay_order_id && 'captured' === (string) ( $payment['status'] ?? '' ) && ! empty( $payment['captured'] ) && (int) ( $payment['amount'] ?? 0 ) === $amount && 'INR' === strtoupper( (string) ( $payment['currency'] ?? '' ) ) ) {
+								$old_payment = (string) edd_get_order_meta( $order_id, 'ch_razorpay_verified_payment_id', true );
+								$result = 'payment_conflict';
+								if ( ! $old_payment || hash_equals( $old_payment, $payment_id ) ) {
+									$result = 'record_failed';
+									if ( $this->persist_order_meta( $order_id, 'ch_razorpay_verified_payment_id', $payment_id ) && $this->persist_order_meta( $order_id, 'ch_razorpay_verified_payment_status', 'captured' ) && $this->persist_order_meta( $order_id, 'ch_razorpay_verified_at', gmdate( 'c' ) ) ) {
+										$transaction = $this->record_captured_transaction( $order_id, $order, $payment_id );
+										$result = is_wp_error( $transaction ) ? 'transaction_record_failed' : 'fulfillment_disabled';
+										if ( ! is_wp_error( $transaction ) && $this->fulfillment_enabled() ) {
+											$fulfilled = $this->fulfill_captured_order( $order_id, $razorpay_order_id, $payment_id, $amount );
+											$result = is_wp_error( $fulfilled ) || ! $fulfilled ? 'fulfillment_failed' : 'order_completed';
+										}
+									}
+								}
+							}
+						}
+					}
+				} finally {
+					$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+				}
+			}
+		}
+		wp_safe_redirect( add_query_arg( 'ch_recovery', $result, admin_url( 'edit.php?post_type=download&page=ch-razorpay-recovery' ) ) );
+		exit;
 	}
 
 	public function register_routes() {

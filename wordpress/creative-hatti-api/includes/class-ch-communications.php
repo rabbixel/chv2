@@ -50,7 +50,8 @@ final class CH_Communications {
 			$method = $gateways[ $order->gateway ]['checkout_label'] ?? ( 'ch_razorpay' === $order->gateway ? 'Razorpay' : '' );
 			$html .= '<p>' . ( $completed ? 'Payment received.' : 'This receipt does not confirm current download access.' ) . ( $method ? ' Payment method: ' . esc_html( $method ) . '.' : '' ) . '</p>';
 		}
-		$origin = rtrim( (string) apply_filters( 'ch_communications_frontend_url', home_url( '/' ) ), '/' );
+		$configured_frontend = defined( 'CH_FRONTEND_URL' ) ? CH_FRONTEND_URL : home_url( '/' );
+		$origin = rtrim( (string) apply_filters( 'ch_communications_frontend_url', $configured_frontend ), '/' );
 		$parts = wp_parse_url( $origin );
 		$valid_origin = is_array( $parts ) && in_array( $parts['scheme'] ?? '', array( 'http', 'https' ), true ) && ! empty( $parts['host'] ) &&
 			! isset( $parts['user'] ) && ! isset( $parts['pass'] ) && ! isset( $parts['query'] ) && ! isset( $parts['fragment'] ) && empty( $parts['path'] ) &&
