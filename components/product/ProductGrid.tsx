@@ -4,6 +4,7 @@ import type { Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { getWishlistService } from "@/lib/services";
 import { ProductCard } from "./ProductCard";
+import { GalleryPreview } from "@/components/gallery-preview";
 import styles from "./ProductGrid.module.css";
 
 export interface ProductGridPagination {
@@ -22,6 +23,8 @@ export interface ProductGridProps {
   products: Product[];
   artworkPreview?: boolean;
   masonry?: boolean;
+  /** Justified, aspect-ratio-aware artwork gallery for browsing listings. */
+  justified?: boolean;
   className?: string;
   /** Total catalogue count for the "N products" line. Omit to hide. */
   totalItems?: number;
@@ -45,9 +48,10 @@ export async function ProductGrid({
   cardTitleAs,
   artworkPreview = false,
   masonry = false,
+  justified = false,
 }: ProductGridProps) {
   let wishlisted = new Set<string>();
-  if (products.length > 0) {
+  if (!justified && products.length > 0) {
     try {
       wishlisted = await getWishlistService().getSavedProductIds(products.map((product) => product.id));
     } catch {
@@ -68,6 +72,8 @@ export async function ProductGrid({
           description={empty.description}
           action={empty.action}
         />
+      ) : justified ? (
+        <GalleryPreview products={products} density="comfortable" overlayMode="hover" />
       ) : (
         <ul className={cn(styles.grid, masonry && styles.masonry)}>
           {products.map((product, index) => (
