@@ -14,7 +14,7 @@ export async function DirectoryCollection({ slug, page }: { slug: string; page: 
     <Breadcrumbs items={[{ label: "Home", href: routes.home() }, { label: "Collections", href: routes.collections() }, { label: entry.title }]} />
     <h1>{entry.title}</h1>
     <p className={styles.sub}>{result.total.toLocaleString("en-IN")} matching assets</p>
-    <ProductGrid products={result.products} cardTitleAs="h2" artworkPreview
+    <ProductGrid products={result.products} cardTitleAs="h2" justified
       pagination={{ page, totalPages: result.totalPages, buildHref: (p) => `${routes.collection(slug)}?page=${p}` }} />
   </div></Container>;
 }
