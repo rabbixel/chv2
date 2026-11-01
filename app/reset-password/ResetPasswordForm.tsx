@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useState } from "react";
 import { SubmitButton } from "@/components/checkout";
 import { Input } from "@/components/ui";
 import { evaluatePassword, passwordErrorMessage } from "@/lib/auth/passwordPolicy.mjs";
@@ -8,23 +8,14 @@ import { PasswordRequirements } from "@/components/auth/PasswordRequirements";
 import { resetPasswordAction } from "@/app/account/actions";
 import styles from "./page.module.css";
 
-function subscribe(callback: () => void) {
-  window.addEventListener("hashchange", callback);
-  return () => window.removeEventListener("hashchange", callback);
-}
-
-function getToken() {
+function readTokenFromHash() {
   const token = window.location.hash.slice(1);
   return /^[a-f0-9]{64}$/.test(token) ? token : "";
 }
 
-function getServerToken() {
-  return "";
-}
-
 export function ResetPasswordForm({ error }: { error: string | null }) {
   const requirementsId = useId();
-  const token = useSyncExternalStore(subscribe, getToken, getServerToken);
+  const [token, setToken] = useState("");
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -35,8 +26,20 @@ export function ResetPasswordForm({ error }: { error: string | null }) {
     : undefined;
 
   useEffect(() => {
-    if (token) window.history.replaceState(null, "", window.location.pathname + window.location.search);
-  }, [token]);
+    // Capture the one-time token before removing it from the address bar.
+    // Keeping it in component state prevents subsequent input renders from
+    // hiding the form after history.replaceState clears the URL fragment.
+    const captureToken = () => {
+      const nextToken = readTokenFromHash();
+      if (nextToken) {
+        setToken(nextToken);
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    };
+    captureToken();
+    window.addEventListener("hashchange", captureToken);
+    return () => window.removeEventListener("hashchange", captureToken);
+  }, []);
 
   if (!token) {
     return <p className={styles.note}>{error ?? "Open the secure link from your reset email, or request a fresh one below."}</p>;
