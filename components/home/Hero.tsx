@@ -33,9 +33,9 @@ export function Hero({ categories, popularSearches, products, config }: HeroProp
     return [{ image, product, href, key: slot.mode === "custom" ? `custom-${index}` : product?.id ?? `default-${index}` }];
   }) : [];
   return (
-    <section className={cn(styles.hero, !config.showImages && styles.centeredHero)} aria-labelledby="hero-heading">
+    <section className={cn(styles.hero, styles.cinematicHero)} aria-labelledby="hero-heading">
       <div className="ch-container ch-container--wide">
-        <div className={cn(styles.layout, gallery.length > 0 ? styles.cinematicLayout : styles.centered)}>
+        <div className={cn(styles.layout, styles.cinematicLayout)}>
         <div className={styles.inner}>
           {config.eyebrow && <Badge variant="accent" size="md" className={styles.eyebrow}>{config.eyebrow}</Badge>}
           <h1 id="hero-heading" className={styles.title}>
