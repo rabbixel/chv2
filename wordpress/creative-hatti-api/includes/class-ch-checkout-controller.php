@@ -207,7 +207,7 @@ final class CH_Checkout_Controller {
 		$validated = $cart_payload['items'] ?? array();
 		if ( empty( $validated ) || count( $validated ) > 20 ) { throw new RuntimeException( 'Your cart is empty or too large.' ); }
 		foreach ( $validated as $item ) {
-			if ( empty( $item['available'] ) ) { throw new RuntimeException( 'Your cart contains an unavailable product or price option.' ); }
+			if ( empty( $item['available'] ) ) { throw new RuntimeException( ! empty( $item['message'] ) ? (string) $item['message'] : 'Your cart contains an unavailable product or price option.' ); }
 		}
 		$independent_free = true === $request->get_param( 'independent_free' );
 		if ( $independent_free ) {

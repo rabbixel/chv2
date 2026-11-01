@@ -54,8 +54,18 @@ final class CH_Cart_Controller {
 			$variable = function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $id );
 			$prices = $variable && function_exists( 'edd_get_variable_prices' ) ? (array) edd_get_variable_prices( $id ) : array();
 			if ( $variable && ( null === $price_id || ! array_key_exists( $price_id, $prices ) ) || ! $variable && null !== $price_id ) { $base['message'] = 'The selected price option is unavailable.'; $items[] = $base; continue; }
+			// EDD treats missing fixed-price metadata as a valid zero-price download.
+			// Match CH_Product_Transformer::price() so a displayed free item
+			// is not rejected solely because edd_price was never saved.
 			$raw_amount = $variable ? ( $prices[ $price_id ]['amount'] ?? null ) : get_post_meta( $id, 'edd_price', true );
-			if ( ! is_numeric( $raw_amount ) || ! is_finite( (float) $raw_amount ) || (float) $raw_amount < 0 ) { $items[] = $base; continue; }
+			$fixed_meta_exists = $variable || ( function_exists( 'metadata_exists' ) ? metadata_exists( 'post', $id, 'edd_price' ) : ( '' !== $raw_amount && null !== $raw_amount ) );
+			if ( ! $variable && ! $fixed_meta_exists ) {
+				$stale_options = get_post_meta( $id, 'edd_variable_prices', true );
+				$contradictory = is_array( $stale_options ) ? (bool) array_filter( $stale_options ) : ! empty( $stale_options );
+				if ( $contradictory ) { $base['message'] = 'The product has conflicting price configuration.'; $items[] = $base; continue; }
+				$raw_amount = 0;
+			}
+			if ( ! is_numeric( $raw_amount ) || ! is_finite( (float) $raw_amount ) || (float) $raw_amount < 0 ) { $base['message'] = 'The product price is invalid.'; $items[] = $base; continue; }
 			$resolved_amount = $variable ? edd_get_price_option_amount( $id, $price_id ) : edd_get_download_price( $id );
 			if ( ! is_numeric( $resolved_amount ) ) { $items[] = $base; continue; }
 			$amount = (float) $resolved_amount;
