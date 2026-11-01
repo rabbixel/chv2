@@ -4,45 +4,61 @@ import { SITE } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "License information",
-  description: "Draft overview of the historical Creative Hatti asset license information.",
+  title: "Licensing Information | Creative Hatti",
+  description: "Understand how you can use Creative Hatti digital artwork, including permitted uses, restrictions, editorial content, and custom designs.",
   alternates: { canonical: `${SITE.url}${routes.licenseInformation()}` },
 };
 
 export default function LicensingPage() {
   return (
-  <ContentPage title="License information" description="A draft summary of the licensing terms from the previous Creative Hatti website." policyDraft>
+    <ContentPage
+      title="Licensing information"
+      description="Understand the rights that come with your Creative Hatti digital artwork and how to use your downloads responsibly."
+    >
       <section>
-        <h2>Check the applicable license</h2>
-        <p>Review the license terms shown for the product and price option before purchase or use. We have not confirmed which current purchase options match the previous Standard or Extended/Team terms for every product. This summary does not assign a license to an option that is unclear.</p>
+        <h2>How your license works</h2>
+        <p>When you download or purchase a Creative Hatti product, you receive permission to use the artwork under the license applicable to that product and the option selected at checkout. You are purchasing usage rights, not ownership of the original copyright, unless a separate written agreement expressly provides otherwise.</p>
+        <p>Check the product description, selected license or price option, and any terms supplied with the download. Those product-specific terms define the permitted scope of use. If a product has special restrictions, they apply in addition to this general information.</p>
       </section>
       <section>
-        <h2>Standard License in the historical terms</h2>
-        <p>The historical agreement says graphics were provided by default under a Standard License, with non-exclusive rights that do not expire. It describes the right as non-transferable and says other customers may purchase and use the same graphic. Where this Standard License was granted, it permits use and modification as stated in the agreement, subject to its limits.</p>
-        <p>The historical terms restrict sublicensing or redistributing the original or altered source graphic for resale, using graphics as a trademark or part of a trademark, and placing graphics in online templates for sale under the Standard License. The historical wording about providing files to third parties or a team is broad; confirm the applicable option before sharing files with a team or client.</p>
+        <h2>Standard use of artwork</h2>
+        <p>For artwork supplied under a Standard License, Creative Hatti grants a non-exclusive, non-transferable right to use and adapt the purchased design in permitted finished projects, subject to the applicable product terms. The license does not expire merely because the original file is no longer offered for sale, unless the specific license states a different duration.</p>
+        <p>Non-exclusive means the same artwork may be licensed to other customers. You may incorporate licensed artwork into a finished design, but you may not distribute the underlying artwork as a reusable standalone asset.</p>
       </section>
       <section>
-        <h2>Extended and Team use in the historical terms</h2>
-        <p>The historical agreement describes Team licensing for shared-drive access by team members and use for multiple clients. It describes Extended licensing for uses beyond the Standard terms, including merchandise with material creative or functional elements, certain commercial-space wall art, and images incorporated as elements of digital templates for sale or distribution.</p>
-        <p>These are summaries of previous terms. The exact scope and which current purchase option, if any, grants each right must be confirmed before relying on them.</p>
+        <h2>Extended, Team and other license options</h2>
+        <p>Some products may offer additional licensing options for uses such as wider team access, multiple client projects, merchandise, or templates. These permissions apply only when expressly included in the option you purchase or in a separate written license. Buying a higher-priced option does not automatically grant exclusivity or copyright ownership.</p>
+        <p>Where an option does not clearly cover your intended use, please <a href={routes.contact()}>contact Creative Hatti</a> before using the artwork in that way.</p>
       </section>
       <section>
-        <h2>Purchase limits and ownership</h2>
-        <p>A product&apos;s purchase limit is a technical availability rule. It does not by itself grant exclusive rights, transfer copyright, or change a license already granted. Do not infer ownership or exclusivity from a product being limited to one sale.</p>
+        <h2>What is not permitted without additional permission</h2>
+        <ul>
+          <li>Reselling, sublicensing, sharing, or redistributing the original artwork or editable source files as standalone assets, whether modified or unmodified.</li>
+          <li>Uploading the artwork to stock libraries, asset marketplaces, or other services where others can obtain the artwork itself.</li>
+          <li>Using the artwork as a logo, registered trademark, or exclusive brand identifier without an express written grant of the necessary rights.</li>
+          <li>Including the artwork as an extractable or reusable element in templates, design kits, or other products for resale unless the purchased license expressly allows it.</li>
+          <li>Sharing downloadable files or account access with people outside the users or team covered by the purchased license.</li>
+        </ul>
+        <p>Editing, recoloring, or combining an asset with other elements does not remove these restrictions.</p>
       </section>
       <section>
-        <h2>Editorial-use content</h2>
-        <p>The previous Terms and Conditions state that some images or illustrations featuring people may be marked “Editorial Use Only” when a commercial release is not available. The page lists news, archives, publications, documentaries, nonfiction books, and public-service content as examples, and excludes promotional graphics, packaging, advertising, merchandise, and social-media campaigns. Product-specific labels and whether this earlier rule still applies require owner review.</p>
+        <h2>Editorial-use content and third-party rights</h2>
+        <p>Artwork identified as <strong>Editorial Use Only</strong> is intended for editorial contexts such as news reporting, commentary, educational material, documentaries, and other informational publications. Do not use editorial-only content to advertise or endorse products, services, or organizations without obtaining the necessary permissions.</p>
+        <p>A Creative Hatti license does not grant rights to third-party trademarks, brand names, personal likenesses, or other protected material depicted in an illustration. You are responsible for obtaining any additional permissions required for your intended use.</p>
       </section>
       <section>
-        <h2>Commissioned custom designs</h2>
-        <p>Ready-made marketplace products remain governed by their applicable Standard or Extended/Team license above. A purchase limit does not create exclusive rights or transfer copyright.</p>
-        <p>For a new commissioned design, the approved direction is to transfer exclusive rights to the original final design after full payment under a written copyright assignment. The agreement must define the final deliverables and rights transferred; it cannot grant rights Creative Hatti does not hold. Third-party fonts, stock assets, software, trademarks, and other externally licensed materials remain subject to their own restrictions. Editable/source files, concepts, and rejected drafts are covered only if the written agreement specifies them.</p>
-        <p>Custom projects are arranged by contacting the team through the <a href={routes.contact()}>Contact page</a>. These draft terms do not change past custom-work agreements. The assignment, third-party rights, unfinished work, and any portfolio display permission require legal review.</p>
+        <h2>Ownership, exclusivity and purchase limits</h2>
+        <p>Unless expressly agreed otherwise in writing, Creative Hatti or the relevant rights holder retains copyright in the underlying artwork. A product being available for only one purchase, or later being removed from sale, does not by itself make the purchase exclusive or transfer copyright.</p>
       </section>
       <section>
-        <h2>Owner approval needed</h2>
-        <p>Confirm current Standard, Team, and Extended scopes; confirm which purchase options match those terms and which products are marked for editorial use; and obtain legal review of custom copyright-assignment scope and formalities before removing this draft notice.</p>
+        <h2>Custom-commissioned designs</h2>
+        <p>Custom design projects are governed by their individual written agreements. Where an agreement provides for assignment of exclusive rights to an original final design, those rights transfer only as specified in the signed assignment and subject to its payment and delivery conditions.</p>
+        <p>Third-party fonts, stock assets, software, trademarks, and other externally licensed elements remain subject to their respective licenses. Editable files, unused concepts, and rejected drafts are included only if the written project agreement says so.</p>
+      </section>
+      <section>
+        <h2>Orders, downloads and license questions</h2>
+        <p>Keep your order confirmation as a record of the product and option purchased. A software activation status shown in your account is not a statement about your design usage rights. For questions about a particular product, commercial use, team access, or additional permissions, please <a href={routes.contact()}>contact us</a> with the product name and order number.</p>
+        <p>These general licensing terms do not override a separate written agreement or the specific license supplied with a product. They do not remove rights or remedies that applicable law gives you.</p>
       </section>
     </ContentPage>
   );
