@@ -139,3 +139,88 @@
 @media (min-width: 1024px) {
   .withArtwork .title { font-size: var(--ch-text-5xl); }
 }
+
+/* Cinematic discovery layout: retains WordPress-managed copy, images, links and search. */
+.cinematicLayout {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  isolation: isolate;
+  min-height: 31rem;
+  padding-block: clamp(2.5rem, 5vw, 5rem);
+}
+.hero:has(.cinematicLayout) {
+  overflow: hidden;
+  background-color: #16092d;
+  background-image:
+    radial-gradient(ellipse at 79% 32%, rgba(139, 53, 221, .35), transparent 47%),
+    radial-gradient(ellipse at 12% 92%, rgba(210, 63, 117, .24), transparent 48%),
+    url("/images/creative-hatti-skyline.webp"),
+    url("/images/creative-hatti-starfield.webp");
+  background-position: center, center, center bottom, center;
+  background-repeat: no-repeat;
+  background-size: cover, cover, 100% auto, cover;
+}
+.cinematicLayout .inner {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  max-width: 44rem;
+  align-items: flex-start;
+  text-align: left;
+  padding-block: 0;
+}
+.cinematicLayout .title {
+  font-size: clamp(2.4rem, 4.2vw, 4.9rem);
+  letter-spacing: -.035em;
+  line-height: 1.06;
+  text-wrap: balance;
+}
+.cinematicLayout .copy {
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+  max-width: 36rem;
+}
+.cinematicLayout .search { max-width: 42rem; }
+.cinematicLayout .stats { justify-content: flex-start; }
+.cinematicGallery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.cinematicGallery li:not(:first-child) { display: none; }
+.cinematicGallery li { min-width: 0; }
+.cinematicPreview {
+  display: block;
+  position: relative;
+  aspect-ratio: 1;
+  width: min(100%, 32rem);
+  margin-inline: auto;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 177, 54, .22), rgba(142, 56, 214, .13) 52%, transparent 70%);
+  filter: drop-shadow(0 16px 48px rgba(188, 66, 236, .25));
+  transition: transform .25s ease;
+}
+a.cinematicPreview:hover { transform: translateY(-5px) scale(1.015); }
+.cinematicImage { object-fit: contain; }
+@media (min-width: 900px) {
+  .cinematicLayout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    gap: clamp(1.5rem, 4vw, 5rem);
+  }
+}
+@media (max-width: 899px) {
+  .cinematicLayout { padding-block: 3rem 2rem; }
+  .cinematicLayout .inner { margin-inline: auto; align-items: center; text-align: center; }
+  .cinematicLayout .stats { justify-content: center; }
+  .cinematicGallery { margin-top: 1rem; }
+  .cinematicPreview { width: min(70vw, 21rem); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinematicPreview { transition: none; }
+}
