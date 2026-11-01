@@ -33,19 +33,19 @@
   justify-content: center;
 }
 
-@container product-grid (min-width: 22rem) {
+@container product-grid (min-width: 48rem) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@container product-grid (min-width: 48rem) {
+@container product-grid (min-width: 64rem) {
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@container product-grid (min-width: 64rem) {
+@container product-grid (min-width: 80rem) {
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
