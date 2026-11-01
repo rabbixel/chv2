@@ -64,7 +64,7 @@ function readRecentSearches(): string[] {
 export function SearchBar({
   id,
   defaultValue = "",
-  placeholder = "Search fonts, graphics, templates…",
+  placeholder = "Search vectors, illustrations, templates…",
   buttonText = "Search",
   categories = [],
   popularSearches = [],
