@@ -83,6 +83,7 @@ images: {
   },
   async redirects() {
     return [
+      { source: "/home-2-2", destination: routes.category("vector-creatives"), permanent: true },
       ...Object.entries(legacyProductRedirects).map(([oldSlug, newSlug]) => ({
         source: `/product/${oldSlug}`,
         destination: `/product/${newSlug}`,
