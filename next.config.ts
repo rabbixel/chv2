@@ -83,6 +83,9 @@ images: {
   },
   async redirects() {
     return [
+      // Yoast's old sitemap index is still referenced by Search Console.
+      // Preserve that URL and send crawlers to the Next.js sitemap index.
+      { source: "/sitemap_index.xml", destination: "/sitemap.xml", permanent: true },
       { source: "/home-2-2", destination: routes.category("vector-creatives"), permanent: true },
       ...Object.entries(legacyProductRedirects).map(([oldSlug, newSlug]) => ({
         source: `/product/${oldSlug}`,
