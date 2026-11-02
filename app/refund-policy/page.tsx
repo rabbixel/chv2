@@ -5,36 +5,29 @@ import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
   title: "Refund policy",
-  description: "Draft guidance on digital product delivery and refund requests at Creative Hatti.",
+  description: "How to request help with a Creative Hatti order, download, or commissioned project.",
   alternates: { canonical: `${SITE.url}${routes.refundPolicy()}` },
 };
 
 export default function RefundPolicyPage() {
   return (
-    <ContentPage title="Refund policy" description="How to report a problem with a digital order." policyDraft>
+    <ContentPage title="Refund policy" description="How to request help with a Creative Hatti order, download, or commissioned project.">
       <section>
         <h2>Digital products</h2>
-        <p>Successfully delivered digital products are generally non-refundable, except where a refund or another remedy is required by applicable law. If a product is defective, corrupted, inaccessible, materially different from its description, or was not delivered, contact us so we can investigate and provide an appropriate remedy.</p>
-        <p>A download button or secure link means access was approved. It does not by itself prove that the file reached your device or opened successfully. If the file is missing or cannot be retrieved, report the problem before treating the download as delivered.</p>
+        <p>If you cannot access a file, the download is corrupted, the order was charged more than once, or the item differs materially from its description, contact us so we can review the order and help resolve the problem. A download link becoming available does not prevent you from reporting a file that cannot be retrieved or used.</p>
+        <p>Because ready-made products are digital, a change-of-mind request after successful delivery may not qualify for a refund. Each request is considered in light of the order details and applicable consumer law. Nothing in this policy limits rights that cannot legally be excluded.</p>
       </section>
       <section>
         <h2>Payment and download problems</h2>
-        <p>Contact us about payment errors, duplicate charges, missing or corrupted files, or an order that appears paid but is unavailable. Include the order number, product title, and a brief description of the issue. Do not send passwords, full payment-card details, or private guest download links.</p>
-        <p>The historical policy says requests are reviewed within five business days. We retain that as a target review period, not a guaranteed decision or refund date; the owner must confirm that this target is operational before publication.</p>
+        <p>Email <a href={routes.contactEmail("Refund or order support")}>hello@creativehatti.com</a> with your order number, product title, and a short description of the issue. Do not send passwords, full payment-card details, or private guest download links. We will review the information and let you know the available next steps.</p>
       </section>
       <section>
         <h2>Commissioned custom work</h2>
-        <p>Custom projects are governed by the written project agreement, not the ready-made download terms above. For new projects, custom work is generally non-refundable after work begins, subject to applicable law. Before work begins, cancellation requests are reviewed under the agreed project terms and applicable law; the advance is not automatically forfeited. Remedies required by law, including where agreed services are not provided, are not excluded.</p>
-        <p>These draft terms do not change historical custom-work agreements. Final wording requires legal review before publication.</p>
+        <p>Custom design projects follow the scope, payment schedule, cancellation terms, and deliverables agreed in writing before work begins. Contact us promptly if you need to cancel or have a concern about work in progress. Any refund or other remedy will be handled under that agreement and applicable law.</p>
       </section>
       <section>
         <h2>How to contact us</h2>
-        <p>Use the support details on the <a href={routes.contact()}>Contact page</a>. Email delivery has not been verified by the website, so keep a copy of your message and any payment-provider confirmation.</p>
-      </section>
-      <section>
-        <h2>Past purchases</h2>
-        <p>The custom-work terms above apply only to new projects agreed under those terms. They do not change historical custom-work agreements or the terms that applied to ready-made purchases. Historical FAQ statements about custom-work refunds conflict; refer to the written agreement for an existing project, subject to applicable law.</p>
-        <p>Applicable statutory consumer rights are not excluded. Final wording requires legal review before production publication.</p>
+        <p>For order or refund help, email <a href={routes.contactEmail("Refund or order support")}>hello@creativehatti.com</a> or visit our <a href={routes.contact()}>Contact page</a>. Include only the details needed to identify the order.</p>
       </section>
     </ContentPage>
   );

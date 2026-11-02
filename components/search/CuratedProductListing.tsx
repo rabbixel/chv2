@@ -45,7 +45,7 @@ export async function CuratedProductListing({
           products={result.items}
           totalItems={result.pagination.totalItems}
           cardTitleAs="h2"
-          masonry
+          justified
           empty={{
             title: freeOnly ? "No free downloads found" : paidOnly ? "No paid products found" : "No products found",
             description: "Please check back later or browse all categories.",

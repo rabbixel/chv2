@@ -4,10 +4,10 @@ import { Breadcrumbs, Container } from "@/components/layout";
 import { ProductGrid } from "@/components/product";
 import { getTagService } from "@/lib/services";
 import { routes } from "@/lib/routes";
-import styles from "./page.module.css";
 import { productFromApi } from "@/lib/creative-hatti/adapters";
 import { SITE } from "@/lib/constants";
 import { decodeHtmlEntities } from "@/lib/creative-hatti/html";
+import listingStyles from "@/components/search/ListingPage.module.css";
 
 export const revalidate = 3600;
 
@@ -62,21 +62,31 @@ export default async function TagPage({ params, searchParams }: Props) {
   const products = archive.products.map(productFromApi);
   return (
     <Container size="wide">
-      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: name }]} />
-      <header className={styles.header}>
-        <h1>{name} Vectors &amp; Illustrations</h1>
-        {archive.tag.description && <p>{decodeHtmlEntities(archive.tag.description.replace(/<[^>]*>/g, " "))}</p>}
-      </header>
-      <ProductGrid
-        products={products}
-        totalItems={archive.pagination.total}
-        pagination={{
-          page,
-          totalPages: archive.pagination.total_pages,
-          buildHref: (nextPage) => archivePath(archive.tag.slug, nextPage),
-        }}
-        empty={{ title: "No artwork found", description: "This tag does not have any published downloads yet." }}
-      />
+      <div className={listingStyles.page}>
+        <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: name }]} />
+        <header className={listingStyles.header}>
+          <h1 className={listingStyles.title}>{name} Vectors &amp; Illustrations</h1>
+          {archive.tag.description && (
+            <p className={listingStyles.description}>
+              {decodeHtmlEntities(archive.tag.description.replace(/<[^>]*>/g, " "))}
+            </p>
+          )}
+          <p className={listingStyles.sub} role="status">
+            {archive.pagination.total} {archive.pagination.total === 1 ? "product" : "products"}
+          </p>
+        </header>
+        <ProductGrid
+          products={products}
+          cardTitleAs="h2"
+          justified
+          pagination={{
+            page,
+            totalPages: archive.pagination.total_pages,
+            buildHref: (nextPage) => archivePath(archive.tag.slug, nextPage),
+          }}
+          empty={{ title: "No artwork found", description: "This tag does not have any published downloads yet." }}
+        />
+      </div>
     </Container>
   );
 }

@@ -108,7 +108,8 @@ test("policy content is visibly marked for review and contact does not imply for
     read("../lib/routes.ts"),
   ]);
   assert.match(contentPage, /Draft for owner review/);
-  for (const page of [refund, terms, privacy, licensing]) assert.match(page, /policyDraft/);
+  assert.doesNotMatch(refund, /policyDraft|draft|owner must confirm|legal review before publication/i);
+  for (const page of [terms, privacy, licensing]) assert.match(page, /policyDraft/);
   assert.match(contact, /routes\.contactEmail/);
   assert.match(contact, /does not confirm whether an email was sent or received/);
   assert.match(routeSource, /contactEmail:.*hello@creativehatti\.com/s);
