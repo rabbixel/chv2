@@ -98,6 +98,29 @@ images: {
         destination: `/product/${newSlug}`,
         permanent: true,
       })),
+      // Legacy EDD taxonomy archives indexed by Google. More-specific rules
+      // must precede the generic /downloads/:slug product redirect.
+      // Illustrations has its own canonical storefront route.
+      {
+        source: "/downloads/category/illustrations",
+        destination: "/illustrations",
+        permanent: true,
+      },
+      {
+        source: "/downloads/category/illustrations/page/:page",
+        destination: "/illustrations?page=:page",
+        permanent: true,
+      },
+      {
+        source: "/downloads/category/:slug/page/:page",
+        destination: "/category/:slug?page=:page",
+        permanent: true,
+      },
+      {
+        source: "/downloads/category/:slug",
+        destination: "/category/:slug",
+        permanent: true,
+      },
       // EDD's current WordPress permalink base is /downloads/:slug/.
       // Preserve current slugs as well as the exact historical aliases above.
       {
