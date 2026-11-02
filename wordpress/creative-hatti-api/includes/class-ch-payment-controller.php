@@ -386,12 +386,31 @@ final class CH_Payment_Controller {
 		return $this->persist_order_meta( $order_id, 'ch_razorpay_webhook_event_' . $fingerprint, '1' ) && $this->persist_order_meta( $order_id, 'ch_razorpay_webhook_event_ids', $ids );
 	}
 
+	/** Explicit test/live selection; never silently fall back to another environment. */
+	private function razorpay_credentials() {
+		$mode = defined( 'CH_RAZORPAY_MODE' ) ? (string) CH_RAZORPAY_MODE : (string) getenv( 'CH_RAZORPAY_MODE' );
+		$mode = strtolower( trim( $mode ) );
+		if ( ! in_array( $mode, array( 'test', 'live' ), true ) ) {
+			return array( 'key_id' => '', 'key_secret' => '', 'valid' => false );
+		}
+		$id_name = 'CH_RAZORPAY_' . strtoupper( $mode ) . '_KEY_ID';
+		$secret_name = 'CH_RAZORPAY_' . strtoupper( $mode ) . '_KEY_SECRET';
+		$key_id = defined( $id_name ) ? (string) constant( $id_name ) : (string) getenv( $id_name );
+		$key_secret = defined( $secret_name ) ? (string) constant( $secret_name ) : (string) getenv( $secret_name );
+		return array(
+			'key_id' => $key_id,
+			'key_secret' => $key_secret,
+			'valid' => (bool) preg_match( '/^rzp_' . $mode . '_[A-Za-z0-9]+$/D', $key_id ) && strlen( $key_secret ) >= 8,
+		);
+	}
+
 	private function fetch_razorpay_payment( $payment_id ) { return $this->razorpay_get( 'payments/' . rawurlencode( $payment_id ) ); }
 	private function fetch_razorpay_order( $order_id ) { return $this->razorpay_get( 'orders/' . rawurlencode( $order_id ) ); }
 	private function razorpay_get( $path ) {
-		$key_id = defined( 'CH_RAZORPAY_TEST_KEY_ID' ) ? (string) CH_RAZORPAY_TEST_KEY_ID : (string) getenv( 'CH_RAZORPAY_TEST_KEY_ID' );
-		$key_secret = defined( 'CH_RAZORPAY_TEST_KEY_SECRET' ) ? (string) CH_RAZORPAY_TEST_KEY_SECRET : (string) getenv( 'CH_RAZORPAY_TEST_KEY_SECRET' );
-		if ( ! preg_match( '/^rzp_test_[A-Za-z0-9]+$/D', $key_id ) || strlen( $key_secret ) < 8 ) { return new WP_Error( 'credentials_unavailable' ); }
+		$credentials = $this->razorpay_credentials();
+		$key_id = $credentials['key_id'];
+		$key_secret = $credentials['key_secret'];
+		if ( ! $credentials['valid'] ) { return new WP_Error( 'credentials_unavailable' ); }
 		$response = wp_remote_get( 'https://api.razorpay.com/v1/' . $path, array( 'timeout' => 20, 'redirection' => 0, 'headers' => array( 'Authorization' => 'Basic ' . base64_encode( $key_id . ':' . $key_secret ), 'Accept' => 'application/json' ) ) );
 		if ( is_wp_error( $response ) || (int) wp_remote_retrieve_response_code( $response ) < 200 || (int) wp_remote_retrieve_response_code( $response ) >= 300 ) { return new WP_Error( 'provider_unavailable' ); }
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
@@ -421,9 +440,10 @@ final class CH_Payment_Controller {
 		if ( 'sale' !== $order->type || ! in_array( $order->status, array( 'pending', 'complete' ), true ) || 'INR' !== strtoupper( (string) $order->currency ) || 'INR' !== strtoupper( (string) edd_get_currency() ) ) {
 			return $this->private_response( CH_API::error( 'payment_order_ineligible', 'This order is not eligible for payment verification.', 409 ) );
 		}
-		$key_id = defined( 'CH_RAZORPAY_TEST_KEY_ID' ) ? (string) CH_RAZORPAY_TEST_KEY_ID : (string) getenv( 'CH_RAZORPAY_TEST_KEY_ID' );
-		$key_secret = defined( 'CH_RAZORPAY_TEST_KEY_SECRET' ) ? (string) CH_RAZORPAY_TEST_KEY_SECRET : (string) getenv( 'CH_RAZORPAY_TEST_KEY_SECRET' );
-		if ( ! preg_match( '/^rzp_test_[A-Za-z0-9]+$/D', $key_id ) || strlen( $key_secret ) < 8 ) {
+		$credentials = $this->razorpay_credentials();
+		$key_id = $credentials['key_id'];
+		$key_secret = $credentials['key_secret'];
+		if ( ! $credentials['valid'] ) {
 			return $this->private_response( CH_API::error( 'payment_unavailable', 'Payment verification is temporarily unavailable.', 503 ) );
 		}
 		$expected_signature = hash_hmac( 'sha256', $stored_order_id . '|' . $payment_id, $key_secret );
@@ -644,9 +664,10 @@ final class CH_Payment_Controller {
 		if ( false === $amount || $amount < 1 ) {
 			return $this->private_response( CH_API::error( 'payment_order_ineligible', 'This order is not eligible for payment.', 409 ) );
 		}
-		$key_id = defined( 'CH_RAZORPAY_TEST_KEY_ID' ) ? (string) CH_RAZORPAY_TEST_KEY_ID : (string) getenv( 'CH_RAZORPAY_TEST_KEY_ID' );
-		$key_secret = defined( 'CH_RAZORPAY_TEST_KEY_SECRET' ) ? (string) CH_RAZORPAY_TEST_KEY_SECRET : (string) getenv( 'CH_RAZORPAY_TEST_KEY_SECRET' );
-		if ( ! preg_match( '/^rzp_test_[A-Za-z0-9]+$/D', $key_id ) || strlen( $key_secret ) < 8 ) {
+		$credentials = $this->razorpay_credentials();
+		$key_id = $credentials['key_id'];
+		$key_secret = $credentials['key_secret'];
+		if ( ! $credentials['valid'] ) {
 			return $this->private_response( CH_API::error( 'payment_unavailable', 'Online payment is temporarily unavailable.', 503 ) );
 		}
 
@@ -695,7 +716,7 @@ final class CH_Payment_Controller {
 			$response = wp_remote_post( 'https://api.razorpay.com/v1/orders', array(
 				'timeout' => 20, 'redirection' => 0,
 				'headers' => array( 'Authorization' => 'Basic ' . base64_encode( $key_id . ':' . $key_secret ), 'Content-Type' => 'application/json' ),
-				'body' => wp_json_encode( array( 'amount' => $amount, 'currency' => 'INR', 'receipt' => 'ch-' . $order_id, 'notes' => array( 'ch_integration' => 'creative-hatti-api-test', 'ch_edd_order_id' => (string) $order_id ) ) ),
+				'body' => wp_json_encode( array( 'amount' => $amount, 'currency' => 'INR', 'receipt' => 'ch-' . $order_id, 'notes' => array( 'ch_integration' => 'creative-hatti-api', 'ch_edd_order_id' => (string) $order_id ) ) ),
 			) );
 			if ( is_wp_error( $response ) ) {
 				edd_update_order_meta( $order_id, 'ch_razorpay_creation_state', 'uncertain' );
