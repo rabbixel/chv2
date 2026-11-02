@@ -148,6 +148,8 @@ images: {
         destination: "/search",
         permanent: true,
       },
+      // Former WordPress homepage variant still receiving organic search traffic.
+      { source: "/home-2-2", destination: "/category/vector-creatives", permanent: true },
       { source: "/terms-and-conditions", destination: routes.terms(), permanent: true },
       { source: "/privacy-policy-2", destination: routes.privacy(), permanent: true },
       { source: "/license", destination: routes.licenseInformation(), permanent: true },
