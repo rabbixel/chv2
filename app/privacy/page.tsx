@@ -5,34 +5,42 @@ import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
   title: "Privacy policy",
-  description: "Draft information about personal information used to operate Creative Hatti.",
+  description: "How Creative Hatti handles account, order, payment, and digital download information.",
   alternates: { canonical: `${SITE.url}${routes.privacy()}` },
 };
 
 export default function PrivacyPage() {
   return (
-    <ContentPage title="Privacy policy" description="Draft overview of information used to operate the Creative Hatti storefront." policyDraft>
+    <ContentPage title="Privacy policy" description="How we use information to provide Creative Hatti accounts, purchases, and digital downloads.">
       <section>
-        <h2>Information used by the storefront</h2>
-        <p>To provide accounts and process purchases, Creative Hatti uses customer account details, checkout and billing information, order records, payment references and status, wishlist items, and information needed to manage download access. The exact fields retained for each purpose and the retention periods require confirmation before this draft is final.</p>
+        <h2>Information we collect</h2>
+        <p>When you register, sign in, contact us, or place an order, we process information such as your name, email address, account credentials, billing details, purchased products, order history, and support correspondence. We also process technical information needed to maintain sessions, protect the storefront, and deliver downloads, which may include IP addresses, browser information, and security logs.</p>
+        <p>Cart contents, wishlist selections, and certain interface preferences may be stored in cookies or your browser. Information supplied in a custom design enquiry is used to respond to that enquiry.</p>
       </section>
       <section>
-        <h2>Services used</h2>
-        <p>Creative Hatti&apos;s account and order systems maintain customer and order records and manage download access. Razorpay processes checkout payments; the storefront uses payment references and status to match payments with orders. Amazon S3 stores and delivers files through the secure download process. The precise data each service receives, its applicable terms, and any additional service providers must be confirmed by the owner.</p>
+        <h2>How we use information</h2>
+        <p>We use information to manage accounts, authenticate customers, process orders, verify payments, provide access to purchased digital files, answer support requests, prevent abuse, and maintain business and transaction records. We may also use information to meet applicable legal, accounting, and tax obligations.</p>
       </section>
       <section>
-        <h2>Accounts, messages, and access</h2>
-        <p>Sign-in uses sessions checked by our servers. Cookies support account, cart, and wishlist features; some non-sensitive display preferences are readable by your browser. We send account verification and password-reset messages by email. Successful delivery depends on the email service configuration and is not confirmed by this page.</p>
-        <p>Keep your credentials and secure guest purchase links private. Do not send passwords or full payment-card details to support.</p>
+        <h2>Payments and service providers</h2>
+        <p>Our storefront uses a WordPress and Easy Digital Downloads backend to manage catalogue and order information. Razorpay supports online payment processing. We receive payment status and transaction references needed to reconcile orders; payment details entered into a payment provider&apos;s interface are handled under that provider&apos;s applicable terms and privacy practices.</p>
+        <p>Digital product files are stored using Amazon S3 and delivered through controlled download access. The storefront is built with Next.js and hosted through Vercel. Our website and supporting infrastructure providers may process the information needed to operate, secure, and deliver these services. We do not sell customer personal information.</p>
       </section>
       <section>
-        <h2>Cookies, analytics, and other tracking</h2>
-        <p>Cookies support sign-in, cart, wishlist, and account features. No Google Analytics or Facebook Pixel tags were found in the reviewed storefront source. This does not establish whether other site settings or services add analytics, advertising, or tracking. We do not make a definitive claim about those tools until the complete live setup has been checked.</p>
-        <p>Retention periods, legal bases, data-request procedures, international transfers, deletion rules, marketing practices, and the complete cookie and service inventory require owner and legal review. The previous privacy policy lists financial details including card security information while also stating that sensitive data is not collected; those conflicting statements must not be carried forward without verification.</p>
+        <h2>Cookies and browser storage</h2>
+        <p>Cookies and similar storage help keep you signed in, maintain carts and wishlists, support checkout security, and remember recent searches or display preferences. Disabling essential cookies may prevent account and purchase features from working correctly. Any optional analytics or advertising technologies, if enabled, should be described in a corresponding notice or consent control.</p>
       </section>
       <section>
-        <h2>Questions</h2>
-        <p>Use the support details on our <a href={routes.contact()}>Contact page</a> for privacy questions. Email delivery has not been verified. The owner must confirm the responsible legal entity and appropriate privacy contact before this draft is final.</p>
+        <h2>Sharing and security</h2>
+        <p>We share information with service providers only as needed to operate the storefront, fulfill purchases, support customers, or comply with legal requirements. We use access controls and secure download mechanisms to reduce unauthorized access. No internet service can guarantee absolute security; please keep your password and purchase access links confidential.</p>
+      </section>
+      <section>
+        <h2>Retention and your choices</h2>
+        <p>We retain account, order, and related information for as long as reasonably needed to provide services, maintain transaction records, resolve disputes, and comply with applicable obligations. Different categories of records may be retained for different periods. You may request access to, correction of, or deletion of your personal information, subject to applicable law and records we must retain.</p>
+      </section>
+      <section>
+        <h2>Changes and contact</h2>
+        <p>We may update this policy when our services or legal obligations change. The current version will be available on this page. For privacy questions or data requests, contact <a href={routes.contactEmail("Privacy request")}>hello@creativehatti.com</a> or visit our <a href={routes.contact()}>Contact page</a>.</p>
       </section>
     </ContentPage>
   );
