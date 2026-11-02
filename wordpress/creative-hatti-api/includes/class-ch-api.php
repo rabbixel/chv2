@@ -36,6 +36,9 @@ final class CH_API {
 	 */
 	private $categories_controller;
 
+	/** EDD tag archives controller. */
+	private $tags_controller;
+
 	/**
 	 * Authentication controller.
 	 *
