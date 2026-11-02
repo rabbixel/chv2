@@ -5,13 +5,13 @@ import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
   title: "Terms and conditions",
-  description: "Draft terms for using Creative Hatti and its digital products.",
+  description: "Terms for purchasing and using Creative Hatti digital creative assets.",
   alternates: { canonical: `${SITE.url}${routes.terms()}` },
 };
 
 export default function TermsPage() {
   return (
-    <ContentPage title="Terms and conditions" description="Draft terms for browsing and purchasing digital resources." policyDraft>
+    <ContentPage title="Terms and conditions" description="Terms for browsing, purchasing and downloading Creative Hatti digital resources.">
       <section>
         <h2>Using the marketplace</h2>
         <p>Product descriptions, file details, price options, and license information are presented on their product pages. Review those details before placing an order. Product availability and download access may change according to the order and the product&apos;s configured files.</p>
@@ -22,28 +22,19 @@ export default function TermsPage() {
       </section>
       <section>
         <h2>Licenses and intellectual property</h2>
-        <p>The previous license information describes a perpetual, non-exclusive Standard License where that license was granted, and says that the same graphic may be purchased by other customers. It restricts redistribution or resale of source files, trademark use, and certain online templates. Previous Extended/Team terms describe additional rights for specified uses. Review the <a href={routes.licenseInformation()}>license information draft</a> and confirm the applicable terms for the product and price option before use. A product&apos;s purchase limit does not transfer copyright or create exclusive ownership.</p>
-        <p>The historical Terms also state that images or illustrations featuring a celebrity, politician, artist, or other person without a commercial release are for editorial use only. Product-specific labeling and the current scope of those restrictions require owner confirmation.</p>
+        <p>Purchasing an asset grants the rights described by the license selected for that product; it does not automatically transfer copyright or exclusive ownership. Unless expressly permitted by the applicable license, customers may not resell or redistribute original source files as standalone assets. Read the <a href={routes.licenseInformation()}>license information</a> and any product-specific restrictions before use.</p>
+        <p>Images of identifiable people and third-party material may have additional usage restrictions, including editorial-only use where applicable.</p>
       </section>
       <section>
-        <h2>Commissioned custom design projects — draft for new projects</h2>
-        <p>To discuss a custom commission, email <a href={routes.contactEmail("Creative Hatti custom design inquiry")}>hello@creativehatti.com</a>. The website checkout does not automatically create or take payment for a custom project. Before work begins, the customer and Creative Hatti must agree in writing on the approved brief, price, scope, final deliverables, and project terms. A 50% advance is due before work starts, and the remaining 50% is due before delivery of final files. Any additional charge or scope change must be approved before the additional work proceeds. Email delivery is not confirmed by the website.</p>
-        <p>Two revision rounds within the approved brief are included in the agreed price. Further revisions or significant changes may incur an additional charge only with the customer&apos;s prior approval. No fixed turnaround time or extra revision fee is promised here.</p>
-        <p>For a new project, exclusive rights to the original commissioned design transfer after full payment under a written copyright assignment that identifies the final deliverables and the rights being assigned. The assignment cannot grant rights Creative Hatti does not hold. Third-party fonts, stock assets, software, trademarks, and other externally licensed materials remain subject to their own terms. Editable/source files, preliminary concepts, and rejected drafts are included only as specified in the written project agreement.</p>
-        <p>Custom work is generally non-refundable after work begins, subject to applicable law. Before work starts, cancellation requests are reviewed under the written project terms and applicable law; the advance is not automatically forfeited. Remedies required by law, including where agreed services are not provided, are not excluded. These draft terms apply to new projects only and do not change historical agreements or customer rights.</p>
+        <h2>Custom design projects</h2>
+        <p>Custom design projects are arranged separately from the digital product checkout. Before work begins, Creative Hatti and the customer must agree in writing on the brief, deliverables, fees, payment milestones, revisions, timelines, cancellation terms, and any intellectual property transfer. Existing project agreements retain their own terms. For enquiries, use the <a href={routes.contact()}>Contact page</a>.</p>
       </section>
       <section>
         <h2>Payments and product delivery</h2>
         <p>Payments are handled through the payment method shown at checkout. Digital access is associated with the order after the relevant payment and order checks complete. If an order or file appears incorrect, contact the team through the <a href={routes.contact()}>Contact page</a>.</p>
       </section>
-      <section>
-        <h2>Additional terms to confirm</h2>
-        <p>The Terms from the previous Creative Hatti website also describe a limited, non-transferable, revocable license to use the service and include rules for customer-submitted content and seller or community features. Confirm which clauses still apply before adopting or removing them.</p>
-      </section>
-      <section>
-        <h2>Owner approval needed</h2>
-        <p>This draft does not establish governing law, dispute handling, liability limits, warranties, acceptable-use rules, creator warranties, tax treatment, or the final license grant. Copyright assignment scope and formalities, third-party materials, unfinished work, and any permission for Creative Hatti to display commissioned work in a portfolio require legal review and a written decision. The owner must review and approve these terms before publication.</p>
-      </section>
+      
+      
     </ContentPage>
   );
 }
