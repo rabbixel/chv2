@@ -36,6 +36,9 @@ final class CH_API {
 	 */
 	private $categories_controller;
 
+	/** EDD tag archives controller. */
+	private $tags_controller;
+
 	/**
 	 * Authentication controller.
 	 *
@@ -92,6 +95,7 @@ final class CH_API {
 		$transformer               = new CH_Product_Transformer( $media );
 		$this->products_controller = new CH_Products_Controller( $transformer );
 		$this->categories_controller = new CH_Categories_Controller( $this->products_controller );
+		$this->tags_controller = new CH_Tags_Controller( $this->products_controller );
 		$this->auth_controller = new CH_Auth_Controller();
 		$this->claim_controller = new CH_Claim_Controller( $this->auth_controller );
 		$this->orders_controller = new CH_Orders_Controller( $this->auth_controller );
@@ -128,6 +132,7 @@ final class CH_API {
 		);
 		$this->products_controller->register_routes();
 		$this->categories_controller->register_routes();
+		$this->tags_controller->register_routes();
 		$this->auth_controller->register_routes();
 		$this->claim_controller->register_routes();
 		$this->orders_controller->register_routes();

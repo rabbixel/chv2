@@ -83,6 +83,7 @@ images: {
   },
   async redirects() {
     return [
+      { source: "/home-2-2", destination: routes.category("vector-creatives"), permanent: true },
       ...Object.entries(legacyProductRedirects).map(([oldSlug, newSlug]) => ({
         source: `/product/${oldSlug}`,
         destination: `/product/${newSlug}`,
@@ -119,6 +120,17 @@ images: {
       {
         source: "/downloads/category/:slug",
         destination: "/category/:slug",
+        permanent: true,
+      },
+      // Preserve historical EDD tag archives and their pagination.
+      {
+        source: "/downloads/tag/:slug/page/:page",
+        destination: "/tag/:slug?page=:page",
+        permanent: true,
+      },
+      {
+        source: "/downloads/tag/:slug",
+        destination: "/tag/:slug",
         permanent: true,
       },
       // EDD's current WordPress permalink base is /downloads/:slug/.

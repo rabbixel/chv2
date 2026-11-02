@@ -13,6 +13,7 @@ export const routes = {
     query ? `/search?q=${encodeURIComponent(query)}` : "/search",
   categories: () => "/categories",
   category: (slug: string) => `/category/${slug}`,
+  tag: (slug: string) => `/tag/${slug}`,
   illustrations: () => "/illustrations",
   collections: () => "/collections",
   collection: (slug: string) => `/collections/${slug}`,

@@ -25,6 +25,9 @@ export const apiEndpoints = {
     products: (slug: string) =>
       `/categories/${encodeURIComponent(slug)}/products`,
   },
+  tags: {
+    detail: (slug: string) => `/tags/${encodeURIComponent(slug)}`,
+  },
   search: "/indexed-search",
   homepageSections: "/homepage-sections",
   collections: {

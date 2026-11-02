@@ -54,3 +54,6 @@ export { getSearchService } from "./searchService";
 export type { SearchService } from "./searchService";
 export { getWishlistService } from "./wishlistService";
 export type { WishlistService } from "./wishlistService";
+
+export { getTagService } from "./tagService";
+export type { TagArchive, TagService } from "./tagService";

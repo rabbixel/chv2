@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Creative Hatti API
  * Description: Clean catalogue REST API for the Creative Hatti Next.js frontend.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: Rajesh Kamboj
  * Text Domain: creative-hatti-api
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CH_API_VERSION', '0.1.0' );
+define( 'CH_API_VERSION', '0.1.1' );
 define( 'CH_API_FILE', __FILE__ );
 define( 'CH_API_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -23,6 +23,7 @@ require_once CH_API_DIR . 'includes/class-ch-products-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-wishlist-service.php';
 require_once CH_API_DIR . 'includes/class-ch-wishlist-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-categories-controller.php';
+require_once CH_API_DIR . 'includes/class-ch-tags-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-auth-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-claim-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-orders-controller.php';
