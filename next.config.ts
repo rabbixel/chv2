@@ -121,6 +121,17 @@ images: {
         destination: "/category/:slug",
         permanent: true,
       },
+      // Preserve historical EDD tag archives and their pagination.
+      {
+        source: "/downloads/tag/:slug/page/:page",
+        destination: "/tag/:slug?page=:page",
+        permanent: true,
+      },
+      {
+        source: "/downloads/tag/:slug",
+        destination: "/tag/:slug",
+        permanent: true,
+      },
       // EDD's current WordPress permalink base is /downloads/:slug/.
       // Preserve current slugs as well as the exact historical aliases above.
       {
