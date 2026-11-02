@@ -23,6 +23,7 @@ require_once CH_API_DIR . 'includes/class-ch-products-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-wishlist-service.php';
 require_once CH_API_DIR . 'includes/class-ch-wishlist-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-categories-controller.php';
+require_once CH_API_DIR . 'includes/class-ch-tags-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-auth-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-claim-controller.php';
 require_once CH_API_DIR . 'includes/class-ch-orders-controller.php';
