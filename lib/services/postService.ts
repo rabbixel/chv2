@@ -29,6 +29,19 @@ const postCache = (slug?: string) => ({
   wordpress: true as const,
 });
 
+/**
+ * Migrated post HTML can reference WordPress-generated size variants that were
+ * intentionally not copied to the API host. Rewrite upload URLs in both src
+ * and srcset to the retained original file so responsive selection cannot
+ * request a missing variant.
+ */
+function restoreOriginalWordPressImageUrls(content: string): string {
+  return content.replace(/https?:[^\s"'<>]+/gi, (url) => {
+    if (!url.includes("/wp-content/uploads/")) return url;
+    return url.replace(/-\d+x\d+(?=\.(?:avif|bmp|gif|jpe?g|png|tiff?|webp)(?:[?#]|$))/gi, "");
+  });
+}
+
 function plainText(value: string): string {
   return value
     .replace(/<[^>]*>/g, " ")
@@ -56,7 +69,7 @@ function mapPost(post: WordPressPost): BlogPost {
     slug: post.slug,
     title: plainText(post.title.rendered),
     excerpt: plainText(post.excerpt.rendered),
-    content: post.content?.rendered ?? "",
+    content: post.content?.rendered ? restoreOriginalWordPressImageUrls(post.content.rendered) : "",
     date: post.date,
     modified: post.modified,
     seoTitle: post.yoast_head_json?.title,
