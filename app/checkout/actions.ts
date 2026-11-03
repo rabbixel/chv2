@@ -26,6 +26,7 @@ export interface CheckoutDownloadsResult {
 }
 const PAYMENT_AUTH_COOKIE = "ch_payment_auth";
 const CHECKOUT_CART_COOKIE = "ch_checkout_cart";
+function freeEmailProofCookie(freeSessionId: string) { return `ch_free_email_${validateFreeCheckoutSession(freeSessionId)}`; }
 function authorizationCookie(freeSessionId?: string) {
   return freeSessionId === undefined ? PAYMENT_AUTH_COOKIE : `ch_free_payment_${validateFreeCheckoutSession(freeSessionId)}`;
 }
@@ -79,6 +80,7 @@ export async function quoteCheckout(input: {
 
 export interface CheckoutPreparationResult {
   order?: { number: string; status: "pending" | "complete"; total: CheckoutQuote["total"] };
+  verificationSent?: boolean;
   error?: string;
 }
 
@@ -102,7 +104,25 @@ export async function preparePendingOrder(formData: FormData, freeSessionId?: st
       country: formData.get("country"), region: formData.get("region"),
     });
     const discountCode = selection ? "" : value(formData.get("discountCode")).toUpperCase();
-    const result = await getCheckoutService().prepare({ cart, billing, discountCode, idempotencyKey, independentFree: Boolean(selection) });
+    let freeEmailProof = selection && freeSessionId ? (await cookies()).get(freeEmailProofCookie(freeSessionId))?.value : undefined;
+    const submittedVerificationCode = value(formData.get("emailVerificationCode")).replace(/\s/g, "");
+    if (selection && freeSessionId && submittedVerificationCode && !freeEmailProof) {
+      const verification = await paymentBridgeRequest<{ success: boolean; data: { proof: string } }>(apiEndpoints.freeEmailVerify, { email: billing.email, free_session_id: freeSessionId, idempotency_key: idempotencyKey, code: submittedVerificationCode });
+      if (!/^[a-f0-9]{64}$/.test(verification?.data?.proof ?? "")) throw new Error("Email confirmation could not be completed. Request a new code and try again.");
+      freeEmailProof = verification.data.proof;
+      const cookieJar = await cookies();
+      cookieJar.set(freeEmailProofCookie(freeSessionId), freeEmailProof, { ...freeCheckoutCookieOptions(freeSessionId), maxAge: 30 * 60 });
+    }
+    let result;
+    try {
+      result = await getCheckoutService().prepare({ cart, billing, discountCode, idempotencyKey, independentFree: Boolean(selection), ...(selection && freeSessionId ? { freeSessionId, ...(freeEmailProof ? { freeEmailProof } : {}) } : {}) });
+    } catch (error) {
+      if (selection && freeSessionId && error instanceof ApiError && error.code === "free_email_confirmation_required") {
+        await paymentBridgeRequest<{ success: boolean; data: { sent: boolean } }>(apiEndpoints.freeEmailRequest, { email: billing.email, free_session_id: freeSessionId, idempotency_key: idempotencyKey });
+        return { verificationSent: true };
+      }
+      throw error;
+    }
     if (selection && (result.status !== "complete" || result.total.amount !== 0)) throw new Error("The free order could not be completed. Retry with the same checkout session.");
     if ((result.status === "pending" || result.status === "complete") && result.payment_authorization_token && /^[a-f0-9]{64}$/.test(result.payment_authorization_token)) {
       const cookieJar = await cookies();
