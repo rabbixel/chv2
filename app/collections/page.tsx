@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs, Container } from "@/components/layout";
 import { ProductImage } from "@/components/product";
-import { getCollectionDirectoryService } from "@/lib/services";
+import { getCachedCollectionDirectoryEntries } from "@/lib/services/cachedCollectionDirectory";
 import { routes } from "@/lib/routes";
 import { SITE } from "@/lib/constants";
 import styles from "./page.module.css";
 
 export const revalidate = 3600;
-// Collection directory relies on WordPress and should not block deployments.
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Collections",
   description: "Browse Creative Hatti’s complete collection of festival, seasonal and everyday graphics.",
@@ -17,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CollectionsPage() {
-  const entries = await getCollectionDirectoryService().listEntries();
+  const entries = await getCachedCollectionDirectoryEntries();
   return <Container size="wide"><div className={styles.page}>
     <Breadcrumbs items={[{ label: "Home", href: routes.home() }, { label: "Collections" }]} />
     <header className={styles.heading}><h1>Browse all Collections</h1></header>
