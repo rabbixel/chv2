@@ -42,6 +42,42 @@ function restoreOriginalWordPressImageUrls(content: string): string {
   });
 }
 
+function normalizedWordPressImageUrl(url: string): string {
+  return url
+    .split(/[?#]/, 1)[0]
+    .replace(/-\d+x\d+(?=\.(?:avif|bmp|gif|jpe?g|png|tiff?|webp)$)/i, "");
+}
+
+/** Remove only the first body image when it is the same file as the hero image. */
+function removeDuplicateFeaturedImage(content: string, featuredUrl?: string): string {
+  if (!featuredUrl) return content;
+  const firstImage = /<img\b[^>]*>/i.exec(content);
+  if (!firstImage) return content;
+  const source = /\bsrc\s*=\s*(["'])(.*?)\1/i.exec(firstImage[0])?.[2];
+  if (!source || normalizedWordPressImageUrl(source) !== normalizedWordPressImageUrl(featuredUrl)) {
+    return content;
+  }
+
+  // If WordPress placed the image alone in a paragraph, remove that empty wrapper too.
+  const paragraph = /<p\b[^>]*>\s*(?:<a\b[^>]*>\s*)?<img\b[^>]*>\s*(?:<\/a>\s*)?<\/p>/i.exec(content);
+  const imageEnd = firstImage.index + firstImage[0].length;
+  if (
+    paragraph &&
+    paragraph.index <= firstImage.index &&
+    paragraph.index + paragraph[0].length >= imageEnd
+  ) {
+    return content.slice(0, paragraph.index) + content.slice(paragraph.index + paragraph[0].length);
+  }
+  return content.slice(0, firstImage.index) + content.slice(imageEnd);
+}
+
+/** Decode double-escaped or semicolon-less curly-quote entities from migrated HTML. */
+function normalizeCurlyQuoteEntities(content: string): string {
+  return content
+    .replace(/&amp;#(8216|8217|8220|8221);?/gi, "&#$1;")
+    .replace(/&#(8216|8217|8220|8221)(?!;)/gi, "&#$1;");
+}
+
 function plainText(value: string): string {
   return value
     .replace(/<[^>]*>/g, " ")
@@ -64,12 +100,16 @@ function mapPost(post: WordPressPost): BlogPost {
     width: featured.width || 1200,
     height: featured.height || 800,
   } : undefined;
+  const content = post.content?.rendered ?? "";
+  const normalizedContent = normalizeCurlyQuoteEntities(
+    removeDuplicateFeaturedImage(restoreOriginalWordPressImageUrls(content), featured?.url),
+  );
   return {
     id: post.id,
     slug: post.slug,
     title: plainText(post.title.rendered),
     excerpt: plainText(post.excerpt.rendered),
-    content: post.content?.rendered ? restoreOriginalWordPressImageUrls(post.content.rendered) : "",
+    content: normalizedContent,
     date: post.date,
     modified: post.modified,
     seoTitle: post.yoast_head_json?.title,
