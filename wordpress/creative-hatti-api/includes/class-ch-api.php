@@ -111,6 +111,95 @@ final class CH_API {
 		// default CORS callback and replace that policy only for our namespace.
 		add_filter( 'rest_pre_serve_request', array( $this, 'maybe_send_cors_headers' ), 99, 4 );
 		add_filter( 'rest_post_dispatch', array( $this, 'envelope_errors' ), 10, 3 );
+		add_action( 'template_redirect', array( $this, 'redirect_legacy_frontend' ), 0 );
+	}
+
+
+	/**
+	 * Redirect public WordPress storefront pages to the Next.js canonical site.
+	 *
+	 * Keep REST, admin, media, and signed EDD file delivery on the API host.
+	 * The hostname guard also leaves local WordPress development untouched.
+	 */
+	public function redirect_legacy_frontend() {
+		if (
+			is_admin() ||
+			( defined( 'REST_REQUEST' ) && REST_REQUEST ) ||
+			( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) ||
+			( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) ||
+			( function_exists( 'is_preview' ) && is_preview() )
+		) {
+			return;
+		}
+
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( (string) $_SERVER['REQUEST_METHOD'] ) : 'GET';
+		if ( ! in_array( $method, array( 'GET', 'HEAD' ), true ) ) {
+			return;
+		}
+
+		$host = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( preg_replace( '/:\d+$/', '', (string) $_SERVER['HTTP_HOST'] ) ) : '';
+		if ( 'api.creativehatti.com' !== $host ) {
+			return;
+		}
+
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
+		$path        = wp_parse_url( $request_uri, PHP_URL_PATH );
+		$path        = is_string( $path ) && '' !== $path ? '/' . ltrim( $path, '/' ) : '/';
+
+		// These paths provide WordPress administration, APIs, and static backend media.
+		$preserved_prefixes = array(
+			'/wp-json',
+			'/wp-admin',
+			'/wp-content',
+			'/wp-includes',
+			'/wp-login.php',
+			'/wp-cron.php',
+			'/xmlrpc.php',
+			'/wp-comments-post.php',
+			'/edd-api',
+		);
+		foreach ( $preserved_prefixes as $prefix ) {
+			if ( $path === $prefix || 0 === strpos( $path, $prefix . '/' ) ) {
+				return;
+			}
+		}
+
+		// Preserve native EDD signed-download requests issued after entitlement checks.
+		foreach ( array( 'eddfile', 'token', 'download', 'download_id', 'payment_key' ) as $download_parameter ) {
+			if ( isset( $_GET[ $download_parameter ] ) ) {
+				return;
+			}
+		}
+		$edd_action = isset( $_GET['edd_action'] ) ? sanitize_key( wp_unslash( $_GET['edd_action'] ) ) : '';
+		if ( 'download_file' === $edd_action ) {
+			return;
+		}
+
+		$target_path = $path;
+		if ( preg_match( '#^/(?:product|downloads|download)/([^/]+)/?$#i', $path, $matches ) ) {
+			$target_path = '/product/' . rawurlencode( rawurldecode( $matches[1] ) );
+		} elseif ( preg_match( '#^/(?:download_category|download-category)/([^/]+)/?$#i', $path, $matches ) ) {
+			$target_path = '/category/' . rawurlencode( rawurldecode( $matches[1] ) );
+		} elseif ( preg_match( '#^/(?:download_tag|download-tag)/([^/]+)/?$#i', $path, $matches ) ) {
+			$target_path = '/tag/' . rawurlencode( rawurldecode( $matches[1] ) );
+		} elseif ( '/sitemap_index.xml' === strtolower( $path ) ) {
+			$target_path = '/sitemap.xml';
+		}
+
+		$query = isset( $_SERVER['QUERY_STRING'] ) ? (string) wp_unslash( $_SERVER['QUERY_STRING'] ) : '';
+		if ( '/' === $path && isset( $_GET['s'] ) ) {
+			$search     = sanitize_text_field( wp_unslash( $_GET['s'] ) );
+			$target_path = '/search';
+			$query       = 'q=' . rawurlencode( $search );
+		}
+
+		$target_url = 'https://www.creativehatti.com' . $target_path;
+		if ( '' !== $query ) {
+			$target_url .= '?' . $query;
+		}
+
+		wp_redirect( $target_url, 308, 'Creative Hatti API storefront redirect' );
+		exit;
 	}
 
 	/**
