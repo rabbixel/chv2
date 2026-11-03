@@ -161,7 +161,8 @@ final class CH_Checkout_Controller {
 			if ( true === $request->get_param( 'independent_free' ) ) {
 				$free_session_id = strtolower( sanitize_text_field( (string) $request->get_param( 'free_session_id' ) ) );
 				$proof = strtolower( sanitize_text_field( (string) $request->get_param( 'free_email_proof' ) ) );
-				$proof_hash = get_transient( $this->free_email_proof_key( $scope_email, $free_session_id, $key ) );
+				$proof_email = strtolower( sanitize_email( (string) ( $calculation['billing']['email'] ?? $scope_email ) ) );
+				$proof_hash = get_transient( $this->free_email_proof_key( $proof_email, $free_session_id, $key ) );
 				$submitted_proof_hash = preg_match( '/^[a-f0-9]{64}$/D', $proof ) ? hash_hmac( 'sha256', $proof, wp_salt( 'auth' ) ) : '';
 				if ( ! preg_match( '/^[a-f0-9-]{36}$/D', $free_session_id ) || ! is_string( $proof_hash ) || '' === $submitted_proof_hash || ! hash_equals( $proof_hash, $submitted_proof_hash ) ) {
 					return $this->private_response( CH_API::error( 'free_email_confirmation_required', 'Confirm your email before placing a new free order.', 403 ) );
