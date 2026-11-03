@@ -48,6 +48,8 @@ export function CheckoutForm({
   const [busy, startTransition] = useTransition();
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [emailVerificationCode, setEmailVerificationCode] = useState("");
   const [fullName, setFullName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone || "+91 ");
@@ -165,6 +167,11 @@ export function CheckoutForm({
       }
 
       const prepared = await preparePendingOrder(formData, freeSessionId);
+      if (prepared.verificationSent) {
+        setVerificationSent(true);
+        setCheckoutError("");
+        return;
+      }
       if (!prepared.order) {
         setCheckoutError(prepared.error ?? "Could not prepare checkout. Please try again.");
         return;
@@ -239,6 +246,7 @@ export function CheckoutForm({
               <div className={styles.fields}>
                 <Input label="Billing name" name="fullName" autoComplete="name" autoCapitalize="words" required minLength={2} maxLength={120} value={fullName} error={nameError} onBlur={() => setNameTouched(true)} onChange={(event) => setFullName(event.target.value)} />
                 <Input label="Email" name="email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" required maxLength={254} value={email} readOnly={signedIn} error={emailError} onBlur={() => setEmailTouched(true)} onChange={(event) => setEmail(event.target.value)} hint={signedIn ? "Using the email on your signed-in account." : undefined} />
+                {freeSessionId && verificationSent && <Input label="Email confirmation code" name="emailVerificationCode" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} value={emailVerificationCode} onChange={(event) => setEmailVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))} hint="Enter the 6-digit code sent to your email. Leave it blank and submit again to request another code." />}
                 <Input label="Mobile phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" autoCapitalize="none" required maxLength={32} value={phone} error={phoneError} onBlur={() => setPhoneTouched(true)} onChange={(event) => setPhone(event.target.value)} hint="Include your country calling code, for example +91 98765 43210. No SMS verification is required." />
                 {quote?.taxesEnabled && <div className={styles.fieldRow}>
                   <Input label="Country code" name="country" autoComplete="country" required maxLength={2} value={country} onChange={(event) => setCountry(event.target.value.toUpperCase())} hint="Use the two-letter country code, for example IN." />
@@ -256,6 +264,7 @@ export function CheckoutForm({
               </div>}
               {quoteError && <p role="alert" className={styles.error}>{quoteError}</p>}
               {quoteNotice && <p role="status" className={styles.notice}>{quoteNotice}</p>}
+              {verificationSent && <p role="status" className={styles.notice}>We sent a 6-digit confirmation code to {email}. Enter it above to continue. Leave the code blank and submit again to request a new one.</p>}
               {checkoutError && <p role="alert" className={styles.error}>{checkoutError}</p>}
             </section>
 
@@ -264,7 +273,7 @@ export function CheckoutForm({
               <span>I agree to the <Link href={routes.terms()}>Terms</Link> and <Link href={routes.privacy()}>Privacy Policy</Link>.</span>
             </label>
             <Button className={styles.mobileAction} type="submit" size="lg" fullWidth loading={submitting} disabled={!quote || Boolean(quoteError) || busy || submitting}>
-              {quote?.total.amount === 0 ? "Complete Free Order" : quote ? `Pay ${formatMoney(quote.total)} Securely` : "Checkout totals unavailable"}
+              {quote?.total.amount === 0 ? (verificationSent ? "Confirm Email & Complete Free Order" : "Continue to Free Download") : quote ? `Pay ${formatMoney(quote.total)} Securely` : "Checkout totals unavailable"}
             </Button>
             <p className={styles.methodHint}>{quote?.total.amount === 0
               ? "Free orders do not require payment. Your files become available when the order is complete."
