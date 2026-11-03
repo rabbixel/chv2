@@ -10,7 +10,7 @@ final class CH_Checkout_Controller {
 	public function __construct( $auth, $cart ) { $this->auth = $auth; $this->cart = $cart; $this->limits = new CH_Purchase_Limit_Service(); }
 
 	public function register_routes() {
-		foreach ( array( 'quote' => 'quote', 'prepare' => 'prepare' ) as $route => $callback ) {
+		foreach ( array( 'quote' => 'quote', 'prepare' => 'prepare', 'free-email/request' => 'request_free_email_verification', 'free-email/verify' => 'verify_free_email' ) as $route => $callback ) {
 			register_rest_route( CH_API::NAMESPACE, '/checkout/' . $route, array(
 				'methods' => WP_REST_Server::CREATABLE,
 				'callback' => array( $this, $callback ),
@@ -25,6 +25,68 @@ final class CH_Checkout_Controller {
 		return '' !== (string) $request->get_header( 'authorization' )
 			? $this->auth->session_permission( $request )
 			: true;
+	}
+
+	public function request_free_email_verification( $request ) {
+		$email = strtolower( sanitize_email( (string) $request->get_param( 'email' ) ) );
+		$session_id = strtolower( sanitize_text_field( (string) $request->get_param( 'free_session_id' ) ) );
+		if ( ! is_email( $email ) || strlen( $email ) > 254 || ! preg_match( '/^[a-f0-9-]{36}$/D', $session_id ) ) {
+			return $this->private_response( CH_API::error( 'free_email_invalid', 'Enter a valid email address and refresh checkout.', 422 ) );
+		}
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$rate_key = 'ch_free_mail_' . substr( hash( 'sha256', strtolower( $email ) . '|' . $ip ), 0, 32 );
+		if ( get_transient( $rate_key ) ) {
+			return $this->private_response( CH_API::error( 'free_email_rate_limited', 'Please wait a minute before requesting another code.', 429 ) );
+		}
+		set_transient( $rate_key, 1, MINUTE_IN_SECONDS );
+		$verification_key = $this->free_email_verification_key( $email, $session_id );
+		$code = (string) random_int( 100000, 999999 );
+		$code_hash = hash_hmac( 'sha256', $code, wp_salt( 'auth' ) );
+		set_transient( $verification_key, array( 'code_hash' => $code_hash, 'attempts' => 0 ), 10 * MINUTE_IN_SECONDS );
+		$subject = 'Confirm your email for your CreativeHatti free download';
+		$message = "Your CreativeHatti confirmation code is: {$code}\n\nEnter this code on the checkout page within 10 minutes. If you did not request it, you can ignore this email.";
+		if ( ! wp_mail( $email, $subject, $message ) ) {
+			delete_transient( $verification_key );
+			return $this->private_response( CH_API::error( 'free_email_delivery_failed', 'We could not send the confirmation email. Please try again shortly.', 503 ) );
+		}
+		return $this->private_response( CH_API::success( array( 'sent' => true ) ) );
+	}
+
+	public function verify_free_email( $request ) {
+		$email = strtolower( sanitize_email( (string) $request->get_param( 'email' ) ) );
+		$session_id = strtolower( sanitize_text_field( (string) $request->get_param( 'free_session_id' ) ) );
+		$code = preg_replace( '/\\D/', '', (string) $request->get_param( 'code' ) );
+		if ( ! is_email( $email ) || ! preg_match( '/^[a-f0-9-]{36}$/D', $session_id ) || ! preg_match( '/^[0-9]{6}$/D', $code ) ) {
+			return $this->private_response( CH_API::error( 'free_email_code_invalid', 'That confirmation code is invalid or expired. Request a new code and try again.', 422 ) );
+		}
+		$key = $this->free_email_verification_key( $email, $session_id );
+		$record = get_transient( $key );
+		if ( ! is_array( $record ) || ! isset( $record['code_hash'] ) ) {
+			return $this->private_response( CH_API::error( 'free_email_code_invalid', 'That confirmation code is invalid or expired. Request a new code and try again.', 422 ) );
+		}
+		$attempts = absint( $record['attempts'] ?? 0 );
+		if ( $attempts >= 5 ) {
+			delete_transient( $key );
+			return $this->private_response( CH_API::error( 'free_email_code_invalid', 'Too many attempts. Request a new code and try again.', 422 ) );
+		}
+		$submitted_hash = hash_hmac( 'sha256', $code, wp_salt( 'auth' ) );
+		if ( ! hash_equals( (string) $record['code_hash'], $submitted_hash ) ) {
+			$record['attempts'] = $attempts + 1;
+			set_transient( $key, $record, 10 * MINUTE_IN_SECONDS );
+			return $this->private_response( CH_API::error( 'free_email_code_invalid', 'That confirmation code is invalid or expired. Request a new code and try again.', 422 ) );
+		}
+		delete_transient( $key );
+		$proof = bin2hex( random_bytes( 32 ) );
+		set_transient( $this->free_email_proof_key( $email, $session_id ), hash_hmac( 'sha256', $proof, wp_salt( 'auth' ) ), 30 * MINUTE_IN_SECONDS );
+		return $this->private_response( CH_API::success( array( 'proof' => $proof ) ) );
+	}
+
+	private function free_email_verification_key( $email, $session_id ) {
+		return 'ch_free_code_' . substr( hash( 'sha256', strtolower( $email ) . '|' . $session_id ), 0, 40 );
+	}
+
+	private function free_email_proof_key( $email, $session_id ) {
+		return 'ch_free_proof_' . substr( hash( 'sha256', strtolower( $email ) . '|' . $session_id ), 0, 40 );
 	}
 
 	public function quote( $request ) {
@@ -92,6 +154,16 @@ final class CH_Checkout_Controller {
 					return $this->private_response( CH_API::success( $this->order_payload( $existing, false ) ) );
 				}
 				delete_transient( $transient );
+			}
+
+			if ( true === $request->get_param( 'independent_free' ) ) {
+				$free_session_id = strtolower( sanitize_text_field( (string) $request->get_param( 'free_session_id' ) ) );
+				$proof = strtolower( sanitize_text_field( (string) $request->get_param( 'free_email_proof' ) ) );
+				$proof_hash = get_transient( $this->free_email_proof_key( $scope_email, $free_session_id ) );
+				$submitted_proof_hash = preg_match( '/^[a-f0-9]{64}$/D', $proof ) ? hash_hmac( 'sha256', $proof, wp_salt( 'auth' ) ) : '';
+				if ( ! preg_match( '/^[a-f0-9-]{36}$/D', $free_session_id ) || ! is_string( $proof_hash ) || '' === $submitted_proof_hash || ! hash_equals( $proof_hash, $submitted_proof_hash ) ) {
+					return $this->private_response( CH_API::error( 'free_email_confirmation_required', 'Confirm your email before placing a new free order.', 403 ) );
+				}
 			}
 
 			// Count only new orders. Idempotent replays returned above remain safe
