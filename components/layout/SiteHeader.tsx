@@ -15,7 +15,7 @@ import styles from "./SiteHeader.module.css";
 function Wordmark() {
   return (
     <Image src="/brand/creative-hatti-logo.png" alt={SITE.name}
-      width={200} height={49} priority className={styles.brandLogo} />
+      width={200} height={49} priority unoptimized className={styles.brandLogo} />
   );
 }
 
