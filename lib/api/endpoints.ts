@@ -47,6 +47,8 @@ export const apiEndpoints = {
   checkout: "/v1/checkout",
   checkoutQuote: "/checkout/quote",
   checkoutPrepare: "/checkout/prepare",
+  freeEmailRequest: "/checkout/free-email/request",
+  freeEmailVerify: "/checkout/free-email/verify",
   razorpayOrderCreate: "/payment/razorpay/order",
   razorpayPaymentVerify: "/payment/razorpay/verify",
   razorpayOrderStatus: "/payment/razorpay/status",
