@@ -102,6 +102,7 @@ class CH_Product_Transformer {
 		$title       = get_post_meta( $post_id, '_yoast_wpseo_title', true );
 		$description = get_post_meta( $post_id, '_yoast_wpseo_metadesc', true );
 		$canonical   = get_post_meta( $post_id, '_yoast_wpseo_canonical', true );
+		$noindex     = get_post_meta( $post_id, '_yoast_wpseo_meta-robots-noindex', true );
 		$post        = get_post( $post_id );
 
 		$title       = is_scalar( $title ) ? trim( (string) $title ) : '';
@@ -125,6 +126,9 @@ class CH_Product_Transformer {
 			if ( '' !== $canonical ) {
 				$seo['canonical_url'] = $canonical;
 			}
+		}
+		if ( '1' === (string) $noindex ) {
+			$seo['noindex'] = true;
 		}
 
 		return (object) $seo;
