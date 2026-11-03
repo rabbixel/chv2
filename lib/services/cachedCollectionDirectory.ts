@@ -1,15 +1,13 @@
-import { cacheLife, cacheTag } from "next/cache";
+import { unstable_cache } from "next/cache";
 import { getCollectionDirectoryService } from "@/lib/services";
-import { cacheTags } from "@/lib/cache";
+import { cacheTags, REVALIDATE_SECONDS } from "@/lib/cache";
 
 /**
- * Build the expensive WordPress-backed collection directory once per cache window.
- * This keeps the page usable as ISR while ensuring its upstream fan-out is not
- * repeated on every visit.
+ * Cache the WordPress-backed directory separately from the page response.
+ * This lets the route avoid repeating its upstream fan-out on every visit.
  */
-export async function getCachedCollectionDirectoryEntries() {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(cacheTags.categories);
-  return getCollectionDirectoryService().listEntries();
-}
+export const getCachedCollectionDirectoryEntries = unstable_cache(
+  async () => getCollectionDirectoryService().listEntries(),
+  ["collections-directory"],
+  { revalidate: REVALIDATE_SECONDS.catalog, tags: [cacheTags.categories] },
+);
