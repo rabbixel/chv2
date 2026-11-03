@@ -8,7 +8,7 @@ import type { Cart, CheckoutBilling, CheckoutQuote, PendingCheckoutOrder } from 
 
 export interface CheckoutService {
   quote(input: { cart: Cart; billing: Pick<CheckoutBilling, "country" | "region"> & Partial<Pick<CheckoutBilling, "phone">>; discountCode?: string; independentFree?: boolean }): Promise<CheckoutQuote>;
-  prepare(input: { cart: Cart; billing: CheckoutBilling; discountCode?: string; idempotencyKey: string; independentFree?: boolean }): Promise<PendingCheckoutOrder>;
+  prepare(input: { cart: Cart; billing: CheckoutBilling; discountCode?: string; idempotencyKey: string; independentFree?: boolean; freeEmailProof?: string; freeSessionId?: string }): Promise<PendingCheckoutOrder>;
 }
 
 interface Envelope<T> { success: boolean; data: T }
@@ -46,12 +46,12 @@ class WordPressCheckoutService implements CheckoutService {
     return { ...raw, discountCode: raw.discount_code, taxesEnabled: raw.taxes_enabled };
   }
 
-  async prepare(input: { cart: Cart; billing: CheckoutBilling; discountCode?: string; idempotencyKey: string; independentFree?: boolean }): Promise<PendingCheckoutOrder> {
+  async prepare(input: { cart: Cart; billing: CheckoutBilling; discountCode?: string; idempotencyKey: string; independentFree?: boolean; freeEmailProof?: string; freeSessionId?: string }): Promise<PendingCheckoutOrder> {
     const rateLimitHeaders = await checkoutRateLimitHeaders();
     return guestSafeApiFetch<Envelope<PendingCheckoutOrder>>(apiEndpoints.checkoutPrepare, {
       method: "POST",
       body: {
-        ...(input.independentFree ? { independent_free: true } : {}),
+        ...(input.independentFree ? { independent_free: true, free_session_id: input.freeSessionId, ...(input.freeEmailProof ? { free_email_proof: input.freeEmailProof } : {}) } : {}),
         items: cartItems(input.cart),
         billing: {
           full_name: input.billing.fullName,
