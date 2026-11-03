@@ -55,7 +55,7 @@ export function SiteFooter() {
       <div className={`ch-container ch-container--wide ${styles.grid}`}>
         <div className={styles.brand}>
           <Link href={routes.home()} aria-label={`${SITE.name} — home`} className={styles.logoLink}>
-            <Image src="/brand/creative-hatti-logo.png" alt={SITE.name} width={200} height={49} className={styles.logo} />
+            <Image src="/brand/creative-hatti-logo.png" alt={SITE.name} width={200} height={49} unoptimized className={styles.logo} />
           </Link>
           <p className={styles.blurb}>{SITE.description}</p>
           <p className={styles.meta}>
