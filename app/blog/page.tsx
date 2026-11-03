@@ -51,7 +51,9 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexProps) {
           <p className={styles.count}>{result.total.toLocaleString("en-IN")} articles</p>
         </header>
 
-        {result.items.length > 0 ? (
+        {result.unavailable ? (
+          <p className={styles.empty} role="status">We couldn’t load the articles just now. Please try again in a moment.</p>
+        ) : result.items.length > 0 ? (
           <>
             <ol className={styles.grid}>
               {result.items.map((post) => (

@@ -12,22 +12,18 @@ interface WordPressPost {
   modified: string;
   title: WordPressRendered;
   excerpt: WordPressRendered;
-  content: WordPressRendered;
+  content?: WordPressRendered;
   featured_media: number;
   yoast_head_json?: {
     title?: string;
     description?: string;
     robots?: { index?: string };
+    og_image?: Array<{ url?: string; width?: number; height?: number }>;
   };
 }
-interface WordPressMedia {
-  id: number;
-  source_url: string;
-  alt_text: string;
-  media_details?: { width?: number; height?: number };
-}
 
-const postFields = "id,slug,date,modified,title,excerpt,content,featured_media,yoast_head_json";
+const postSummaryFields = "id,slug,date,modified,title,excerpt,featured_media,yoast_head_json";
+const postDetailFields = `${postSummaryFields},content`;
 const postCache = (slug?: string) => ({
   revalidate: REVALIDATE_SECONDS.catalog,
   tags: slug ? [cacheTags.blogPosts, cacheTags.blogPost(slug)] : [cacheTags.blogPosts],
@@ -48,13 +44,20 @@ function plainText(value: string): string {
     .trim();
 }
 
-function mapPost(post: WordPressPost, image?: BlogPostImage): BlogPost {
+function mapPost(post: WordPressPost): BlogPost {
+  const featured = post.yoast_head_json?.og_image?.find((image) => image.url);
+  const image: BlogPostImage | undefined = featured?.url ? {
+    url: featured.url,
+    alt: plainText(post.title.rendered),
+    width: featured.width || 1200,
+    height: featured.height || 800,
+  } : undefined;
   return {
     id: post.id,
     slug: post.slug,
     title: plainText(post.title.rendered),
     excerpt: plainText(post.excerpt.rendered),
-    content: post.content.rendered,
+    content: post.content?.rendered ?? "",
     date: post.date,
     modified: post.modified,
     seoTitle: post.yoast_head_json?.title,
@@ -64,7 +67,7 @@ function mapPost(post: WordPressPost, image?: BlogPostImage): BlogPost {
 }
 
 class MockPostService implements PostService {
-  async listPosts() { return { items: [], total: 0, totalPages: 0 }; }
+  async listPosts() { return { items: [], total: 0, totalPages: 0, unavailable: false }; }
   async getPostBySlug() { return null; }
   async listSitemapPosts() { return []; }
 }
@@ -74,68 +77,50 @@ export interface PostService {
     items: BlogPost[];
     total: number;
     totalPages: number;
+    unavailable?: boolean;
   }>;
   getPostBySlug(slug: string): Promise<BlogPost | null>;
   listSitemapPosts(): Promise<BlogPostSitemapEntry[]>;
 }
 
 class WordPressPostService implements PostService {
-  private async loadImages(posts: WordPressPost[]): Promise<Map<number, BlogPostImage>> {
-    const ids = [...new Set(posts.map((post) => post.featured_media).filter((id) => id > 0))];
-    if (ids.length === 0) return new Map();
-    let media: WordPressMedia[];
-    try {
-      media = await apiFetch<WordPressMedia[]>(apiEndpoints.wordpress.media, {
-        ...postCache(),
-        searchParams: {
-          include: ids.join(","),
-          per_page: ids.length,
-          _fields: "id,source_url,alt_text,media_details",
-        },
-      });
-    } catch {
-      // Keep the article readable if the optional featured-media lookup fails.
-      return new Map();
-    }
-    return new Map(media.map((item) => [item.id, {
-      url: item.source_url,
-      alt: item.alt_text,
-      width: item.media_details?.width || 1200,
-      height: item.media_details?.height || 800,
-    }]));
-  }
-
   async listPosts(page: number, pageSize = 20) {
     let total = 0;
     let totalPages = 0;
-    const posts = await apiFetch<WordPressPost[]>(apiEndpoints.wordpress.posts, {
-      ...postCache(),
-      onPagination: (count, pages) => { total = count; totalPages = pages; },
-      searchParams: {
-        page,
-        per_page: Math.min(100, Math.max(1, pageSize)),
-        orderby: "date",
-        order: "desc",
-        _fields: postFields,
-      },
-    });
-    const images = await this.loadImages(posts);
+    let posts: WordPressPost[];
+    try {
+      posts = await apiFetch<WordPressPost[]>(apiEndpoints.wordpress.posts, {
+        ...postCache(),
+        timeoutMs: 15_000,
+        onPagination: (count, pages) => { total = count; totalPages = pages; },
+        searchParams: {
+          page,
+          per_page: Math.min(100, Math.max(1, pageSize)),
+          orderby: "date",
+          order: "desc",
+          _fields: postSummaryFields,
+        },
+      });
+    } catch (error) {
+      console.error("Creative Hatti blog listing is unavailable.", error);
+      return { items: [], total: 0, totalPages: 0, unavailable: true };
+    }
     return {
-      items: posts.map((post) => mapPost(post, images.get(post.featured_media))),
+      items: posts.map(mapPost),
       total,
       totalPages,
+      unavailable: false,
     };
   }
 
   async getPostBySlug(slug: string) {
     const posts = await apiFetch<WordPressPost[]>(apiEndpoints.wordpress.posts, {
       ...postCache(slug),
-      searchParams: { slug, per_page: 1, _fields: postFields },
+      searchParams: { slug, per_page: 1, _fields: postDetailFields },
     });
     const post = posts[0];
     if (!post || post.yoast_head_json?.robots?.index === "noindex") return null;
-    const images = await this.loadImages([post]);
-    return mapPost(post, images.get(post.featured_media));
+    return mapPost(post);
   }
 
   async listSitemapPosts() {
