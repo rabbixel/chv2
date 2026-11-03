@@ -6,6 +6,7 @@ import {
   getCategoryService,
   getCollectionService,
   getCollectionDirectoryService,
+  getPostService,
   getProductService,
 } from "@/lib/services";
 
@@ -64,9 +65,10 @@ export async function GET(
   }
 
   if (id === 0) {
-    const [categories, collections] = await Promise.all([
+    const [categories, collections, posts] = await Promise.all([
       getCategoryService().listCategories(),
       getCollectionService().listCollections(),
+      getPostService().listSitemapPosts(),
     ]);
     const directorySlugs =
       await getCollectionDirectoryService().listSitemapSlugs(
@@ -79,6 +81,12 @@ export async function GET(
     );
     return xmlResponse([
       urlEntry(SITE.url, { changeFrequency: "daily", priority: 1 }),
+      urlEntry(`${SITE.url}${routes.blog()}`, { changeFrequency: "weekly", priority: 0.6 }),
+      ...posts.map((post) => urlEntry(`${SITE.url}${routes.blogPost(post.slug)}`, {
+        lastModified: post.modified,
+        changeFrequency: "monthly",
+        priority: 0.6,
+      })),
       ...categories.map((category) =>
         urlEntry(`${SITE.url}${routes.category(category.slug)}`, {
           changeFrequency: "weekly",

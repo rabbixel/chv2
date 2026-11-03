@@ -18,3 +18,4 @@ export type * from "./download";
 export type * from "./wishlist";
 export type * from "./homepage";
 export type * from "./search";
+export type * from "./post";
