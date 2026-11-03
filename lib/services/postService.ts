@@ -67,7 +67,7 @@ function mapPost(post: WordPressPost): BlogPost {
 }
 
 class MockPostService implements PostService {
-  async listPosts() { return { items: [], total: 0, totalPages: 0 }; }
+  async listPosts() { return { items: [], total: 0, totalPages: 0, unavailable: false }; }
   async getPostBySlug() { return null; }
   async listSitemapPosts() { return []; }
 }
@@ -77,6 +77,7 @@ export interface PostService {
     items: BlogPost[];
     total: number;
     totalPages: number;
+    unavailable?: boolean;
   }>;
   getPostBySlug(slug: string): Promise<BlogPost | null>;
   listSitemapPosts(): Promise<BlogPostSitemapEntry[]>;
@@ -86,21 +87,29 @@ class WordPressPostService implements PostService {
   async listPosts(page: number, pageSize = 20) {
     let total = 0;
     let totalPages = 0;
-    const posts = await apiFetch<WordPressPost[]>(apiEndpoints.wordpress.posts, {
-      ...postCache(),
-      onPagination: (count, pages) => { total = count; totalPages = pages; },
-      searchParams: {
-        page,
-        per_page: Math.min(100, Math.max(1, pageSize)),
-        orderby: "date",
-        order: "desc",
-        _fields: postSummaryFields,
-      },
-    });
+    let posts: WordPressPost[];
+    try {
+      posts = await apiFetch<WordPressPost[]>(apiEndpoints.wordpress.posts, {
+        ...postCache(),
+        timeoutMs: 15_000,
+        onPagination: (count, pages) => { total = count; totalPages = pages; },
+        searchParams: {
+          page,
+          per_page: Math.min(100, Math.max(1, pageSize)),
+          orderby: "date",
+          order: "desc",
+          _fields: postSummaryFields,
+        },
+      });
+    } catch (error) {
+      console.error("Creative Hatti blog listing is unavailable.", error);
+      return { items: [], total: 0, totalPages: 0, unavailable: true };
+    }
     return {
       items: posts.map(mapPost),
       total,
       totalPages,
+      unavailable: false,
     };
   }
 
