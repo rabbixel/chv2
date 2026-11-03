@@ -107,7 +107,7 @@ export async function preparePendingOrder(formData: FormData, freeSessionId?: st
     let freeEmailProof = selection && freeSessionId ? (await cookies()).get(freeEmailProofCookie(freeSessionId))?.value : undefined;
     const submittedVerificationCode = value(formData.get("emailVerificationCode")).replace(/\s/g, "");
     if (selection && freeSessionId && submittedVerificationCode && !freeEmailProof) {
-      const verification = await paymentBridgeRequest<{ success: boolean; data: { proof: string } }>(apiEndpoints.freeEmailVerify, { email: billing.email, free_session_id: freeSessionId, code: submittedVerificationCode });
+      const verification = await paymentBridgeRequest<{ success: boolean; data: { proof: string } }>(apiEndpoints.freeEmailVerify, { email: billing.email, free_session_id: freeSessionId, idempotency_key: idempotencyKey, code: submittedVerificationCode });
       if (!/^[a-f0-9]{64}$/.test(verification?.data?.proof ?? "")) throw new Error("Email confirmation could not be completed. Request a new code and try again.");
       freeEmailProof = verification.data.proof;
       const cookieJar = await cookies();
@@ -118,7 +118,7 @@ export async function preparePendingOrder(formData: FormData, freeSessionId?: st
       result = await getCheckoutService().prepare({ cart, billing, discountCode, idempotencyKey, independentFree: Boolean(selection), ...(selection && freeSessionId ? { freeSessionId, ...(freeEmailProof ? { freeEmailProof } : {}) } : {}) });
     } catch (error) {
       if (selection && freeSessionId && error instanceof ApiError && error.code === "free_email_confirmation_required") {
-        await paymentBridgeRequest<{ success: boolean; data: { sent: boolean } }>(apiEndpoints.freeEmailRequest, { email: billing.email, free_session_id: freeSessionId });
+        await paymentBridgeRequest<{ success: boolean; data: { sent: boolean } }>(apiEndpoints.freeEmailRequest, { email: billing.email, free_session_id: freeSessionId, idempotency_key: idempotencyKey });
         return { verificationSent: true };
       }
       throw error;
