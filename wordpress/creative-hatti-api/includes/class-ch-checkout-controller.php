@@ -30,7 +30,8 @@ final class CH_Checkout_Controller {
 	public function request_free_email_verification( $request ) {
 		$email = strtolower( sanitize_email( (string) $request->get_param( 'email' ) ) );
 		$session_id = strtolower( sanitize_text_field( (string) $request->get_param( 'free_session_id' ) ) );
-		if ( ! is_email( $email ) || strlen( $email ) > 254 || ! preg_match( '/^[a-f0-9-]{36}$/D', $session_id ) ) {
+		$idempotency_key = strtolower( sanitize_text_field( (string) $request->get_param( 'idempotency_key' ) ) );
+		if ( ! is_email( $email ) || strlen( $email ) > 254 || ! preg_match( '/^[a-f0-9-]{36}$/D', $session_id ) || ! preg_match( '/^[a-f0-9-]{36}$/D', $idempotency_key ) ) {
 			return $this->private_response( CH_API::error( 'free_email_invalid', 'Enter a valid email address and refresh checkout.', 422 ) );
 		}
 		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
@@ -39,7 +40,7 @@ final class CH_Checkout_Controller {
 			return $this->private_response( CH_API::error( 'free_email_rate_limited', 'Please wait a minute before requesting another code.', 429 ) );
 		}
 		set_transient( $rate_key, 1, MINUTE_IN_SECONDS );
-		$verification_key = $this->free_email_verification_key( $email, $session_id );
+		$verification_key = $this->free_email_verification_key( $email, $session_id, $idempotency_key );
 		$code = (string) random_int( 100000, 999999 );
 		$code_hash = hash_hmac( 'sha256', $code, wp_salt( 'auth' ) );
 		set_transient( $verification_key, array( 'code_hash' => $code_hash, 'attempts' => 0 ), 10 * MINUTE_IN_SECONDS );
@@ -55,11 +56,12 @@ final class CH_Checkout_Controller {
 	public function verify_free_email( $request ) {
 		$email = strtolower( sanitize_email( (string) $request->get_param( 'email' ) ) );
 		$session_id = strtolower( sanitize_text_field( (string) $request->get_param( 'free_session_id' ) ) );
+		$idempotency_key = strtolower( sanitize_text_field( (string) $request->get_param( 'idempotency_key' ) ) );
 		$code = preg_replace( '/\\D/', '', (string) $request->get_param( 'code' ) );
-		if ( ! is_email( $email ) || ! preg_match( '/^[a-f0-9-]{36}$/D', $session_id ) || ! preg_match( '/^[0-9]{6}$/D', $code ) ) {
+		if ( ! is_email( $email ) || ! preg_match( '/^[a-f0-9-]{36}$/D', $session_id ) || ! preg_match( '/^[a-f0-9-]{36}$/D', $idempotency_key ) || ! preg_match( '/^[0-9]{6}$/D', $code ) ) {
 			return $this->private_response( CH_API::error( 'free_email_code_invalid', 'That confirmation code is invalid or expired. Request a new code and try again.', 422 ) );
 		}
-		$key = $this->free_email_verification_key( $email, $session_id );
+		$key = $this->free_email_verification_key( $email, $session_id, $idempotency_key );
 		$record = get_transient( $key );
 		if ( ! is_array( $record ) || ! isset( $record['code_hash'] ) ) {
 			return $this->private_response( CH_API::error( 'free_email_code_invalid', 'That confirmation code is invalid or expired. Request a new code and try again.', 422 ) );
@@ -77,16 +79,16 @@ final class CH_Checkout_Controller {
 		}
 		delete_transient( $key );
 		$proof = bin2hex( random_bytes( 32 ) );
-		set_transient( $this->free_email_proof_key( $email, $session_id ), hash_hmac( 'sha256', $proof, wp_salt( 'auth' ) ), 30 * MINUTE_IN_SECONDS );
+		set_transient( $this->free_email_proof_key( $email, $session_id, $idempotency_key ), hash_hmac( 'sha256', $proof, wp_salt( 'auth' ) ), 30 * MINUTE_IN_SECONDS );
 		return $this->private_response( CH_API::success( array( 'proof' => $proof ) ) );
 	}
 
-	private function free_email_verification_key( $email, $session_id ) {
-		return 'ch_free_code_' . substr( hash( 'sha256', strtolower( $email ) . '|' . $session_id ), 0, 40 );
+	private function free_email_verification_key( $email, $session_id, $idempotency_key ) {
+		return 'ch_free_code_' . substr( hash( 'sha256', strtolower( $email ) . '|' . $session_id . '|' . strtolower( $idempotency_key ) ), 0, 40 );
 	}
 
-	private function free_email_proof_key( $email, $session_id ) {
-		return 'ch_free_proof_' . substr( hash( 'sha256', strtolower( $email ) . '|' . $session_id ), 0, 40 );
+	private function free_email_proof_key( $email, $session_id, $idempotency_key ) {
+		return 'ch_free_proof_' . substr( hash( 'sha256', strtolower( $email ) . '|' . $session_id . '|' . strtolower( $idempotency_key ) ), 0, 40 );
 	}
 
 	public function quote( $request ) {
@@ -159,7 +161,7 @@ final class CH_Checkout_Controller {
 			if ( true === $request->get_param( 'independent_free' ) ) {
 				$free_session_id = strtolower( sanitize_text_field( (string) $request->get_param( 'free_session_id' ) ) );
 				$proof = strtolower( sanitize_text_field( (string) $request->get_param( 'free_email_proof' ) ) );
-				$proof_hash = get_transient( $this->free_email_proof_key( $scope_email, $free_session_id ) );
+				$proof_hash = get_transient( $this->free_email_proof_key( $scope_email, $free_session_id, $key ) );
 				$submitted_proof_hash = preg_match( '/^[a-f0-9]{64}$/D', $proof ) ? hash_hmac( 'sha256', $proof, wp_salt( 'auth' ) ) : '';
 				if ( ! preg_match( '/^[a-f0-9-]{36}$/D', $free_session_id ) || ! is_string( $proof_hash ) || '' === $submitted_proof_hash || ! hash_equals( $proof_hash, $submitted_proof_hash ) ) {
 					return $this->private_response( CH_API::error( 'free_email_confirmation_required', 'Confirm your email before placing a new free order.', 403 ) );
