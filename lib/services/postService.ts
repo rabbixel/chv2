@@ -17,7 +17,6 @@ interface WordPressPost {
   yoast_head_json?: {
     title?: string;
     description?: string;
-    robots?: { index?: string };
     og_image?: Array<{ url?: string; width?: number; height?: number }>;
   };
 }
@@ -119,7 +118,9 @@ class WordPressPostService implements PostService {
       searchParams: { slug, per_page: 1, _fields: postDetailFields },
     });
     const post = posts[0];
-    if (!post || post.yoast_head_json?.robots?.index === "noindex") return null;
+    if (!post) return null;
+    // The API WordPress host is globally noindex; its robots metadata must not
+    // carry over when these published articles are rendered on the storefront.
     return mapPost(post);
   }
 
@@ -133,9 +134,9 @@ class WordPressPostService implements PostService {
         _fields: "slug,modified,yoast_head_json",
       },
     });
-    return posts
-      .filter((post) => post.yoast_head_json?.robots?.index !== "noindex")
-      .map((post) => ({ slug: post.slug, modified: post.modified }));
+    // Include all published posts. Yoast's noindex metadata is inherited from
+    // the API host; the storefront supplies its own canonical and indexable page.
+    return posts.map((post) => ({ slug: post.slug, modified: post.modified }));
   }
 }
 
