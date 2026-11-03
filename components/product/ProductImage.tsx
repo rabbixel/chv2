@@ -1,6 +1,5 @@
 import NextImage from "next/image";
 import type { ComponentProps } from "react";
-import { isLocalWordPressMediaUrl } from "@/lib/creative-hatti/media";
 import type { ProductImage as ProductImageType } from "@/lib/types";
 
 export interface ProductImageProps {
@@ -42,10 +41,11 @@ export function ProductImage({
       priority={priority}
       className={className}
       onError={onError}
-      unoptimized={
-        process.env.NODE_ENV !== "production" &&
-        isLocalWordPressMediaUrl(image.url)
-      }
+      // Serve WordPress-generated product previews directly. Vercel's image
+      // optimizer currently returns 402 in production, which leaves every
+      // optimized product thumbnail broken. The media URLs already point at
+      // appropriately sized generated files.
+      unoptimized
       draggable={false}
     />
   );
