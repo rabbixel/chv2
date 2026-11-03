@@ -52,7 +52,7 @@ function normalizedWordPressImageUrl(url: string): string {
 function removeDuplicateFeaturedImage(content: string, featuredUrl?: string): string {
   if (!featuredUrl) return content;
   const firstImage = /<img\b[^>]*>/i.exec(content);
-  if (!firstImage || firstImage.index === undefined) return content;
+  if (!firstImage) return content;
   const source = /\bsrc\s*=\s*(["'])(.*?)\1/i.exec(firstImage[0])?.[2];
   if (!source || normalizedWordPressImageUrl(source) !== normalizedWordPressImageUrl(featuredUrl)) {
     return content;
@@ -63,7 +63,6 @@ function removeDuplicateFeaturedImage(content: string, featuredUrl?: string): st
   const imageEnd = firstImage.index + firstImage[0].length;
   if (
     paragraph &&
-    paragraph.index !== undefined &&
     paragraph.index <= firstImage.index &&
     paragraph.index + paragraph[0].length >= imageEnd
   ) {
