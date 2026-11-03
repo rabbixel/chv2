@@ -118,6 +118,7 @@ export interface ChApiSeo {
   title?: string | null;
   description?: string | null;
   canonical_url?: string | null;
+  noindex?: boolean;
 }
 
 export interface ChApiCategory {
