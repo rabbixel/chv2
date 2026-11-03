@@ -67,6 +67,7 @@ export interface Product {
     title?: string;
     description?: string;
     canonicalUrl?: string;
+    noindex?: boolean;
   };
 
   /** Base price (personal license) in minor units. */

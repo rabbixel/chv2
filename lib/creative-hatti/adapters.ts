@@ -142,7 +142,7 @@ function stripHtml(value: string | null | undefined): string | undefined {
 }
 
 export function seoFromApi(value: {
-  seo?: { title?: string | null; description?: string | null; canonical_url?: string | null };
+  seo?: { title?: string | null; description?: string | null; canonical_url?: string | null; noindex?: boolean };
   meta_title?: string | null;
   meta_description?: string | null;
   canonical_url?: string | null;
@@ -154,6 +154,7 @@ export function seoFromApi(value: {
     ...(title?.trim() ? { title: decodeHtmlEntities(title.trim()) } : {}),
     ...(description?.trim() ? { description: decodeHtmlEntities(description.trim()) } : {}),
     ...(canonicalUrl?.trim() ? { canonicalUrl: canonicalUrl.trim() } : {}),
+    ...(value.seo?.noindex === true ? { noindex: true } : {}),
   };
   return Object.keys(seo).length ? seo : undefined;
 }

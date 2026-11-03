@@ -81,6 +81,9 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: url },
+    ...((product.seo?.noindex || slug === "test-order-black-friday")
+      ? { robots: { index: false, follow: false } }
+      : {}),
     openGraph: {
       title: `${title} · ${SITE.name}`,
       description,

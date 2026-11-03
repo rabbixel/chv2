@@ -345,11 +345,18 @@ class CH_Products_Controller {
 		$offset = ( $page - 1 ) * $per_page;
 		$total  = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(ID)
-				 FROM {$wpdb->posts}
-				 WHERE post_type = %s AND post_status = %s AND post_password = ''",
+				"SELECT COUNT(p.ID)
+				 FROM {$wpdb->posts} AS p
+				 WHERE p.post_type = %s AND p.post_status = %s AND p.post_password = ''
+				 AND p.post_name <> %s
+				 AND NOT EXISTS (
+					SELECT 1 FROM {$wpdb->postmeta} AS robots
+					WHERE robots.post_id = p.ID AND robots.meta_key = %s AND robots.meta_value = '1'
+				 )",
 				self::POST_TYPE,
-				'publish'
+				'publish',
+				'test-order-black-friday',
+				'_yoast_wpseo_meta-robots-noindex'
 			)
 		);
 
@@ -364,11 +371,18 @@ class CH_Products_Controller {
 					GROUP BY post_id
 				 ) AS yoast ON yoast.post_id = p.ID
 				 WHERE p.post_type = %s AND p.post_status = %s AND p.post_password = ''
+				 AND p.post_name <> %s
+				 AND NOT EXISTS (
+					SELECT 1 FROM {$wpdb->postmeta} AS robots
+					WHERE robots.post_id = p.ID AND robots.meta_key = %s AND robots.meta_value = '1'
+				 )
 				 ORDER BY p.ID ASC
 				 LIMIT %d OFFSET %d",
 				'_yoast_wpseo_canonical',
 				self::POST_TYPE,
 				'publish',
+				'test-order-black-friday',
+				'_yoast_wpseo_meta-robots-noindex',
 				$per_page,
 				$offset
 			),
