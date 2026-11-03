@@ -52,6 +52,8 @@ export {
 } from "./productService";
 export { getSearchService } from "./searchService";
 export type { SearchService } from "./searchService";
+export { getPostService } from "./postService";
+export type { PostService } from "./postService";
 export { getWishlistService } from "./wishlistService";
 export type { WishlistService } from "./wishlistService";
 

@@ -8,6 +8,7 @@ export const apiEndpoints = {
     pages: "/pages",
     media: "/media",
     mediaDetail: (id: number) => `/media/${id}`,
+    posts: "/posts",
     downloads: "/edd-downloads",
   },
   products: {

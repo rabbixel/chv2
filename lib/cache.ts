@@ -27,4 +27,6 @@ export const cacheTags = {
   categoryProducts: (slug: string) => `category-products:${slug}`,
   search: "search",
   licenses: "licenses",
+  blogPosts: "blog-posts",
+  blogPost: (slug: string) => `blog-post:${slug}`,
 } as const;
