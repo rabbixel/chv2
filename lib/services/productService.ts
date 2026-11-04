@@ -277,6 +277,8 @@ class ApiProductService implements ProductService {
   }
 
   async getProductBySlug(slug: Slug): Promise<Product | null> {
+    // Invalid route placeholders must never become WordPress API requests.
+    if (/^(?:null|undefined)$/i.test(slug)) return null;
     try {
       const result = await apiFetch<ChApiEnvelope<ChApiProductDetail>>(
         apiEndpoints.products.detail(slug),
