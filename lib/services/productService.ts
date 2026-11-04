@@ -300,6 +300,7 @@ class ApiProductService implements ProductService {
   }
 
   async getProductForQuickAdd(slug: Slug): Promise<Product | null> {
+    if (/^(?:null|undefined)$/i.test(slug)) return null;
     try {
       const result = await apiFetch<ChApiEnvelope<ChApiProductDetail>>(
         apiEndpoints.products.detail(slug),
