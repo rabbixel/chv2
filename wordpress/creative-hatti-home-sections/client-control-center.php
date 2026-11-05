@@ -15,6 +15,8 @@ final class CH_Client_Control_Center {
 	public static function boot() {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 5 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
+		add_action( 'admin_head', array( __CLASS__, 'print_menu_state_bootstrap' ), 1 );
+		add_action( 'admin_footer', array( __CLASS__, 'render_menu_toggle' ), 99 );
 	}
 
 	public static function register_menu() {
@@ -30,10 +32,6 @@ final class CH_Client_Control_Center {
 	}
 
 	public static function enqueue_assets( $hook ) {
-		if ( 'toplevel_page_' . self::PAGE !== $hook ) {
-			return;
-		}
-
 		$path = __DIR__ . '/control-center.css';
 		wp_enqueue_style(
 			'ch-control-center',
@@ -41,6 +39,62 @@ final class CH_Client_Control_Center {
 			array(),
 			file_exists( $path ) ? (string) filemtime( $path ) : '1.0.0'
 		);
+	}
+
+	/**
+	 * Apply the saved menu preference before the admin sidebar is painted.
+	 */
+	public static function print_menu_state_bootstrap() {
+		?>
+		<script>
+		(function () {
+			try {
+				var expanded = window.localStorage.getItem('chAdminMenuExpanded') === '1';
+				document.documentElement.classList.add(expanded ? 'ch-admin-menu-expanded' : 'ch-admin-menu-collapsed');
+			} catch (e) {
+				document.documentElement.classList.add('ch-admin-menu-collapsed');
+			}
+		})();
+		</script>
+		<?php
+	}
+
+	/**
+	 * Add a reversible expand/collapse control to the WordPress sidebar.
+	 */
+	public static function render_menu_toggle() {
+		?>
+		<script>
+		(function () {
+			var menu = document.getElementById('adminmenu');
+			var creativeHatti = document.getElementById('toplevel_page_' + <?php echo wp_json_encode( self::PAGE ); ?>);
+			if (!menu || !creativeHatti || document.getElementById('ch-admin-menu-toggle')) return;
+
+			var item = document.createElement('li');
+			item.id = 'ch-admin-menu-toggle';
+			item.className = 'ch-admin-menu-toggle';
+			var button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'ch-admin-menu-toggle-button';
+			button.setAttribute('aria-controls', 'adminmenu');
+			item.appendChild(button);
+			creativeHatti.insertAdjacentElement('afterend', item);
+
+			function update(expanded) {
+				document.documentElement.classList.toggle('ch-admin-menu-expanded', expanded);
+				document.documentElement.classList.toggle('ch-admin-menu-collapsed', !expanded);
+				button.textContent = expanded ? '− Hide advanced options' : '+ Show all WordPress options';
+				button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+				try { window.localStorage.setItem('chAdminMenuExpanded', expanded ? '1' : '0'); } catch (e) {}
+			}
+
+			button.addEventListener('click', function () {
+				update(!document.documentElement.classList.contains('ch-admin-menu-expanded'));
+			});
+			update(document.documentElement.classList.contains('ch-admin-menu-expanded'));
+		})();
+		</script>
+		<?php
 	}
 
 	private static function menu_url( $needles ) {
