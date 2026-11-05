@@ -80,6 +80,10 @@ trusted clients are hidden when no genuine images are available.
 After migration, preserve attachment IDs and update WordPress site/media
 URLs to HTTPS on `api.creativehatti.com`. Next.js allows that media host.
 
+## Creative Hatti Control Center
+
+Version 1.2 adds a top-level **Creative Hatti** admin landing page. It provides shortcuts to the existing Homepage Sections editor, EDD products, orders/customers when their admin screens are registered, WordPress pages/posts, and the Media Library. It does not duplicate or replace those screens, change EDD records, or hide existing WordPress menus. The initial page is restricted to users with `manage_options`; a dedicated client role and role-specific menu cleanup should be configured only after confirming the capabilities exposed by the installed EDD version.
+
 ## Install in Laragon
 
 Copy the `creative-hatti-home-sections` folder into:
