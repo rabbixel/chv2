@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Creative Hatti Homepage Sections
- * Description: Curate homepage character and featured-pack cards from EDD categories.
- * Version: 1.1.0
+ * Description: Manage Creative Hatti homepage content and client-friendly store shortcuts.
+ * Version: 1.2.0
  * Requires PHP: 7.4
  * Author: Creative Hatti
  * Text Domain: creative-hatti-home-sections
