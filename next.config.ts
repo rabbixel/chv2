@@ -6,6 +6,10 @@ console.log(">>> CREATIVE HATTI NEXT CONFIG LOADED <<<");
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    // Avoid exhausting OS threads during builds in resource-constrained environments.
+    cpus: 2,
+  },
 images: {
   remotePatterns: [
     { protocol: "https", hostname: "creativehatti.test", pathname: "/wp-content/uploads/**" },
