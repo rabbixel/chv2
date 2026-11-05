@@ -22,7 +22,8 @@ class MockTagService implements TagService {
 
 class ApiTagService implements TagService {
   async getArchive(slug: string, page: number): Promise<TagArchive | null> {
-    if (!/^[a-z0-9_-]+$/i.test(slug)) return null;
+    // Ignore framework/client placeholder values instead of querying WordPress.
+    if (!/^[a-z0-9_-]+$/i.test(slug) || /^(?:null|undefined)$/i.test(slug)) return null;
     try {
       const response = await apiFetch<ChApiEnvelope<TagArchive>>(
         apiEndpoints.tags.detail(slug),
