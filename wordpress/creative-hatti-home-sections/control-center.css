@@ -64,3 +64,15 @@ html.ch-admin-menu-collapsed #adminmenu > li:not(#toplevel_page_ch-control-cente
 #ch-admin-menu-toggle{margin:8px 0 10px!important;padding:0!important;background:transparent!important;}
 #ch-admin-menu-toggle .ch-admin-menu-toggle-button{display:block;width:calc(100% - 16px);margin:0 8px;padding:10px 8px;border:1px solid rgba(255,255,255,.24);border-radius:5px;background:#2c3338;color:#f0f0f1;font-size:11px;line-height:1.4;text-align:center;white-space:normal;cursor:pointer;}
 #ch-admin-menu-toggle .ch-admin-menu-toggle-button:hover,#ch-admin-menu-toggle .ch-admin-menu-toggle-button:focus-visible{border-color:#72aee6;background:#3c434a;color:#fff;}
+
+/* Keep plugin/admin notices off the client-facing Control Center only. */
+body.toplevel_page_ch-control-center #wpbody-content .notice,
+body.toplevel_page_ch-control-center #wpbody-content .updated,
+body.toplevel_page_ch-control-center #wpbody-content .error,
+body.toplevel_page_ch-control-center #wpbody-content .update-nag,
+body.toplevel_page_ch-control-center #wpbody-content .edd-admin-notice,
+body.toplevel_page_ch-control-center #wpbody-content .woocommerce-message,
+body.toplevel_page_ch-control-center #wpbody-content .woocommerce-error,
+body.toplevel_page_ch-control-center #wpbody-content .woocommerce-info {
+	display: none !important;
+}
