@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/homepage-content.php';
+require_once __DIR__ . '/client-control-center.php';
 
 final class CH_Home_Sections {
 	const OPTION = 'ch_home_sections';
