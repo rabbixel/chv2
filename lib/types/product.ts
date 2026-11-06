@@ -60,6 +60,7 @@ export interface Product {
   title: string;
   subtitle?: string;
   shortDescription?: string;
+  /** WordPress wp_kses_post-sanitized rich HTML for the product detail page. */
   description?: string;
 
   /** Existing WordPress/Yoast overrides, when the catalogue API provides them. */
