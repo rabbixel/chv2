@@ -236,7 +236,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <h2 id="description" className={styles.sectionHeading}>
               Description
             </h2>
-            <p className={styles.description}>{product.description}</p>
+            <div className={styles.description} dangerouslySetInnerHTML={{ __html: product.description }} />
           </section>
         )}
 

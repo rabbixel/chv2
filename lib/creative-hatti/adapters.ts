@@ -263,7 +263,9 @@ export function productFromApi(apiProduct: ChApiProductDetail | ChApiProductCard
     slug: apiProduct.slug,
     title: decodeHtmlEntities(apiProduct.title),
     shortDescription: stripHtml(detail.short_description),
-    description: stripHtml(detail.description),
+    // The WordPress API applies wp_kses_post before exposing product HTML.
+    // Preserve its semantic headings, paragraphs, lists and links for the detail page.
+    description: detail.description?.trim() || undefined,
     seo: seoFromApi(apiProduct),
     price: {
       amount: variable && priceOptions.length
